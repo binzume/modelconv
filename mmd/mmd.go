@@ -37,7 +37,6 @@ type Face struct {
 type Header struct {
 	Format   []byte
 	Version  float32
-	InfoLen  uint8
 	Info     []byte
 	Encoding uint8
 }

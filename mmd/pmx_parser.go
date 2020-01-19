@@ -2,6 +2,7 @@ package mmd
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"log"
 	"unicode/utf16"
@@ -30,6 +31,12 @@ func (p *PmxPerser) readFloat() float32 {
 
 func (p *PmxPerser) readUint8() uint8 {
 	var v uint8
+	binary.Read(p.r, binary.LittleEndian, &v)
+	return v
+}
+
+func (p *PmxPerser) readUint16() uint16 {
+	var v uint16
 	binary.Read(p.r, binary.LittleEndian, &v)
 	return v
 }
@@ -104,17 +111,19 @@ func (p *PmxPerser) readText() string {
 	}
 }
 
-func (p *PmxPerser) readHeader() *Header {
+func (p *PmxPerser) readHeader() error {
 	var h Header
 	h.Format = make([]byte, 4)
 	p.read(&h.Format)
-	h.Version = p.readFloat()
-	h.InfoLen = p.readUint8()
-	h.Info = make([]byte, h.InfoLen)
+	if string(h.Format) != "PMX " {
+		return fmt.Errorf("Unsupported file")
+	}
+	p.read(&h.Version)
+	h.Info = make([]byte, p.readUint8())
 	p.read(&h.Info)
 
 	p.header = &h
-	return &h
+	return nil
 }
 
 func (p *PmxPerser) readVertex() *Vertex {
@@ -323,7 +332,11 @@ func (p *PmxPerser) readMorph() *Morph {
 
 func (p *PmxPerser) Parse() (*PMXDocument, error) {
 	var pmx PMXDocument
-	pmx.Header = p.readHeader()
+
+	if err := p.readHeader(); err != nil {
+		return nil, err
+	}
+	pmx.Header = p.header
 	pmx.Name = p.readText()
 	pmx.NameEn = p.readText()
 	pmx.Comment = p.readText()
