@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 )
 
 type PMDPerser struct {
@@ -13,25 +14,28 @@ type PMDPerser struct {
 
 func NewPMDParser(r io.Reader) *PMDPerser {
 	return &PMDPerser{
-		PmxPerser: *NewParser(r),
+		PmxPerser: *NewPMXParser(r),
 	}
 }
 
 func (p *PMDPerser) readString(len int) string {
 	b := make([]byte, len)
 	p.read(b)
-	return string(bytes.Trim(b, "\x00"))
+	return string(bytes.SplitN(b, []byte{0}, 2)[0])
 }
 
 func (p *PMDPerser) readHeader() error {
-	var h Header
-	h.Format = make([]byte, 3)
-	p.read(&h.Format)
+	h := p.header
+	if h == nil {
+		h = &Header{}
+		h.Format = make([]byte, 3)
+		p.read(&h.Format)
+		p.header = h
+	}
 	if string(h.Format) != "Pmd" {
 		return fmt.Errorf("Unsupported format")
 	}
 	p.read(&h.Version)
-	p.header = &h
 	return nil
 }
 
@@ -58,7 +62,7 @@ func (p *PMDPerser) readVertex() *Vertex {
 
 func (p *PMDPerser) readMaterial(pmx *PMXDocument, i int) *Material {
 	var m Material
-	m.Name = fmt.Sprintf("mat%d", i)
+	m.Name = fmt.Sprintf("mat%d", i+1)
 	p.read(&m.Color)
 	p.read(&m.Specularity)
 	p.read(&m.Specular)
@@ -69,7 +73,7 @@ func (p *PMDPerser) readMaterial(pmx *PMXDocument, i int) *Material {
 	}
 	m.Count = p.readInt()
 
-	tex := p.readString(20)
+	tex := strings.SplitN(p.readString(20), "*", 2)[0]
 	if tex != "" {
 		m.TextureID = len(pmx.Textures)
 		pmx.Textures = append(pmx.Textures, tex)

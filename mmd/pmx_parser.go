@@ -17,7 +17,7 @@ type PmxPerser struct {
 	header *Header
 }
 
-func NewParser(r io.Reader) *PmxPerser {
+func NewPMXParser(r io.Reader) *PmxPerser {
 	return &PmxPerser{
 		r: r,
 	}
@@ -112,17 +112,19 @@ func (p *PmxPerser) readText() string {
 }
 
 func (p *PmxPerser) readHeader() error {
-	var h Header
-	h.Format = make([]byte, 4)
-	p.read(&h.Format)
+	var h = p.header
+	if h == nil {
+		h = &Header{}
+		h.Format = make([]byte, 4)
+		p.read(&h.Format)
+		p.header = h
+	}
 	if string(h.Format) != "PMX " {
 		return fmt.Errorf("Unsupported file")
 	}
 	p.read(&h.Version)
 	h.Info = make([]byte, p.readUint8())
 	p.read(&h.Info)
-
-	p.header = &h
 	return nil
 }
 
@@ -382,6 +384,20 @@ func (p *PmxPerser) Parse() (*PMXDocument, error) {
 }
 
 func Parse(r io.Reader) (*PMXDocument, error) {
-	p := NewParser(r)
-	return p.Parse()
+	// check format
+	format := make([]byte, 4)
+	if _, err := r.Read(format[:3]); err != nil {
+		return nil, err
+	}
+
+	if string(format[:3]) == "Pmd" {
+		p := NewPMDParser(r)
+		p.header = &Header{Format: format[:3]}
+		return p.Parse()
+	} else {
+		r.Read(format[3:])
+		p := NewPMXParser(r)
+		p.header = &Header{Format: format}
+		return p.Parse()
+	}
 }
