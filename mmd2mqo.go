@@ -38,10 +38,10 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 			MinAngH: -180,
 			MinAngP: -180,
 		}
-		// TODO
-		mqBone.P.ID = pmBone.ParentID + 1
+		mqBone.Parent.ID = pmBone.ParentID + 1
 		mq.Bones = append(mq.Bones, mqBone)
 	}
+	mqo.UpdateBoneRef(&mq)
 
 	vpos := 0
 	for matIdx, mat := range pmx.Materials {

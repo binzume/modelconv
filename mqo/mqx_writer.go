@@ -32,6 +32,10 @@ type BoneWeight struct {
 	Weight   float32 `xml:"w,attr"`
 }
 
+type BoneRef struct {
+	ID int `xml:"id,attr"`
+}
+
 type Bone struct {
 	ID      int    `xml:"id,attr"`
 	Name    string `xml:"name,attr"`
@@ -62,14 +66,22 @@ type Bone struct {
 	MinAngH float32 `xml:"minAngH,attr"`
 	MinAngP float32 `xml:"minAngP,attr"`
 
-	P struct {
-		ID int `xml:"id,attr"`
-	}
-	C []struct {
-		ID int `xml:"id,attr"`
-	}
+	Parent   BoneRef    `xml:"P"`
+	Children []*BoneRef `xml:"C"`
 
 	Weights []*BoneWeight `xml:"W"`
+}
+
+func UpdateBoneRef(mqo *MQODocument) {
+	for _, bone := range mqo.Bones {
+		bone.Children = nil
+	}
+	for idx, bone := range mqo.Bones {
+		if bone.Parent.ID > 0 {
+			parent := mqo.Bones[bone.Parent.ID-1]
+			parent.Children = append(parent.Children, &BoneRef{ID: idx + 1})
+		}
+	}
 }
 
 func WriteMQX(mqo *MQODocument, w io.Writer, mqoName string) error {
