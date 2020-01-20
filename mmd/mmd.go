@@ -90,6 +90,24 @@ type Bone struct {
 	}
 }
 
+const (
+	BoneFlagTailIndex    uint16 = 1
+	BoneFlagRotatable    uint16 = 2
+	BoneFlagTranslatable uint16 = 4
+	BoneFlagVisible      uint16 = 8
+	BoneFlagEnabled      uint16 = 16
+	BoneFlagEnableIK     uint16 = 32
+
+	BoneFlagInheritRotation    uint16 = 256
+	BoneFlagInheritTranslation uint16 = 512
+	BoneFlagFixedAxis          uint16 = 1024
+	BoneFlagLocalAxis          uint16 = 2048
+	BoneFlagPhysicsMode        uint16 = 4096
+	BoneFlagExternalParent     uint16 = 8192
+
+	BoneFlagAll uint16 = (31 | 32 | 256 | 512 | 1024 | 2048 | 4096 | 8192)
+)
+
 // type 0
 type MorphGroup struct {
 	Target int

@@ -1,6 +1,7 @@
 package mmd
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -222,11 +223,11 @@ func (p *PmxPerser) readBone() *Bone {
 	p.read(&b.Flags)
 
 	// TODO
-	if b.Flags&(^uint16(31|32|256|512|1024|2048|8192)) != 0 {
-		log.Println("Unsupported flags? : ", b.Flags&(^uint16(1|32|256|512|1024|2048|8192)))
+	if b.Flags & ^BoneFlagAll != 0 {
+		log.Println("Unsupported flags : ", b.Flags & ^BoneFlagAll)
 	}
 
-	if b.Flags&1 != 0 {
+	if b.Flags&BoneFlagTailIndex != 0 {
 		b.TailID = p.readIndex(AttrBoneIndexSz)
 	} else {
 		b.TailID = -1
@@ -338,6 +339,7 @@ func (p *PmxPerser) Parse() (*PMXDocument, error) {
 	if err := p.readHeader(); err != nil {
 		return nil, err
 	}
+
 	pmx.Header = p.header
 	pmx.Name = p.readText()
 	pmx.NameEn = p.readText()
@@ -391,12 +393,12 @@ func Parse(r io.Reader) (*PMXDocument, error) {
 	}
 
 	if string(format[:3]) == "Pmd" {
-		p := NewPMDParser(r)
+		p := NewPMDParser(bufio.NewReader(r))
 		p.header = &Header{Format: format[:3]}
 		return p.Parse()
 	} else {
 		r.Read(format[3:])
-		p := NewPMXParser(r)
+		p := NewPMXParser(bufio.NewReader(r))
 		p.header = &Header{Format: format}
 		return p.Parse()
 	}
