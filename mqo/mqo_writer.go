@@ -14,7 +14,7 @@ func WriteMQO(mqo *MQODocument, ww io.Writer, mxqName string) error {
 	w.WriteString("CodePage utf8\n")
 
 	if mxqName != "" {
-		fmt.Fprintf(w, "IncludeXml %v\n", mxqName)
+		fmt.Fprintf(w, "IncludeXml \"%v\"\n", mxqName)
 	}
 
 	fmt.Fprintf(w, "Material %v {\n", len(mqo.Materials))

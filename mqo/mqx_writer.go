@@ -8,7 +8,7 @@ import (
 type MQXDoc struct {
 	XMLName    xml.Name `xml:"MetasequoiaDocument"`
 	IncludedBy string
-	Plugin     *BonePlugin
+	Plugin     *BonePlugin `xml:"Plugin.56A31D20.71F282AB"`
 }
 
 type BoneSet struct {
@@ -20,8 +20,7 @@ type BoneObj struct {
 }
 
 type BonePlugin struct {
-	XMLName xml.Name `xml:"Plugin.56A31D20.71F282AB"`
-	Name    string   `xml:"name,attr"`
+	Name    string `xml:"name,attr"`
 	BoneSet BoneSet
 	Obj     []BoneObj
 }
