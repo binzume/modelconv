@@ -222,8 +222,8 @@ func (p *PmxPerser) readBone() *Bone {
 	p.read(&b.Flags)
 
 	// TODO
-	if b.Flags&(^uint16(31|32|256|512|1024|2014|8192)) != 0 {
-		log.Println("Unsupported flags? : ", b.Flags&(^uint16(1|32|256|512|1024|2014|8192)))
+	if b.Flags&(^uint16(31|32|256|512|1024|2048|8192)) != 0 {
+		log.Println("Unsupported flags? : ", b.Flags&(^uint16(1|32|256|512|1024|2048|8192)))
 	}
 
 	if b.Flags&1 != 0 {
