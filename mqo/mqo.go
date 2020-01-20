@@ -48,6 +48,13 @@ type Object struct {
 	Name     string
 	Vertexes []*Vector3
 	Faces    []*Face
+	Visible  bool
+	Locked   bool
+	Depth    int
+}
+
+func NewObject(name string) *Object {
+	return &Object{Name: name, Visible: true}
 }
 
 type Scene struct {
@@ -58,6 +65,7 @@ type MQODocument struct {
 	Materials []*Material
 	Objects   []*Object
 
-	// Bone plugin
-	Bones []*Bone
+	// Plugins
+	Bones  []*Bone
+	Morphs []*MorphTargetList
 }

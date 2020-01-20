@@ -34,6 +34,14 @@ func WriteMQO(mqo *MQODocument, ww io.Writer, mxqName string) error {
 	for _, obj := range mqo.Objects {
 		fmt.Fprintf(w, "Object \"%v\" {\n", obj.Name)
 
+		fmt.Fprintf(w, "\tdepth %d\n", obj.Depth)
+		if !obj.Visible {
+			fmt.Fprint(w, "\tvisible 0\n")
+		}
+		if obj.Locked {
+			fmt.Fprint(w, "\tlocking 1\n")
+		}
+
 		fmt.Fprintf(w, "\tvertex %v {\n", len(obj.Vertexes))
 		for _, v := range obj.Vertexes {
 			fmt.Fprintf(w, "\t\t%v %v %v\n", v.X, v.Y, v.Z)

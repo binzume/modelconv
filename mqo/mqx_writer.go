@@ -6,9 +6,16 @@ import (
 )
 
 type MQXDoc struct {
-	XMLName    xml.Name `xml:"MetasequoiaDocument"`
-	IncludedBy string
-	Plugin     *BonePlugin `xml:"Plugin.56A31D20.71F282AB"`
+	XMLName     xml.Name `xml:"MetasequoiaDocument"`
+	IncludedBy  string
+	BonePlugin  *BonePlugin  `xml:"Plugin.56A31D20.71F282AB"`
+	MorphPlugin *MorphPlugin `xml:"Plugin.56A31D20.C452C6DB"`
+}
+
+type BonePlugin struct {
+	Name    string `xml:"name,attr"`
+	BoneSet BoneSet
+	Obj     []BoneObj
 }
 
 type BoneSet struct {
@@ -17,12 +24,6 @@ type BoneSet struct {
 
 type BoneObj struct {
 	ID int `xml:"id,attr"`
-}
-
-type BonePlugin struct {
-	Name    string `xml:"name,attr"`
-	BoneSet BoneSet
-	Obj     []BoneObj
 }
 
 type BoneWeight struct {
@@ -71,6 +72,26 @@ type Bone struct {
 	Weights []*BoneWeight `xml:"W"`
 }
 
+type MorphPlugin struct {
+	Name     string `xml:"name,attr"`
+	MorphSet MorphSet
+	Obj      []BoneObj
+}
+
+type MorphSet struct {
+	TargetList []*MorphTargetList
+}
+
+type MorphTargetList struct {
+	Base   string `xml:"base,attr"`
+	Target []*MorphTarget
+}
+
+type MorphTarget struct {
+	Name  string `xml:"name,attr"`
+	Param int    `xml:"param,attr"`
+}
+
 func UpdateBoneRef(mqo *MQODocument) {
 	for _, bone := range mqo.Bones {
 		bone.Children = nil
@@ -85,18 +106,25 @@ func UpdateBoneRef(mqo *MQODocument) {
 
 func WriteMQX(mqo *MQODocument, w io.Writer, mqoName string) error {
 
-	mqx := &MQXDoc{
-		IncludedBy: mqoName,
-		Plugin: &BonePlugin{
+	mqx := &MQXDoc{IncludedBy: mqoName}
+
+	if len(mqo.Bones) > 0 {
+		mqx.BonePlugin = &BonePlugin{
 			Name:    "Bone",
 			BoneSet: BoneSet{mqo.Bones},
-		},
+		}
+		// TODO
+		mqx.BonePlugin.Obj = make([]BoneObj, len(mqo.Objects))
+		for i := 0; i < len(mqo.Objects); i++ {
+			mqx.BonePlugin.Obj[i].ID = i + 1
+		}
 	}
 
-	// TODO
-	mqx.Plugin.Obj = make([]BoneObj, len(mqo.Objects))
-	for i := 0; i < len(mqo.Objects); i++ {
-		mqx.Plugin.Obj[i].ID = i + 1
+	if len(mqo.Morphs) > 0 {
+		mqx.MorphPlugin = &MorphPlugin{
+			Name:     "Morph",
+			MorphSet: MorphSet{mqo.Morphs},
+		}
 	}
 
 	xmlBuf, _ := xml.MarshalIndent(mqx, "", "    ")
