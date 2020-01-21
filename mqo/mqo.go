@@ -57,6 +57,23 @@ func NewObject(name string) *Object {
 	return &Object{Name: name, Visible: true}
 }
 
+func (o *Object) Clone() *Object {
+	var cp = *o
+	cp.Vertexes = make([]*Vector3, len(o.Vertexes))
+	for i, v := range o.Vertexes {
+		vv := *v
+		cp.Vertexes[i] = &vv
+	}
+	cp.Faces = make([]*Face, len(o.Faces))
+	for i, v := range o.Faces {
+		d := &Face{Material: v.Material, Verts: make([]int, len(v.Verts)), UVs: make([]Vector2, len(v.UVs))}
+		copy(d.Verts, v.Verts)
+		copy(d.UVs, v.UVs)
+		cp.Faces[i] = d
+	}
+	return &cp
+}
+
 type Scene struct {
 }
 
