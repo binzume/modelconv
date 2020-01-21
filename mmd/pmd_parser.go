@@ -9,12 +9,13 @@ import (
 )
 
 type PMDPerser struct {
-	PmxPerser // TODO
+	baseParser // TODO
+	header     *Header
 }
 
 func NewPMDParser(r io.Reader) *PMDPerser {
 	return &PMDPerser{
-		PmxPerser: *NewPMXParser(r),
+		baseParser: baseParser{r},
 	}
 }
 
@@ -92,6 +93,7 @@ func (p *PMDPerser) readBone() *Bone {
 	return &b
 }
 
+// Parse model data.
 func (p *PMDPerser) Parse() (*PMXDocument, error) {
 	var pmx PMXDocument
 

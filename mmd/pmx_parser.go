@@ -9,96 +9,26 @@ import (
 	"unicode/utf16"
 )
 
-// see also:
-// https://github.com/binzume/mikumikudroid/blob/oculus/src/jp/gauzau/MikuMikuDroid/PMXParser.java
-// https://gist.github.com/felixjones/f8a06bd48f9da9a4539f
-
-type PmxPerser struct {
-	r      io.Reader
+type PMXPerser struct {
+	baseParser
 	header *Header
 }
 
-func NewPMXParser(r io.Reader) *PmxPerser {
-	return &PmxPerser{
-		r: r,
+func NewPMXParser(r io.Reader) *PMXPerser {
+	return &PMXPerser{
+		baseParser: baseParser{r},
 	}
 }
 
-func (p *PmxPerser) readFloat() float32 {
-	var v float32
-	binary.Read(p.r, binary.LittleEndian, &v)
-	return v
-}
-
-func (p *PmxPerser) readUint8() uint8 {
-	var v uint8
-	binary.Read(p.r, binary.LittleEndian, &v)
-	return v
-}
-
-func (p *PmxPerser) readUint16() uint16 {
-	var v uint16
-	binary.Read(p.r, binary.LittleEndian, &v)
-	return v
-}
-
-func (p *PmxPerser) read(v interface{}) error {
-	return binary.Read(p.r, binary.LittleEndian, v)
-}
-
-func (p *PmxPerser) readInt() int {
-	var v uint32
-	binary.Read(p.r, binary.LittleEndian, &v)
-	return int(v)
-}
-
-func (p *PmxPerser) readVUInt(sz byte) int {
-	if sz == 1 {
-		var v uint8
-		binary.Read(p.r, binary.LittleEndian, &v)
-		return int(v)
-	}
-	if sz == 2 {
-		var v uint16
-		binary.Read(p.r, binary.LittleEndian, &v)
-		return int(v)
-	}
-	if sz == 4 {
-		var v uint32
-		binary.Read(p.r, binary.LittleEndian, &v)
-		return int(v)
-	}
-	return 0
-}
-
-func (p *PmxPerser) readVInt(sz byte) int {
-	if sz == 1 {
-		var v int8
-		binary.Read(p.r, binary.LittleEndian, &v)
-		return int(v)
-	}
-	if sz == 2 {
-		var v int16
-		binary.Read(p.r, binary.LittleEndian, &v)
-		return int(v)
-	}
-	if sz == 4 {
-		var v int32
-		binary.Read(p.r, binary.LittleEndian, &v)
-		return int(v)
-	}
-	return 0
-}
-
-func (p *PmxPerser) readIndex(attrTyp int) int {
+func (p *PMXPerser) readIndex(attrTyp int) int {
 	return p.readVInt(p.header.Info[attrTyp])
 }
 
-func (p *PmxPerser) readUIndex(attrTyp int) int {
+func (p *PMXPerser) readUIndex(attrTyp int) int {
 	return p.readVUInt(p.header.Info[attrTyp])
 }
 
-func (p *PmxPerser) readText() string {
+func (p *PMXPerser) readText() string {
 	len := p.readInt()
 
 	if p.header.Info[AttrStringEncoding] == 0 {
@@ -112,7 +42,7 @@ func (p *PmxPerser) readText() string {
 	}
 }
 
-func (p *PmxPerser) readHeader() error {
+func (p *PMXPerser) readHeader() error {
 	var h = p.header
 	if h == nil {
 		h = &Header{}
@@ -129,7 +59,7 @@ func (p *PmxPerser) readHeader() error {
 	return nil
 }
 
-func (p *PmxPerser) readVertex() *Vertex {
+func (p *PMXPerser) readVertex() *Vertex {
 	var v Vertex
 	if err := p.read(&v.Pos); err != nil {
 		log.Fatal(err)
@@ -180,7 +110,7 @@ func (p *PmxPerser) readVertex() *Vertex {
 	return &v
 }
 
-func (p *PmxPerser) readFace() *Face {
+func (p *PMXPerser) readFace() *Face {
 	var f Face
 	f.Verts[0] = p.readUIndex(AttrVertIndexSz)
 	f.Verts[1] = p.readUIndex(AttrVertIndexSz)
@@ -188,7 +118,7 @@ func (p *PmxPerser) readFace() *Face {
 	return &f
 }
 
-func (p *PmxPerser) readMaterial() *Material {
+func (p *PMXPerser) readMaterial() *Material {
 	var m Material
 	m.Name = p.readText()
 	m.NameEn = p.readText()
@@ -213,7 +143,7 @@ func (p *PmxPerser) readMaterial() *Material {
 	return &m
 }
 
-func (p *PmxPerser) readBone() *Bone {
+func (p *PMXPerser) readBone() *Bone {
 	var b Bone
 	b.Name = p.readText()
 	b.NameEn = p.readText()
@@ -275,7 +205,7 @@ func (p *PmxPerser) readBone() *Bone {
 	return &b
 }
 
-func (p *PmxPerser) readMorph() *Morph {
+func (p *PMXPerser) readMorph() *Morph {
 	var m Morph
 	m.Name = p.readText()
 	m.NameEn = p.readText()
@@ -333,7 +263,8 @@ func (p *PmxPerser) readMorph() *Morph {
 	return &m
 }
 
-func (p *PmxPerser) Parse() (*PMXDocument, error) {
+// Parse model data.
+func (p *PMXPerser) Parse() (*PMXDocument, error) {
 	var pmx PMXDocument
 
 	if err := p.readHeader(); err != nil {
@@ -385,6 +316,7 @@ func (p *PmxPerser) Parse() (*PMXDocument, error) {
 	return &pmx, nil
 }
 
+// Parse pmx/pmd file.
 func Parse(r io.Reader) (*PMXDocument, error) {
 	// check format
 	format := make([]byte, 4)
