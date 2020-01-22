@@ -2,6 +2,7 @@ package mqo
 
 import (
 	"encoding/xml"
+	"fmt"
 	"io"
 )
 
@@ -20,7 +21,7 @@ type BonePlugin struct {
 }
 
 type BoneSet struct {
-	Bone []*Bone
+	Bone []*BoneOld
 }
 
 type BoneObj struct {
@@ -37,7 +38,7 @@ type BoneRef struct {
 	ID int `xml:"id,attr"`
 }
 
-type Bone struct {
+type BoneOld struct {
 	ID      int    `xml:"id,attr"`
 	Name    string `xml:"name,attr"`
 	Group   int    `xml:"group,attr"`
@@ -75,18 +76,51 @@ type Bone struct {
 }
 
 type BoneSet2 struct {
-	Bone []*Bone2
+	Bone []*Bone
 }
 
-// TODO
-type Bone2 struct {
-	ID     int     `xml:"id,attr"`
-	Name   string  `xml:"name,attr"`
-	Group  int     `xml:"group,attr"`
-	Parent int     `xml:"parent,attr"`
-	Pos    Vector3 `xml:"pos,attr"`
+type Bone struct {
+	ID      int     `xml:"id,attr"`
+	Name    string  `xml:"name,attr"`
+	Group   int     `xml:"group,attr,omitempty"`
+	Parent  int     `xml:"parent,attr,omitempty"`
+	PosStr  string  `xml:"pos,attr,omitempty"`
+	Pos     Vector3 `xml:"-"`
+	Movable int     `xml:"movable,attr"`
+	Color   string  `xml:"color,attr,omitempty"`
 
-	Weights []*BoneWeight `xml:"W"`
+	IK *BoneIK `xml:"IK,omitempty"`
+
+	Weights []*BoneWeight2 `xml:"W"`
+
+	weightMap map[int]*BoneWeight2
+}
+
+func (b *Bone) SetVertexWeight(objectID, vertID int, weight float32) {
+	w := b.weightMap[objectID]
+	if w == nil {
+		if b.weightMap == nil {
+			b.weightMap = map[int]*BoneWeight2{}
+		}
+		w = &BoneWeight2{ObjectID: objectID}
+		b.weightMap[objectID] = w
+		b.Weights = append(b.Weights, w)
+	}
+	w.Vertexes = append(w.Vertexes, &VertexWeight{vertID, weight})
+}
+
+type BoneWeight2 struct {
+	ObjectID int             `xml:"obj,attr"`
+	Vertexes []*VertexWeight `xml:"V"`
+}
+
+type VertexWeight struct {
+	VertexID int     `xml:"v,attr"`
+	Weight   float32 `xml:"w,attr"`
+}
+
+type BoneIK struct {
+	ChainCount int `xml:"chain,attr"`
 }
 
 type MorphPlugin struct {
@@ -109,7 +143,7 @@ type MorphTarget struct {
 	Param int    `xml:"param,attr"`
 }
 
-func UpdateBoneRef(bones []*Bone) {
+func UpdateBoneRef(bones []*BoneOld) {
 	for _, bone := range bones {
 		bone.Children = nil
 	}
@@ -127,13 +161,16 @@ func WriteMQX(mqo *MQODocument, w io.Writer, mqoName string) error {
 
 	if len(mqo.Bones) > 0 {
 		mqx.BonePlugin = &BonePlugin{
-			Name:    "Bone",
-			BoneSet: BoneSet{mqo.Bones},
+			Name:     "Bone",
+			BoneSet2: BoneSet2{mqo.Bones},
 		}
 		// TODO
 		mqx.BonePlugin.Obj = make([]BoneObj, len(mqo.Objects))
 		for i := 0; i < len(mqo.Objects); i++ {
 			mqx.BonePlugin.Obj[i].ID = i + 1
+		}
+		for _, b := range mqo.Bones {
+			b.PosStr = fmt.Sprintf("%v,%v,%v", b.Pos.X, b.Pos.Y, b.Pos.Z)
 		}
 	}
 

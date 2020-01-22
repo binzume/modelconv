@@ -16,41 +16,22 @@ func getBones(pmx *mmd.PMXDocument) []*mqo.Bone {
 
 	for boneIdx, pmBone := range pmx.Bones {
 		mqBone := &mqo.Bone{
-			ID:      boneIdx + 1,
-			Name:    pmBone.Name,
-			RtX:     pmBone.Pos.X,
-			RtY:     pmBone.Pos.Y,
-			RtZ:     pmBone.Pos.Z * -1,
-			TpX:     pmBone.Pos.X + pmBone.TailPos.X,
-			TpY:     pmBone.Pos.Y + pmBone.TailPos.Y,
-			TpZ:     (pmBone.Pos.Z + pmBone.TailPos.Z) * -1,
-			Sc:      1.0,
-			MaxAngB: 90,
-			MaxAngH: 180,
-			MaxAngP: 180,
-			MinAngB: -90,
-			MinAngH: -180,
-			MinAngP: -180,
+			ID:     boneIdx + 1,
+			Name:   pmBone.Name,
+			Group:  pmBone.Layer,
+			Pos:    mqo.Vector3{X: pmBone.Pos.X, Y: pmBone.Pos.Y, Z: pmBone.Pos.Z * -1},
+			Parent: pmBone.ParentID + 1,
 		}
-
-		mqBone.Parent.ID = pmBone.ParentID + 1
+		if pmBone.Flags&mmd.BoneFlagTranslatable != 0 {
+			mqBone.Movable = 1
+		}
 		bones = append(bones, mqBone)
 	}
-	mqo.UpdateBoneRef(bones)
-
-	// Fix bone pos
-	for bi, bone := range bones {
-		if pmx.Bones[bi].TailID >= 0 {
-			bone.TpX = bones[pmx.Bones[bi].TailID].RtX
-			bone.TpY = bones[pmx.Bones[bi].TailID].RtY
-			bone.TpZ = bones[pmx.Bones[bi].TailID].RtZ
-		} else if len(bone.Children) > 0 {
-			bone.TpX = bones[bone.Children[0].ID-1].RtX
-			bone.TpY = bones[bone.Children[0].ID-1].RtY
-			bone.TpZ = bones[bone.Children[0].ID-1].RtZ
+	for _, pmBone := range pmx.Bones {
+		if len(pmBone.IK.Links) > 0 {
+			bones[pmBone.IK.TargetID].IK = &mqo.BoneIK{ChainCount: len(pmBone.IK.Links)}
 		}
 	}
-
 	return bones
 }
 
@@ -220,7 +201,7 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 			v := pmx.Vertexes[pmv]
 			for bi, b := range v.Bones {
 				if v.BoneWeights[bi] > 0 {
-					mq.Bones[b].Weights = append(mq.Bones[b].Weights, &mqo.BoneWeight{len(mq.Objects) + 1, mqv + 1, 100 * v.BoneWeights[bi]})
+					mq.Bones[b].SetVertexWeight(len(mq.Objects)+1, mqv+1, 100*v.BoneWeights[bi])
 				}
 			}
 		}
@@ -245,7 +226,7 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 			v := pmx.Vertexes[pmv]
 			for bi, b := range v.Bones {
 				if v.BoneWeights[bi] > 0 {
-					mq.Bones[b].Weights = append(mq.Bones[b].Weights, &mqo.BoneWeight{len(mq.Objects) + 1, mqv + 1, 100 * v.BoneWeights[bi]})
+					mq.Bones[b].SetVertexWeight(len(mq.Objects)+1, mqv+1, 100*v.BoneWeights[bi])
 				}
 			}
 		}
