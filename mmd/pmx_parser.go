@@ -224,7 +224,7 @@ func (p *PMXPerser) readMorph() *Morph {
 			break
 		case 1:
 			var v MorphVertex
-			v.Target = p.readIndex(AttrVertIndexSz)
+			v.Target = p.readUIndex(AttrVertIndexSz)
 			p.read(&v.Offset)
 			m.Vertex = append(m.Vertex, &v)
 			break
@@ -235,7 +235,7 @@ func (p *PMXPerser) readMorph() *Morph {
 			break
 		case 3:
 			var v MorphUV
-			v.Target = p.readIndex(AttrVertIndexSz)
+			v.Target = p.readUIndex(AttrVertIndexSz)
 			p.read(&v.Value)
 			m.UV = append(m.UV, &v)
 			break
