@@ -112,8 +112,7 @@ func (p *Parser) readMaterials(n int) []*Material {
 }
 
 func (p *Parser) readObject() *Object {
-	var o Object
-	o.Name = p.readStr()
+	o := NewObject(p.readStr())
 	log.Println("Read object:", o.Name)
 
 	p.skip("{")
@@ -122,7 +121,11 @@ func (p *Parser) readObject() *Object {
 		if p.s.TokenText() == "}" {
 			break
 		}
-		if tok == scanner.Ident && p.s.TokenText() == "vertex" {
+		if tok == scanner.Ident && p.s.TokenText() == "depth" {
+			o.Depth = p.readInt()
+		} else if tok == scanner.Ident && p.s.TokenText() == "visible" {
+			o.Visible = p.readInt() > 0
+		} else if tok == scanner.Ident && p.s.TokenText() == "vertex" {
 			n := p.readInt()
 			p.skip("{")
 			for i := 0; i < n; i++ {
@@ -172,7 +175,7 @@ func (p *Parser) readObject() *Object {
 			p.skip("}")
 		}
 	}
-	return &o
+	return o
 }
 
 func (p *Parser) Parse() (*MQODocument, error) {

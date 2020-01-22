@@ -13,9 +13,10 @@ type MQXDoc struct {
 }
 
 type BonePlugin struct {
-	Name    string `xml:"name,attr"`
-	BoneSet BoneSet
-	Obj     []BoneObj
+	Name     string `xml:"name,attr"`
+	BoneSet  BoneSet
+	BoneSet2 BoneSet2
+	Obj      []BoneObj
 }
 
 type BoneSet struct {
@@ -39,6 +40,7 @@ type BoneRef struct {
 type Bone struct {
 	ID      int    `xml:"id,attr"`
 	Name    string `xml:"name,attr"`
+	Group   int    `xml:"group,attr"`
 	IsDummy int    `xml:"isDummy,attr"`
 
 	RtX float32 `xml:"rtX,attr"`
@@ -50,7 +52,7 @@ type Bone struct {
 
 	MvX float32 `xml:"mvX,attr"`
 	MvY float32 `xml:"mvY,attr"`
-	MvZ float32 `xml:"myZ,attr"`
+	MvZ float32 `xml:"mvZ,attr"`
 
 	Sc float32 `xml:"sc,attr"`
 
@@ -68,6 +70,21 @@ type Bone struct {
 
 	Parent   BoneRef    `xml:"P"`
 	Children []*BoneRef `xml:"C"`
+
+	Weights []*BoneWeight `xml:"W"`
+}
+
+type BoneSet2 struct {
+	Bone []*Bone2
+}
+
+// TODO
+type Bone2 struct {
+	ID     int     `xml:"id,attr"`
+	Name   string  `xml:"name,attr"`
+	Group  int     `xml:"group,attr"`
+	Parent int     `xml:"parent,attr"`
+	Pos    Vector3 `xml:"pos,attr"`
 
 	Weights []*BoneWeight `xml:"W"`
 }
@@ -92,13 +109,13 @@ type MorphTarget struct {
 	Param int    `xml:"param,attr"`
 }
 
-func UpdateBoneRef(mqo *MQODocument) {
-	for _, bone := range mqo.Bones {
+func UpdateBoneRef(bones []*Bone) {
+	for _, bone := range bones {
 		bone.Children = nil
 	}
-	for idx, bone := range mqo.Bones {
+	for idx, bone := range bones {
 		if bone.Parent.ID > 0 {
-			parent := mqo.Bones[bone.Parent.ID-1]
+			parent := bones[bone.Parent.ID-1]
 			parent.Children = append(parent.Children, &BoneRef{ID: idx + 1})
 		}
 	}
