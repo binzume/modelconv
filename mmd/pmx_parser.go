@@ -9,40 +9,41 @@ import (
 	"unicode/utf16"
 )
 
-type PMXPerser struct {
+// PMXParser is parser for .pmx model.
+type PMXParser struct {
 	baseParser
 	header *Header
 }
 
-func NewPMXParser(r io.Reader) *PMXPerser {
-	return &PMXPerser{
+// NewPMXParser returns new parser.
+func NewPMXParser(r io.Reader) *PMXParser {
+	return &PMXParser{
 		baseParser: baseParser{r},
 	}
 }
 
-func (p *PMXPerser) readIndex(attrTyp int) int {
+func (p *PMXParser) readIndex(attrTyp int) int {
 	return p.readVInt(p.header.Info[attrTyp])
 }
 
-func (p *PMXPerser) readUIndex(attrTyp int) int {
+func (p *PMXParser) readUIndex(attrTyp int) int {
 	return p.readVUInt(p.header.Info[attrTyp])
 }
 
-func (p *PMXPerser) readText() string {
+func (p *PMXParser) readText() string {
 	len := p.readInt()
 
 	if p.header.Info[AttrStringEncoding] == 0 {
 		utf16data := make([]uint16, len/2)
 		binary.Read(p.r, binary.LittleEndian, &utf16data)
 		return string(utf16.Decode(utf16data))
-	} else {
-		data := make([]byte, len)
-		binary.Read(p.r, binary.LittleEndian, &data)
-		return string(data)
 	}
+	data := make([]byte, len)
+	binary.Read(p.r, binary.LittleEndian, &data)
+	return string(data)
 }
 
-func (p *PMXPerser) readHeader() error {
+func (p *PMXParser) readHeader() error {
 	var h = p.header
 	if h == nil {
 		h = &Header{}
@@ -59,7 +60,7 @@ func (p *PMXPerser) readHeader() error {
 	return nil
 }
 
-func (p *PMXPerser) readVertex() *Vertex {
+func (p *PMXParser) readVertex() *Vertex {
 	var v Vertex
 	if err := p.read(&v.Pos); err != nil {
 		log.Fatal(err)
@@ -98,10 +99,9 @@ func (p *PMXPerser) readVertex() *Vertex {
 	} else if wehghtType == 3 {
 		v.Bones = []int{p.readIndex(AttrBoneIndexSz), p.readIndex(AttrBoneIndexSz)}
 		w := p.readFloat()
-		v.BoneWeights = []float32{w, 1 - w}
-		p.read(&Vector3{})
-		p.read(&Vector3{})
-		p.read(&Vector3{})
+		weights := [11]float32{w, 1 - w}
+		v.BoneWeights = weights[:]
+		p.read(weights[2:])
 	} else {
 		log.Println(v)
 		log.Fatal("unknown weight ", wehghtType)
@@ -110,7 +110,7 @@ func (p *PMXPerser) readVertex() *Vertex {
 	return &v
 }
 
-func (p *PMXPerser) readFace() *Face {
+func (p *PMXParser) readFace() *Face {
 	var f Face
 	f.Verts[0] = p.readUIndex(AttrVertIndexSz)
 	f.Verts[1] = p.readUIndex(AttrVertIndexSz)
@@ -118,7 +118,7 @@ func (p *PMXPerser) readFace() *Face {
 	return &f
 }
 
-func (p *PMXPerser) readMaterial() *Material {
+func (p *PMXParser) readMaterial() *Material {
 	var m Material
 	m.Name = p.readText()
 	m.NameEn = p.readText()
@@ -129,12 +129,12 @@ func (p *PMXPerser) readMaterial() *Material {
 	p.read(&m.Flags)
 	p.read(&m.EdgeColor)
 	p.read(&m.EdgeScale)
-	m.TextureID = p.readVInt(p.header.Info[AttrTexIndexSz])
-	m.EnvID = p.readVInt(p.header.Info[AttrTexIndexSz])
+	m.TextureID = p.readIndex(AttrTexIndexSz)
+	m.EnvID = p.readIndex(AttrTexIndexSz)
 	p.read(&m.EnvMode)
 	p.read(&m.ToonType)
 	if m.ToonType == 0 {
-		m.Toon = p.readVInt(p.header.Info[AttrTexIndexSz])
+		m.Toon = p.readIndex(AttrTexIndexSz)
 	} else {
 		m.Toon = int(p.readUint8())
 	}
@@ -143,7 +143,7 @@ func (p *PMXPerser) readMaterial() *Material {
 	return &m
 }
 
-func (p *PMXPerser) readBone() *Bone {
+func (p *PMXParser) readBone() *Bone {
 	var b Bone
 	b.Name = p.readText()
 	b.NameEn = p.readText()
@@ -205,7 +205,7 @@ func (p *PMXPerser) readBone() *Bone {
 	return &b
 }
 
-func (p *PMXPerser) readMorph() *Morph {
+func (p *PMXParser) readMorph() *Morph {
 	var m Morph
 	m.Name = p.readText()
 	m.NameEn = p.readText()
@@ -264,7 +264,7 @@ func (p *PMXPerser) readMorph() *Morph {
 }
 
 // Parse model data.
-func (p *PMXPerser) Parse() (*PMXDocument, error) {
+func (p *PMXParser) Parse() (*PMXDocument, error) {
 	var pmx PMXDocument
 
 	if err := p.readHeader(); err != nil {
@@ -328,10 +328,9 @@ func Parse(r io.Reader) (*PMXDocument, error) {
 		p := NewPMDParser(bufio.NewReader(r))
 		p.header = &Header{Format: format[:3]}
 		return p.Parse()
-	} else {
-		r.Read(format[3:])
-		p := NewPMXParser(bufio.NewReader(r))
-		p.header = &Header{Format: format}
-		return p.Parse()
 	}
+	r.Read(format[3:])
+	p := NewPMXParser(bufio.NewReader(r))
+	p.header = &Header{Format: format}
+	return p.Parse()
 }
