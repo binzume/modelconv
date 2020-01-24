@@ -7,6 +7,13 @@ import (
 	"strings"
 )
 
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 func WriteMQO(mqo *MQODocument, ww io.Writer, mxqName string) error {
 	w := bufio.NewWriter(ww)
 	w.WriteString("Metasequoia Document\n")
@@ -23,6 +30,9 @@ func WriteMQO(mqo *MQODocument, ww io.Writer, mxqName string) error {
 			mat.Name,
 			mat.Color.X, mat.Color.Y, mat.Color.Z, mat.Color.W,
 			mat.Diffuse, mat.Ambient, mat.Emmition, mat.Specular, mat.Power)
+		if mat.DoubleSided {
+			fmt.Fprintf(w, " dbls(%v)", boolToInt(mat.DoubleSided))
+		}
 		if mat.Texture != "" {
 			fmt.Fprintf(w, " tex(\"%v\")", mat.Texture)
 		}

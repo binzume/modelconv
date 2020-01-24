@@ -29,6 +29,8 @@ type Material struct {
 	Power    float32
 	Texture  string
 
+	DoubleSided bool
+
 	Ex2 *MaterialEx2
 }
 
@@ -77,12 +79,32 @@ func (o *Object) Clone() *Object {
 type Scene struct {
 }
 
+type Plugin interface {
+	PreSerialize(mqo *MQODocument)
+}
+
 type MQODocument struct {
 	Scene     Scene
 	Materials []*Material
 	Objects   []*Object
 
 	// Plugins
+	// TODO: replace with []Plugin
 	Bones  []*Bone
 	Morphs []*MorphTargetList
+}
+
+func (mqo *MQODocument) GetPlugins() []Plugin {
+	var plugins []Plugin
+	if len(mqo.Bones) > 0 {
+		plugins = append(plugins, &BonePlugin{
+			BoneSet2: BoneSet2{Bones: mqo.Bones, Limit: 4},
+		})
+	}
+	if len(mqo.Morphs) > 0 {
+		plugins = append(plugins, &MorphPlugin{
+			MorphSet: MorphSet{mqo.Morphs},
+		})
+	}
+	return plugins
 }
