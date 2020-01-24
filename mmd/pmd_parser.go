@@ -4,28 +4,31 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"strings"
+
+	"golang.org/x/text/encoding/japanese"
+	"golang.org/x/text/transform"
 )
 
-type PMDPerser struct {
+// PMDParser is parser for .pmd model.
+type PMDParser struct {
 	baseParser // TODO
 	header     *Header
 }
 
-func NewPMDParser(r io.Reader) *PMDPerser {
-	return &PMDPerser{
-		baseParser: baseParser{r},
-	}
+// NewPMDParser returns new parser.
+func NewPMDParser(r io.Reader) *PMDParser {
+	return &PMDParser{baseParser: baseParser{r}}
 }
 
-func (p *PMDPerser) readString(len int) string {
+func (p *PMDParser) readString(len int) string {
 	b := make([]byte, len)
-	p.read(b)
-	return string(bytes.SplitN(b, []byte{0}, 2)[0])
+	_ = p.read(b)
+	utf8Data, _, _ := transform.Bytes(japanese.ShiftJIS.NewDecoder(), bytes.SplitN(b, []byte{0}, 2)[0])
+	return string(utf8Data)
 }
 
-func (p *PMDPerser) readHeader() error {
+func (p *PMDParser) readHeader() error {
 	h := p.header
 	if h == nil {
 		h = &Header{}
@@ -40,28 +43,20 @@ func (p *PMDPerser) readHeader() error {
 	return nil
 }
 
-func (p *PMDPerser) readVertex() *Vertex {
+func (p *PMDParser) readVertex() *Vertex {
 	var v Vertex
-	if err := p.read(&v.Pos); err != nil {
-		log.Fatal(err)
-	}
-	if err := p.read(&v.Normal); err != nil {
-		log.Fatal(err)
-	}
-	if err := p.read(&v.UV); err != nil {
-		log.Fatal(err)
-	}
+	p.read(&v.Pos)
+	p.read(&v.Normal)
+	p.read(&v.UV)
 
 	v.Bones = []int{p.readVInt(2), p.readVInt(2)}
 	w := float32(p.readUint8()) / 100
 	v.BoneWeights = []float32{w, 1 - w}
-	if p.readUint8() > 0 {
-		v.EdgeScale = 1.0
-	}
+	v.EdgeScale = float32(p.readUint8())
 	return &v
 }
 
-func (p *PMDPerser) readMaterial(pmx *PMXDocument, i int) *Material {
+func (p *PMDParser) readMaterial(model *PMXDocument, i int) *Material {
 	var m Material
 	m.Name = fmt.Sprintf("mat%d", i+1)
 	p.read(&m.Color)
@@ -69,83 +64,119 @@ func (p *PMDPerser) readMaterial(pmx *PMXDocument, i int) *Material {
 	p.read(&m.Specular)
 	p.read(&m.AColor)
 	m.Toon = int(p.readUint8())
-	if p.readUint8() > 0 {
-		m.EdgeScale = 1.0
-	}
+	m.EdgeScale = float32(p.readUint8())
 	m.Count = p.readInt()
 
-	tex := strings.SplitN(p.readString(20), "*", 2)[0]
-	if tex != "" {
-		m.TextureID = len(pmx.Textures)
-		pmx.Textures = append(pmx.Textures, tex)
+	tex := strings.SplitN(p.readString(20), "*", 2)
+	if tex[0] != "" {
+		m.TextureID = len(model.Textures)
+		model.Textures = append(model.Textures, tex...)
+	} else {
+		m.TextureID = -1
+	}
+
+	if m.Color.W < 1 {
+		m.Flags = MaterialFlagDoubleSided
 	}
 	return &m
 }
 
-func (p *PMDPerser) readBone() *Bone {
+func (p *PMDParser) readBone() *Bone {
 	var b Bone
 	b.Name = p.readString(20)
 	b.ParentID = p.readVInt(2)
 	b.TailID = p.readVInt(2)
+	if b.TailID == 0 {
+		b.TailID = -1
+	}
 	p.readUint8()
 	p.readUint16()
 	p.read(&b.Pos)
 	return &b
 }
 
+func (p *PMDParser) readMorph() *Morph {
+	var m Morph
+	m.Name = p.readString(20)
+	vn := p.readInt()
+	p.read(&m.PanelType)
+	for i := 0; i < vn; i++ {
+		var mv MorphVertex
+		mv.Target = p.readVInt(4)
+		p.read(&mv.Offset)
+		m.Vertex = append(m.Vertex, &mv)
+	}
+	return &m
+}
+
 // Parse model data.
-func (p *PMDPerser) Parse() (*PMXDocument, error) {
-	var pmx PMXDocument
+func (p *PMDParser) Parse() (*PMXDocument, error) {
+	var model PMXDocument
 
 	if err := p.readHeader(); err != nil {
 		return nil, err
 	}
-	pmx.Header = p.header
-	pmx.Name = p.readString(20)
-	p.readString(256)
+	model.Header = p.header
+	model.Name = p.readString(20)
+	model.Comment = p.readString(256)
 
-	vn := p.readInt()
-	pmx.Vertexes = make([]*Vertex, vn)
-	for i := 0; i < vn; i++ {
-		pmx.Vertexes[i] = p.readVertex()
+	// Vertexes
+	n := p.readInt()
+	model.Vertexes = make([]*Vertex, n)
+	for i := 0; i < n; i++ {
+		model.Vertexes[i] = p.readVertex()
 	}
 
-	in := p.readInt()
-	pmx.Faces = make([]*Face, in/3)
-	for i := 0; i < in/3; i++ {
+	// Faces
+	n = p.readInt()
+	model.Faces = make([]*Face, n/3)
+	for i := 0; i < n/3; i++ {
 		var f Face
 		f.Verts[0] = int(p.readUint16())
 		f.Verts[1] = int(p.readUint16())
 		f.Verts[2] = int(p.readUint16())
-		pmx.Faces[i] = &f
+		model.Faces[i] = &f
 	}
 
+	// Materials
 	mn := p.readInt()
-	pmx.Materials = make([]*Material, mn)
+	model.Materials = make([]*Material, mn)
 	for i := 0; i < mn; i++ {
-		pmx.Materials[i] = p.readMaterial(&pmx, i)
+		model.Materials[i] = p.readMaterial(&model, i)
 	}
 
+	// Bones
 	bn := int(p.readUint16())
-	pmx.Bones = make([]*Bone, bn)
+	model.Bones = make([]*Bone, bn)
 	for i := 0; i < bn; i++ {
-		pmx.Bones[i] = p.readBone()
+		model.Bones[i] = p.readBone()
 	}
 
-	n := int(p.readUint16())
+	// IK
+	n = int(p.readUint16())
 	for i := 0; i < n; i++ {
-		p.readUint16()
-		p.readUint16()
+		b := model.Bones[p.readUint16()]
+		b.IK.TargetID = p.readVInt(2)
 		ln := int(p.readUint8())
-		p.readUint16()
+		b.IK.Loop = int(p.readUint16())
 		p.readFloat()
 		for i := 0; i < ln; i++ {
-			p.readUint16()
+			b.IK.Links = append(b.IK.Links, &Link{TargetID: p.readVInt(2)})
 		}
 	}
 
-	fn := int(p.readUint16())
-	log.Println("face morph:", fn)
+	// Morph
+	n = int(p.readUint16())
+	if n > 0 {
+		base := p.readMorph()
+		model.Morphs = make([]*Morph, n-1)
+		for i := 0; i < n-1; i++ {
+			model.Morphs[i] = p.readMorph()
+			for _, v := range model.Morphs[i].Vertex {
+				v.Target = base.Vertex[v.Target].Target
+			}
+		}
+	}
 
-	return &pmx, nil
+	return &model, nil
 }

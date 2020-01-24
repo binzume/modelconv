@@ -60,6 +60,11 @@ type Material struct {
 	Count       int
 }
 
+const (
+	MaterialFlagDoubleSided uint8 = 1
+	MaterialFlagCastShadow  uint8 = 2
+)
+
 type Link struct {
 	TargetID int
 	HasLimit bool
