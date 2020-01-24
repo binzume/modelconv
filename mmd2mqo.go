@@ -148,7 +148,7 @@ func convertFaces(pmx *mmd.PMXDocument, faces []int, face2mat []int, o *mqo.Obje
 			} else {
 				vmap[vi] = len(o.Vertexes)
 				verts[i] = vmap[vi]
-				o.Vertexes = append(o.Vertexes, &mqo.Vector3{v.Pos.X, v.Pos.Y, v.Pos.Z * -1})
+				o.Vertexes = append(o.Vertexes, &mqo.Vector3{X: v.Pos.X, Y: v.Pos.Y, Z: v.Pos.Z * -1})
 			}
 		}
 		o.Faces[i] = &mqo.Face{Verts: verts, Material: face2mat[fi], UVs: uvs}
@@ -174,11 +174,12 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 		var m mqo.Material
 
 		m.Name = mat.Name
-		m.Color = mqo.Vector4{mat.Color.X, mat.Color.Y, mat.Color.Z, mat.Color.W}
+		m.Color = mqo.Vector4{X: mat.Color.X, Y: mat.Color.Y, Z: mat.Color.Z, W: mat.Color.W}
 		m.Specular = 0
 		m.Diffuse = 1.0
 		m.Ambient = 1.4
 		m.Power = mat.Specularity
+		m.DoubleSided = mat.Flags&mmd.MaterialFlagDoubleSided != 0
 		if mat.TextureID >= 0 {
 			m.Texture = pmx.Textures[mat.TextureID]
 		}
@@ -194,22 +195,27 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 				faces = append(faces, fi)
 			}
 		}
+		vpos += mat.Count / 3
 
 		vmap := map[int]int{}
 		convertFaces(pmx, faces, face2mat, o, vmap)
+		if len(o.Faces) == 0 && mat.Count != 0 {
+			continue
+		}
 		for pmv, mqv := range vmap {
 			v := pmx.Vertexes[pmv]
+			c := map[int]*mqo.VertexWeight{}
 			for bi, b := range v.Bones {
 				if v.BoneWeights[bi] > 0 {
-					mq.Bones[b].SetVertexWeight(len(mq.Objects)+1, mqv+1, 100*v.BoneWeights[bi])
+					if c[b] != nil {
+						c[b].Weight += v.BoneWeights[bi]
+						continue
+					}
+					c[b] = mq.Bones[b].SetVertexWeight(len(mq.Objects)+1, mqv+1, 100*v.BoneWeights[bi])
 				}
 			}
 		}
-
-		if len(o.Faces) > 0 || mat.Count == 0 {
-			mq.Objects = append(mq.Objects, o)
-		}
-		vpos += mat.Count / 3
+		mq.Objects = append(mq.Objects, o)
 	}
 
 	for mg, faces := range mg2fs {
@@ -224,9 +230,14 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 		convertFaces(pmx, faces, face2mat, o, vmap)
 		for pmv, mqv := range vmap {
 			v := pmx.Vertexes[pmv]
+			c := map[int]*mqo.VertexWeight{}
 			for bi, b := range v.Bones {
 				if v.BoneWeights[bi] > 0 {
-					mq.Bones[b].SetVertexWeight(len(mq.Objects)+1, mqv+1, 100*v.BoneWeights[bi])
+					if c[b] != nil {
+						c[b].Weight += v.BoneWeights[bi]
+						continue
+					}
+					c[b] = mq.Bones[b].SetVertexWeight(len(mq.Objects)+1, mqv+1, 100*v.BoneWeights[bi])
 				}
 			}
 		}
