@@ -298,7 +298,7 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 
 func main() {
 	input := os.Args[1]
-	output := os.Args[1]
+	output := os.Args[1] + ".mqo"
 	if len(os.Args) > 2 {
 		output = os.Args[2]
 	}
@@ -310,16 +310,15 @@ func main() {
 	defer r.Close()
 
 	if strings.HasSuffix(input, ".mqo") {
-		mq, _ := mqo.Parse(r, input)
-		w, _ := os.Create("out.mqo")
+		doc, _ := mqo.Parse(r, input)
+		w, _ := os.Create(output)
 		defer w.Close()
-		err = mqo.WriteMQO(mq, w, "out.mqo")
+		err = mqo.WriteMQO(doc, w, output)
 		return
-	}
-
-	if strings.HasSuffix(input, ".vrm") || strings.HasSuffix(input, ".glb") {
+	} else if strings.HasSuffix(input, ".vrm") || strings.HasSuffix(input, ".glb") {
 		doc, _ := vrm.Parse(r, input)
 		log.Print(doc.Title())
+		log.Print(doc.Author())
 		for _, m := range doc.Meshes {
 			log.Print(m)
 		}
@@ -334,12 +333,10 @@ func main() {
 	log.Println("Name", pmx.Name)
 	log.Println("Comment", pmx.Comment)
 
-	mqoFile := output + ".mqo"
-
 	mq := PMX2MQO(pmx)
-	w, _ := os.Create(mqoFile)
+	w, _ := os.Create(output)
 	defer w.Close()
-	err = mqo.WriteMQO(mq, w, mqoFile)
+	err = mqo.WriteMQO(mq, w, output)
 	if err != nil {
 		log.Fatal(err)
 	}
