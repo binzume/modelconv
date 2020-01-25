@@ -3,6 +3,7 @@ package mmd
 import (
 	"encoding/binary"
 	"io"
+	"log"
 )
 
 type baseWriter struct {
@@ -109,9 +110,20 @@ func (w *PMXWriter) Write(doc *PMXDocument) error {
 		w.writeMaterial(m)
 	}
 
+	// bones
+	w.writeInt(len(doc.Bones))
+	for _, b := range doc.Bones {
+		w.writeBone(b)
+	}
+
+	// morphs
+	w.writeInt(len(doc.Morphs))
+	for _, m := range doc.Morphs {
+		w.writeMorph(m)
+	}
+
 	// TODO
-	w.writeInt(0) // bones
-	w.writeInt(0) // morphs
+	w.writeInt(0)
 	w.writeInt(0)
 	w.writeInt(0)
 	w.writeInt(0)
@@ -218,6 +230,101 @@ func (w *PMXWriter) writeMaterial(m *Material) {
 
 	w.writeText(m.Memo)
 	w.writeInt(m.Count)
+}
+
+func (w *PMXWriter) writeBone(b *Bone) {
+	w.writeText(b.Name)
+	w.writeText(b.NameEn)
+	w.write(&b.Pos)
+
+	w.writeIndex(AttrBoneIndexSz, b.ParentID)
+	w.writeInt(b.Layer)
+
+	w.write(&b.Flags)
+
+	if b.Flags & ^BoneFlagAll != 0 {
+		log.Println("Unsupported flags : ", b.Flags & ^BoneFlagAll)
+	}
+
+	if b.Flags&BoneFlagTailIndex != 0 {
+		w.writeIndex(AttrBoneIndexSz, b.TailID)
+	} else {
+		w.write(&b.TailPos)
+	}
+
+	if b.Flags&256 != 0 || b.Flags&512 != 0 {
+		w.writeIndex(AttrBoneIndexSz, b.InheritParentID)
+		w.write(&b.InheritParentInfluence)
+	}
+
+	if b.Flags&1024 != 0 {
+		w.write(&b.FixedAxis)
+	}
+
+	if b.Flags&2048 != 0 {
+		// local
+		var dummy Vector3
+		w.write(&dummy)
+		w.write(&dummy)
+	}
+
+	if b.Flags&8192 != 0 {
+		// ??
+		w.writeIndex(AttrBoneIndexSz, -1)
+	}
+
+	if b.Flags&32 != 0 {
+		w.writeIndex(AttrBoneIndexSz, b.IK.TargetID)
+		w.writeInt(b.IK.Loop)
+		w.write(&b.IK.LimitRad)
+		w.writeInt(len(b.IK.Links))
+		for _, l := range b.IK.Links {
+			w.writeIndex(AttrBoneIndexSz, l.TargetID)
+			if l.HasLimit {
+				w.writeUint8(1)
+				w.write(&l.LimitMin)
+				w.write(&l.LimitMax)
+			} else {
+				w.writeUint8(0)
+			}
+		}
+	}
+}
+
+func (w *PMXWriter) writeMorph(m *Morph) {
+	w.writeText(m.Name)
+	w.writeText(m.NameEn)
+	w.write(&m.PanelType)
+	w.write(&m.MorphType)
+
+	// oneof
+	w.writeInt(len(m.Group) + len(m.Vertex) + len(m.UV) + len(m.Material))
+
+	for _, m := range m.Group {
+		w.writeIndex(AttrMorphIndexSz, m.Target)
+		w.write(&m.Weight)
+	}
+	for _, m := range m.Vertex {
+		w.writeIndex(AttrVertIndexSz, m.Target)
+		w.write(&m.Offset)
+	}
+	for _, m := range m.UV {
+		w.writeIndex(AttrVertIndexSz, m.Target)
+		w.write(&m.Value)
+	}
+	for _, m := range m.Material {
+		w.writeIndex(AttrMatIndexSz, m.Target)
+		w.write(&m.Flags)
+		w.write(&m.Diffuse)
+		w.write(&m.Specular)
+		w.write(&m.Specularity)
+		w.write(&m.Ambient)
+		w.write(&m.EdgeColor)
+		w.write(&m.EdgeSize)
+		w.write(&m.TextureTint)
+		w.write(&m.EnvironmentTint)
+		w.write(&m.ToonTint)
+	}
 }
 
 // WritePMX writes .pmx data

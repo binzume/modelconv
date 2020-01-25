@@ -209,11 +209,10 @@ func (p *PMXParser) readMorph() *Morph {
 	var m Morph
 	m.Name = p.readText()
 	m.NameEn = p.readText()
-	m.PanelType = p.readUint8()
-	m.MorphType = p.readUint8()
+	p.read(&m.PanelType)
+	p.read(&m.MorphType)
 
 	n := p.readInt()
-
 	for i := 0; i < n; i++ {
 		switch m.MorphType {
 		case 0:
