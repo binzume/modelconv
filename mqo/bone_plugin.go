@@ -3,6 +3,8 @@ package mqo
 import (
 	"encoding/xml"
 	"fmt"
+	"strconv"
+	"strings"
 )
 
 type BonePlugin struct {
@@ -11,7 +13,31 @@ type BonePlugin struct {
 	Name     string `xml:"name,attr"`
 	BoneSet  BoneSet
 	BoneSet2 BoneSet2
+	PoseSet  PoseSet `xml:"Poses"`
 	Obj      []BoneObj
+}
+
+func GetBonePlugin(mqo *MQODocument) *BonePlugin {
+	for _, p := range mqo.Plugins {
+		if bp, ok := p.(*BonePlugin); ok {
+			return bp
+		}
+	}
+	bp := &BonePlugin{}
+	mqo.Plugins = append(mqo.Plugins, bp)
+	return bp
+}
+
+func (p *BonePlugin) Bones() []*Bone {
+	return p.BoneSet2.Bones
+}
+
+func (p *BonePlugin) SetBones(bones []*Bone) {
+	p.BoneSet2.Bones = bones
+}
+
+func (p *BonePlugin) AddBone(b *Bone) {
+	p.BoneSet2.Bones = append(p.BoneSet2.Bones, b)
 }
 
 type BoneSet struct {
@@ -49,11 +75,11 @@ type BoneOld struct {
 	MvY float32 `xml:"mvY,attr"`
 	MvZ float32 `xml:"mvZ,attr"`
 
-	Sc float32 `xml:"sc,attr"`
-
 	RotB float32 `xml:"rotB,attr"`
 	RotH float32 `xml:"rotH,attr"`
 	RotP float32 `xml:"rotP,attr"`
+
+	Sc float32 `xml:"sc,attr"`
 
 	MaxAngB float32 `xml:"maxAngB,attr"`
 	MaxAngH float32 `xml:"maxAngH,attr"`
@@ -134,6 +160,31 @@ type BoneIK struct {
 	ChainCount int `xml:"chain,attr"`
 }
 
+type PoseSet struct {
+	BonePoses []*BonePose `xml:"Pose"`
+}
+
+type BonePose struct {
+	// oneof
+	ID   int    `xml:"id,attr"`
+	Name string `xml:"name,attr"`
+
+	// Translation
+	MvX float32 `xml:"mvX,attr"`
+	MvY float32 `xml:"mvY,attr"`
+	MvZ float32 `xml:"mvZ,attr"`
+
+	// Rotation
+	RotB float32 `xml:"rotB,attr"`
+	RotH float32 `xml:"rotH,attr"`
+	RotP float32 `xml:"rotP,attr"`
+
+	// Scale
+	ScB float32 `xml:"scB,attr"`
+	ScH float32 `xml:"scH,attr"`
+	ScP float32 `xml:"scP,attr"`
+}
+
 func (p *BonePlugin) PreSerialize(mqo *MQODocument) {
 	// TODO
 	p.Name = "Bone"
@@ -144,5 +195,17 @@ func (p *BonePlugin) PreSerialize(mqo *MQODocument) {
 	}
 	for _, b := range p.BoneSet2.Bones {
 		b.PosStr = fmt.Sprintf("%v,%v,%v", b.Pos.X, b.Pos.Y, b.Pos.Z)
+	}
+}
+
+func (p *BonePlugin) PostDeserialize(mqo *MQODocument) {
+	for _, b := range p.BoneSet2.Bones {
+		pos := strings.Split(b.PosStr, ",")
+		x, _ := strconv.ParseFloat(pos[0], 32)
+		y, _ := strconv.ParseFloat(pos[1], 32)
+		z, _ := strconv.ParseFloat(pos[2], 32)
+		b.Pos.X = float32(x)
+		b.Pos.Y = float32(y)
+		b.Pos.Z = float32(z)
 	}
 }

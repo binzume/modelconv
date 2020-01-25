@@ -18,6 +18,28 @@ type Vector4 struct {
 	W float32
 }
 
+type MQODocument struct {
+	Scene     *Scene
+	Materials []*Material
+	Objects   []*Object
+
+	Plugins []Plugin
+}
+
+func NewDocument() *MQODocument {
+	return &MQODocument{}
+}
+
+func (mqo *MQODocument) GetPlugins() []Plugin {
+	return mqo.Plugins
+}
+
+type Scene struct {
+	CameraPos    Vector3
+	CameraLookAt Vector3
+	CameraRot    Vector3
+}
+
 type Material struct {
 	Name  string
 	Color Vector4
@@ -76,35 +98,7 @@ func (o *Object) Clone() *Object {
 	return &cp
 }
 
-type Scene struct {
-}
-
 type Plugin interface {
 	PreSerialize(mqo *MQODocument)
-}
-
-type MQODocument struct {
-	Scene     Scene
-	Materials []*Material
-	Objects   []*Object
-
-	// Plugins
-	// TODO: replace with []Plugin
-	Bones  []*Bone
-	Morphs []*MorphTargetList
-}
-
-func (mqo *MQODocument) GetPlugins() []Plugin {
-	var plugins []Plugin
-	if len(mqo.Bones) > 0 {
-		plugins = append(plugins, &BonePlugin{
-			BoneSet2: BoneSet2{Bones: mqo.Bones, Limit: 4},
-		})
-	}
-	if len(mqo.Morphs) > 0 {
-		plugins = append(plugins, &MorphPlugin{
-			MorphSet: MorphSet{mqo.Morphs},
-		})
-	}
-	return plugins
+	PostDeserialize(mqo *MQODocument)
 }

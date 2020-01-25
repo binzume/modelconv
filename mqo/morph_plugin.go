@@ -7,11 +7,21 @@ type MorphPlugin struct {
 
 	Name     string `xml:"name,attr"`
 	MorphSet MorphSet
-	Obj      []BoneObj
+}
+
+func GetMorphPlugin(mqo *MQODocument) *MorphPlugin {
+	for _, p := range mqo.Plugins {
+		if bp, ok := p.(*MorphPlugin); ok {
+			return bp
+		}
+	}
+	bp := &MorphPlugin{Name: "Morph"}
+	mqo.Plugins = append(mqo.Plugins, bp)
+	return bp
 }
 
 type MorphSet struct {
-	TargetList []*MorphTargetList
+	Targets []*MorphTargetList `xml:"TargetList"`
 }
 
 type MorphTargetList struct {
@@ -25,5 +35,7 @@ type MorphTarget struct {
 }
 
 func (p *MorphPlugin) PreSerialize(mqo *MQODocument) {
-	p.Name = "Morph"
+}
+
+func (p *MorphPlugin) PostDeserialize(mqo *MQODocument) {
 }

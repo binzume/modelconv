@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"./mmd"
 	"./mqo"
+	"./vrm"
 )
 
 func getBones(pmx *mmd.PMXDocument) []*mqo.Bone {
@@ -27,9 +27,10 @@ func getBones(pmx *mmd.PMXDocument) []*mqo.Bone {
 		}
 		bones = append(bones, mqBone)
 	}
+
 	for _, pmBone := range pmx.Bones {
 		if len(pmBone.IK.Links) > 0 {
-			bones[pmBone.IK.TargetID].IK = &mqo.BoneIK{ChainCount: len(pmBone.IK.Links)}
+			bones[pmBone.IK.TargetID].IK = &mqo.BoneIK{ChainCount: len(pmBone.IK.Links) + 1}
 		}
 	}
 	return bones
@@ -155,10 +156,30 @@ func convertFaces(pmx *mmd.PMXDocument, faces []int, face2mat []int, o *mqo.Obje
 	}
 }
 
-func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
-	var mq mqo.MQODocument
+func convertMaterial(mat *mmd.Material) *mqo.Material {
+	var m mqo.Material
+	m.Name = mat.Name
+	m.Color = mqo.Vector4{X: mat.Color.X, Y: mat.Color.Y, Z: mat.Color.Z, W: mat.Color.W}
+	m.Specular = 0
+	m.Diffuse = 1.0
+	m.Ambient = 1.4
+	m.Power = mat.Specularity
+	m.DoubleSided = mat.Flags&mmd.MaterialFlagDoubleSided != 0
+	m.Ex2 = &mqo.MaterialEx2{
+		ShaderType: "hlsl",
+		ShaderName: "pmd",
+		ShaderParams: map[string]interface{}{
+			"Edge": mat.EdgeScale > 0,
+		},
+	}
+	return &m
+}
 
-	mq.Bones = getBones(pmx)
+func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
+	mq := mqo.NewDocument()
+
+	bones := getBones(pmx)
+	mqo.GetBonePlugin(mq).SetBones(bones)
 
 	mg2m, mg2fs := genMorphGroup(pmx)
 	log.Println("morph groups: ", len(mg2m))
@@ -171,23 +192,16 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 	face2mat := make([]int, len(pmx.Faces))
 	vpos := 0
 	for matIdx, mat := range pmx.Materials {
-		var m mqo.Material
+		m := convertMaterial(mat)
+		mq.Materials = append(mq.Materials, m)
 
-		m.Name = mat.Name
-		m.Color = mqo.Vector4{X: mat.Color.X, Y: mat.Color.Y, Z: mat.Color.Z, W: mat.Color.W}
-		m.Specular = 0
-		m.Diffuse = 1.0
-		m.Ambient = 1.4
-		m.Power = mat.Specularity
-		m.DoubleSided = mat.Flags&mmd.MaterialFlagDoubleSided != 0
 		if mat.TextureID >= 0 {
 			m.Texture = pmx.Textures[mat.TextureID]
 		}
-		mq.Materials = append(mq.Materials, &m)
-
 		for fi := vpos; fi < vpos+mat.Count/3; fi++ {
 			face2mat[fi] = matIdx
 		}
+
 		o := mqo.NewObject("M_" + mat.Name)
 		faces := []int{}
 		for fi := vpos; fi < vpos+mat.Count/3; fi++ {
@@ -211,20 +225,21 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 						c[b].Weight += v.BoneWeights[bi]
 						continue
 					}
-					c[b] = mq.Bones[b].SetVertexWeight(len(mq.Objects)+1, mqv+1, 100*v.BoneWeights[bi])
+					c[b] = bones[b].SetVertexWeight(len(mq.Objects)+1, mqv+1, 100*v.BoneWeights[bi])
 				}
 			}
 		}
 		mq.Objects = append(mq.Objects, o)
 	}
 
+	morphPlugin := mqo.GetMorphPlugin(mq)
 	for mg, faces := range mg2fs {
 		if mg == 0 {
 			continue
 		}
 		o := mqo.NewObject(fmt.Sprintf("MorphBase%d", mg))
 		var morphTargets mqo.MorphTargetList
-		mq.Morphs = append(mq.Morphs, &morphTargets)
+		morphPlugin.MorphSet.Targets = append(morphPlugin.MorphSet.Targets, &morphTargets)
 		morphTargets.Base = o.Name
 		vmap := map[int]int{}
 		convertFaces(pmx, faces, face2mat, o, vmap)
@@ -237,7 +252,7 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 						c[b].Weight += v.BoneWeights[bi]
 						continue
 					}
-					c[b] = mq.Bones[b].SetVertexWeight(len(mq.Objects)+1, mqv+1, 100*v.BoneWeights[bi])
+					c[b] = bones[b].SetVertexWeight(len(mq.Objects)+1, mqv+1, 100*v.BoneWeights[bi])
 				}
 			}
 		}
@@ -278,7 +293,7 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 
 	}
 	log.Println("conveted objects: ", len(mq.Objects))
-	return &mq
+	return mq
 }
 
 func main() {
@@ -298,7 +313,16 @@ func main() {
 		mq, _ := mqo.Parse(r, input)
 		w, _ := os.Create("out.mqo")
 		defer w.Close()
-		err = mqo.WriteMQO(mq, w, "")
+		err = mqo.WriteMQO(mq, w, "out.mqo")
+		return
+	}
+
+	if strings.HasSuffix(input, ".vrm") || strings.HasSuffix(input, ".glb") {
+		doc, _ := vrm.Parse(r, input)
+		log.Print(doc.Title())
+		for _, m := range doc.Meshes {
+			log.Print(m)
+		}
 		return
 	}
 
@@ -311,19 +335,14 @@ func main() {
 	log.Println("Comment", pmx.Comment)
 
 	mqoFile := output + ".mqo"
-	mqxFile := output + ".mqx"
 
 	mq := PMX2MQO(pmx)
 	w, _ := os.Create(mqoFile)
 	defer w.Close()
-	err = mqo.WriteMQO(mq, w, filepath.Base(mqxFile))
+	err = mqo.WriteMQO(mq, w, mqoFile)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	mqxw, _ := os.Create(mqxFile)
-	defer mqxw.Close()
-	mqo.WriteMQX(mq, mqxw, filepath.Base(mqoFile))
 
 	log.Println("ok")
 }
