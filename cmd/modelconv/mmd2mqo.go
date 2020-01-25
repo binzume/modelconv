@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"./mmd"
-	"./mqo"
-	"./vrm"
+	"../../mmd"
+	"../../mqo"
+	"../../vrm"
 )
 
 func getBones(pmx *mmd.PMXDocument) []*mqo.Bone {
@@ -297,6 +297,10 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 }
 
 func main() {
+	if len(os.Args) <= 1 {
+		fmt.Println("Usage: modelconv input.pmx [output.mqo]")
+		return
+	}
 	input := os.Args[1]
 	output := os.Args[1] + ".mqo"
 	if len(os.Args) > 2 {
