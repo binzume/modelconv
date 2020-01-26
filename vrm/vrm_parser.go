@@ -13,7 +13,12 @@ func (doc *VRMDocument) VRMExt() *VRMExt {
 	if v, ok := doc.Extensions[ExtensionName].(*VRMExt); ok {
 		return v
 	}
-	return &VRMExt{}
+	ext := &VRMExt{}
+	if doc.Extensions == nil {
+		doc.Extensions = gltf.Extensions{}
+	}
+	doc.Extensions[ExtensionName] = ext
+	return ext
 }
 
 func (doc *VRMDocument) Title() string {
