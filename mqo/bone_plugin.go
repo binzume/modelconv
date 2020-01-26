@@ -3,8 +3,6 @@ package mqo
 import (
 	"encoding/xml"
 	"fmt"
-	"strconv"
-	"strings"
 )
 
 type BonePlugin struct {
@@ -113,22 +111,32 @@ type BoneSet2 struct {
 }
 
 type Bone struct {
-	ID      int     `xml:"id,attr"`
-	Name    string  `xml:"name,attr"`
-	Group   int     `xml:"group,attr,omitempty"`
-	Parent  int     `xml:"parent,attr,omitempty"`
-	PosStr  string  `xml:"pos,attr,omitempty"`
-	Pos     Vector3 `xml:"-"`
-	Movable int     `xml:"movable,attr,omitempty"`
-	Hide    int     `xml:"hide,attr,omitempty"`
-	Dummy   int     `xml:"dummy,attr,omitempty"`
-	Color   string  `xml:"color,attr,omitempty"`
+	ID       int      `xml:"id,attr"`
+	Name     string   `xml:"name,attr"`
+	Group    int      `xml:"group,attr,omitempty"`
+	Parent   int      `xml:"parent,attr,omitempty"`
+	Pos      Vector3  `xml:"pos,attr,omitempty"`
+	Movable  int      `xml:"movable,attr,omitempty"`
+	Hide     int      `xml:"hide,attr,omitempty"`
+	Dummy    int      `xml:"dummy,attr,omitempty"`
+	Color    string   `xml:"color,attr,omitempty"`
+	UpVector *Vector3 `xml:"upVector,attr,omitempty"`
 
 	IK *BoneIK `xml:"IK,omitempty"`
 
 	Weights []*BoneWeight2 `xml:"W"`
 
 	weightMap map[int]*BoneWeight2
+}
+
+func (v *Vector3) MarshalXMLAttr(name xml.Name) (xml.Attr, error) {
+	value := fmt.Sprintf("%v,%v,%v", v.X, v.Y, v.Z)
+	return xml.Attr{Name: name, Value: value}, nil
+}
+
+func (v *Vector3) UnmarshalXMLAttr(attr xml.Attr) error {
+	fmt.Sscanf(attr.Value, "%f,%f,%f", &v.X, &v.Y, &v.Z)
+	return nil
 }
 
 func (b *Bone) SetVertexWeight(objectID, vertID int, weight float32) *VertexWeight {
@@ -193,19 +201,13 @@ func (p *BonePlugin) PreSerialize(mqo *MQODocument) {
 			p.Obj = append(p.Obj, BoneObj{ID: i + 1})
 		}
 	}
-	for _, b := range p.BoneSet2.Bones {
-		b.PosStr = fmt.Sprintf("%v,%v,%v", b.Pos.X, b.Pos.Y, b.Pos.Z)
-	}
 }
 
 func (p *BonePlugin) PostDeserialize(mqo *MQODocument) {
+}
+
+func (p *BonePlugin) Transform(transform func(v *Vector3)) {
 	for _, b := range p.BoneSet2.Bones {
-		pos := strings.Split(b.PosStr, ",")
-		x, _ := strconv.ParseFloat(pos[0], 32)
-		y, _ := strconv.ParseFloat(pos[1], 32)
-		z, _ := strconv.ParseFloat(pos[2], 32)
-		b.Pos.X = float32(x)
-		b.Pos.Y = float32(y)
-		b.Pos.Z = float32(z)
+		transform(&b.Pos)
 	}
 }
