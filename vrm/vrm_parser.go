@@ -13,10 +13,11 @@ func (doc *VRMDocument) VRMExt() *VRMExt {
 	if v, ok := doc.Extensions[ExtensionName].(*VRMExt); ok {
 		return v
 	}
-	ext := &VRMExt{}
+	ext := &VRMExt{MaterialProperties: []interface{}{}}
 	if doc.Extensions == nil {
 		doc.Extensions = gltf.Extensions{}
 	}
+	doc.ExtensionsUsed = append(doc.ExtensionsUsed, ExtensionName)
 	doc.Extensions[ExtensionName] = ext
 	return ext
 }
