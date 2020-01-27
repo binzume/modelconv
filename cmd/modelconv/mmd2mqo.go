@@ -11,7 +11,34 @@ import (
 	"../../vrm"
 )
 
-func getBones(pmx *mmd.PMXDocument) []*mqo.Bone {
+func convertVec3(v *mmd.Vector3) *mqo.Vector3 {
+	return &mqo.Vector3{X: v.X * -1, Y: v.Y, Z: v.Z}
+}
+
+func convertMaterial(mat *mmd.Material, model *mmd.PMXDocument) *mqo.Material {
+	var m mqo.Material
+	m.Name = mat.Name
+	m.Color = mqo.Vector4{X: mat.Color.X, Y: mat.Color.Y, Z: mat.Color.Z, W: mat.Color.W}
+	m.Specular = 0
+	m.Diffuse = 1.0
+	m.Ambient = 1.4
+	m.Power = mat.Specularity
+	m.DoubleSided = mat.Flags&mmd.MaterialFlagDoubleSided != 0
+	if mat.TextureID >= 0 {
+		m.Texture = model.Textures[mat.TextureID]
+	}
+
+	m.Ex2 = &mqo.MaterialEx2{
+		ShaderType: "hlsl",
+		ShaderName: "pmd",
+		ShaderParams: map[string]interface{}{
+			"Edge": mat.EdgeScale > 0,
+		},
+	}
+	return &m
+}
+
+func convertBones(pmx *mmd.PMXDocument) []*mqo.Bone {
 	var bones []*mqo.Bone
 
 	for boneIdx, pmBone := range pmx.Bones {
@@ -19,7 +46,7 @@ func getBones(pmx *mmd.PMXDocument) []*mqo.Bone {
 			ID:     boneIdx + 1,
 			Name:   pmBone.Name,
 			Group:  pmBone.Layer,
-			Pos:    mqo.Vector3{X: pmBone.Pos.X, Y: pmBone.Pos.Y, Z: pmBone.Pos.Z * -1},
+			Pos:    *convertVec3(&pmBone.Pos),
 			Parent: pmBone.ParentID + 1,
 		}
 		if pmBone.Flags&mmd.BoneFlagTranslatable != 0 {
@@ -34,6 +61,28 @@ func getBones(pmx *mmd.PMXDocument) []*mqo.Bone {
 		}
 	}
 	return bones
+}
+
+func convertFaces(pmx *mmd.PMXDocument, faces []int, face2mat []int, o *mqo.Object, vmap map[int]int) {
+	o.Faces = make([]*mqo.Face, len(faces))
+	for i, fi := range faces {
+		face := pmx.Faces[fi]
+		verts := make([]int, len(face.Verts))
+		uvs := make([]mqo.Vector2, len(face.Verts))
+
+		for i, vi := range face.Verts {
+			v := pmx.Vertexes[vi]
+			uvs[i] = mqo.Vector2{X: v.UV.X, Y: v.UV.Y}
+			if mv, ok := vmap[vi]; ok {
+				verts[i] = mv
+			} else {
+				vmap[vi] = len(o.Vertexes)
+				verts[i] = vmap[vi]
+				o.Vertexes = append(o.Vertexes, convertVec3(&v.Pos))
+			}
+		}
+		o.Faces[i] = &mqo.Face{Verts: verts, Material: face2mat[fi], UVs: uvs}
+	}
 }
 
 func newFg(pmx *mmd.PMXDocument, f2fg []int, v2f [][]int, fi int, fgid int, fs []int) []int {
@@ -134,55 +183,13 @@ func genMorphGroup(pmx *mmd.PMXDocument) ([][]int, [][]int) {
 	return mg2m, mg2fs
 }
 
-func convertFaces(pmx *mmd.PMXDocument, faces []int, face2mat []int, o *mqo.Object, vmap map[int]int) {
-	o.Faces = make([]*mqo.Face, len(faces))
-	for i, fi := range faces {
-		face := pmx.Faces[fi]
-		verts := make([]int, len(face.Verts))
-		uvs := make([]mqo.Vector2, len(face.Verts))
-
-		for i, vi := range face.Verts {
-			v := pmx.Vertexes[vi]
-			uvs[i] = mqo.Vector2{X: v.UV.X, Y: v.UV.Y}
-			if mv, ok := vmap[vi]; ok {
-				verts[i] = mv
-			} else {
-				vmap[vi] = len(o.Vertexes)
-				verts[i] = vmap[vi]
-				o.Vertexes = append(o.Vertexes, &mqo.Vector3{X: v.Pos.X, Y: v.Pos.Y, Z: v.Pos.Z * -1})
-			}
-		}
-		o.Faces[i] = &mqo.Face{Verts: verts, Material: face2mat[fi], UVs: uvs}
-	}
-}
-
-func convertMaterial(mat *mmd.Material) *mqo.Material {
-	var m mqo.Material
-	m.Name = mat.Name
-	m.Color = mqo.Vector4{X: mat.Color.X, Y: mat.Color.Y, Z: mat.Color.Z, W: mat.Color.W}
-	m.Specular = 0
-	m.Diffuse = 1.0
-	m.Ambient = 1.4
-	m.Power = mat.Specularity
-	m.DoubleSided = mat.Flags&mmd.MaterialFlagDoubleSided != 0
-	m.Ex2 = &mqo.MaterialEx2{
-		ShaderType: "hlsl",
-		ShaderName: "pmd",
-		ShaderParams: map[string]interface{}{
-			"Edge": mat.EdgeScale > 0,
-		},
-	}
-	return &m
-}
-
 func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 	mq := mqo.NewDocument()
 
-	bones := getBones(pmx)
+	bones := convertBones(pmx)
 	mqo.GetBonePlugin(mq).SetBones(bones)
 
 	mg2m, mg2fs := genMorphGroup(pmx)
-	log.Println("morph groups: ", len(mg2m))
 
 	baseFaces := map[int]bool{}
 	for _, f := range mg2fs[0] {
@@ -192,12 +199,9 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 	face2mat := make([]int, len(pmx.Faces))
 	vpos := 0
 	for matIdx, mat := range pmx.Materials {
-		m := convertMaterial(mat)
+		m := convertMaterial(mat, pmx)
 		mq.Materials = append(mq.Materials, m)
 
-		if mat.TextureID >= 0 {
-			m.Texture = pmx.Textures[mat.TextureID]
-		}
 		for fi := vpos; fi < vpos+mat.Count/3; fi++ {
 			face2mat[fi] = matIdx
 		}
@@ -290,9 +294,7 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 			}
 			mq.Objects = append(mq.Objects, o)
 		}
-
 	}
-	log.Println("conveted objects: ", len(mq.Objects))
 	return mq
 }
 
@@ -321,11 +323,19 @@ func main() {
 		return
 	} else if strings.HasSuffix(input, ".vrm") || strings.HasSuffix(input, ".glb") {
 		doc, _ := vrm.Parse(r, input)
+		confFile := input + ".vrmconfig.json"
+		if _, err := os.Stat(confFile); err == nil {
+			if err = vrm.ApplyConfigFile(doc, confFile); err != nil {
+				log.Fatal("vrm config error: ", err)
+			}
+		}
 		log.Print(doc.Title())
 		log.Print(doc.Author())
-		for _, m := range doc.Meshes {
-			log.Print(m)
-		}
+		doc.FixJointMatrix()
+		w, _ := os.Create(input + ".vrm")
+		defer w.Close()
+		doc.VRMExt().ExporterVersion = "modelconv-BETA"
+		err = vrm.Write(doc, w, output)
 		return
 	}
 
