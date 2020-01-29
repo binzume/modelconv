@@ -3,16 +3,14 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"strings"
 
+	// github.com/binzume/modelconv
 	"../../mmd"
 	"../../mqo"
-	"../../vrm"
 )
 
 func convertVec3(v *mmd.Vector3) *mqo.Vector3 {
-	return &mqo.Vector3{X: v.X * -1, Y: v.Y, Z: v.Z}
+	return &mqo.Vector3{X: v.X, Y: v.Y, Z: v.Z * -1}
 }
 
 func convertMaterial(mat *mmd.Material, model *mmd.PMXDocument) *mqo.Material {
@@ -82,6 +80,22 @@ func convertFaces(pmx *mmd.PMXDocument, faces []int, face2mat []int, o *mqo.Obje
 			}
 		}
 		o.Faces[i] = &mqo.Face{Verts: verts, Material: face2mat[fi], UVs: uvs}
+	}
+}
+
+func setWeight(pmx *mmd.PMXDocument, bones []*mqo.Bone, objid int, vmap map[int]int) {
+	for pmv, mqv := range vmap {
+		v := pmx.Vertexes[pmv]
+		c := map[int]*mqo.VertexWeight{}
+		for bi, b := range v.Bones {
+			if v.BoneWeights[bi] > 0 {
+				if c[b] != nil {
+					c[b].Weight += v.BoneWeights[bi]
+					continue
+				}
+				c[b] = bones[b].SetVertexWeight(objid, mqv+1, 100*v.BoneWeights[bi])
+			}
+		}
 	}
 }
 
@@ -220,19 +234,7 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 		if len(o.Faces) == 0 && mat.Count != 0 {
 			continue
 		}
-		for pmv, mqv := range vmap {
-			v := pmx.Vertexes[pmv]
-			c := map[int]*mqo.VertexWeight{}
-			for bi, b := range v.Bones {
-				if v.BoneWeights[bi] > 0 {
-					if c[b] != nil {
-						c[b].Weight += v.BoneWeights[bi]
-						continue
-					}
-					c[b] = bones[b].SetVertexWeight(len(mq.Objects)+1, mqv+1, 100*v.BoneWeights[bi])
-				}
-			}
-		}
+		setWeight(pmx, bones, len(mq.Objects)+1, vmap)
 		mq.Objects = append(mq.Objects, o)
 	}
 
@@ -296,64 +298,4 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 		}
 	}
 	return mq
-}
-
-func main() {
-	if len(os.Args) <= 1 {
-		fmt.Println("Usage: modelconv input.pmx [output.mqo]")
-		return
-	}
-	input := os.Args[1]
-	output := os.Args[1] + ".mqo"
-	if len(os.Args) > 2 {
-		output = os.Args[2]
-	}
-
-	r, err := os.Open(input)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer r.Close()
-
-	if strings.HasSuffix(input, ".mqo") {
-		doc, _ := mqo.Parse(r, input)
-		w, _ := os.Create(output)
-		defer w.Close()
-		err = mqo.WriteMQO(doc, w, output)
-		return
-	} else if strings.HasSuffix(input, ".vrm") || strings.HasSuffix(input, ".glb") {
-		doc, _ := vrm.Parse(r, input)
-		confFile := input + ".vrmconfig.json"
-		if _, err := os.Stat(confFile); err == nil {
-			if err = vrm.ApplyConfigFile(doc, confFile); err != nil {
-				log.Fatal("vrm config error: ", err)
-			}
-		}
-		log.Print(doc.Title())
-		log.Print(doc.Author())
-		doc.FixJointMatrix()
-		w, _ := os.Create(input + ".vrm")
-		defer w.Close()
-		doc.VRMExt().ExporterVersion = "modelconv-BETA"
-		err = vrm.Write(doc, w, output)
-		return
-	}
-
-	pmx, err := mmd.Parse(r)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Println("Name", pmx.Name)
-	log.Println("Comment", pmx.Comment)
-
-	mq := PMX2MQO(pmx)
-	w, _ := os.Create(output)
-	defer w.Close()
-	err = mqo.WriteMQO(mq, w, output)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Println("ok")
 }

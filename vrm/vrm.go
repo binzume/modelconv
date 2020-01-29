@@ -28,6 +28,14 @@ type Metadata struct {
 	OtherLicenseUrl string `json:"otherLicenseUrl"`
 }
 
+var RequiredBones = []string{
+	"hips", "spine", "chest", "neck", "head",
+	"leftUpperArm", "leftLowerArm", "leftHand",
+	"rightUpperArm", "rightLowerArm", "rightHand",
+	"leftUpperLeg", "leftLowerLeg", "leftFoot",
+	"rightUpperLeg", "rightLowerLeg", "rightFoot",
+}
+
 type Bone struct {
 	Bone             string  `json:"bone"`
 	Node             int     `json:"node"`
@@ -44,12 +52,23 @@ type VRMExt struct {
 	Humanoid Humanoid `json:"humanoid"`
 
 	// TODO
-	FirstPerson        interface{} `json:"firstPerson"`
-	BlendShapeMaster   interface{} `json:"blendShapeMaster"`
-	SecondaryAnimation interface{} `json:"secondaryAnimation"`
-	MaterialProperties interface{} `json:"materialProperties"`
+	FirstPerson        interface{}         `json:"firstPerson"`
+	BlendShapeMaster   interface{}         `json:"blendShapeMaster"`
+	SecondaryAnimation interface{}         `json:"secondaryAnimation"`
+	MaterialProperties []*MaterialProperty `json:"materialProperties"`
 
 	ExporterVersion string `json:"exporterVersion"`
+}
+
+type MaterialProperty struct {
+	Name              string                 `json:"name"`
+	Shader            string                 `json:"shader"`
+	RenderQueue       int                    `json:"renderQueue"`
+	FloatProperties   map[string]float64     `json:"floatProperties"`
+	VectorProperties  map[string]interface{} `json:"vectorProperties"`
+	TextureProperties map[string]interface{} `json:"textureProperties"`
+	KeywordMap        map[string]interface{} `json:"keywordMap"`
+	TagMap            map[string]interface{} `json:"tagMap"`
 }
 
 func Unmarshal(data []byte) (interface{}, error) {
