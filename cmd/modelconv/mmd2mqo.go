@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	// github.com/binzume/modelconv
-	"../../mmd"
-	"../../mqo"
+	"github.com/binzume/modelconv/mmd"
+	"github.com/binzume/modelconv/mqo"
 )
 
 func convertVec3(v *mmd.Vector3) *mqo.Vector3 {

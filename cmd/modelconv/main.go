@@ -9,10 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	// github.com/binzume/modelconv
-	"../../mmd"
-	"../../mqo"
-	"../../vrm"
+	"github.com/binzume/modelconv/mmd"
+	"github.com/binzume/modelconv/mqo"
+	"github.com/binzume/modelconv/vrm"
 )
 
 func glb2vrm(r io.Reader, input, output, confFile string) {
@@ -44,13 +43,17 @@ func glb2vrm(r io.Reader, input, output, confFile string) {
 }
 
 func main() {
-	rot180 := flag.Bool("rot180", false, "rotation 180 degrees around Y (.mqo)")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s input.pmx [output.mqo]\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+	rot180 := flag.Bool("rot180", false, "rotate 180 degrees around Y (.mqo)")
 	scale := flag.Float64("scale", 1.0, "scale (.mqo)")
 	conf := flag.String("config", "", "config file for convertion")
 	flag.Parse()
 
 	if flag.NArg() == 0 {
-		fmt.Println("Usage: modelconv input.pmx [output.mqo]")
+		flag.Usage()
 		return
 	}
 	input := flag.Arg(0)

@@ -6,6 +6,7 @@ Goで3Dモデルファイルを読み書きするライブラリ＆変換ツー�
 | ------ | --- |
 | .pmx   | Physicsは未対応 |
 | .pmd   | Read only |
+| .glb   | https://github.com/qmuntal/gltf を使っています |
 | .vrm   | https://github.com/qmuntal/gltf 用のエクステンションです |
 | .mqo   | UTF-8以外の.mqoを読むと文字化けします |
 
@@ -15,10 +16,12 @@ Goで3Dモデルファイルを読み書きするライブラリ＆変換ツー�
 
 PMX/PMDを.mqoに変換するサンプルプログラム．(上記の表の全フォーマットが扱えるわけではないです)
 
+Pure golangなのでGoがあればビルドできると思います．
+Windows用のバイナリは[modelconv.zip](https://github.com/binzume/modelconv/releases/latest)からもダウンロードできます．
+
 ```bash
-cd modelconv
-go get -d ./...
-go build ./cmd/modelconv
+go get -u github.com/binzume/modelconv/cmd/modelconv
+go build github.com/binzume/modelconv/cmd/modelconv
 ./modelconv "path_to.pmx"
 ```
 
