@@ -87,7 +87,6 @@ func ApplyConfig(doc *VRMDocument, conf *Config) {
 			b.Node = id
 			b.UseDefaultValues = b.UseDefaultValues || b.Min == nil && b.Max == nil && b.Center == nil
 			ext.Humanoid.Bones = append(ext.Humanoid.Bones, &b)
-			log.Print(b)
 		} else {
 			log.Println("Bone node not found:", mapping.NodeName)
 		}

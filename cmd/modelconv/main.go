@@ -18,7 +18,7 @@ func main() {
 	}
 	rot180 := flag.Bool("rot180", false, "rotate 180 degrees around Y (.mqo)")
 	scale := flag.Float64("scale", 1.0, "scale (.mqo)")
-	conf := flag.String("config", "", "config file for convertion")
+	vrmconf := flag.String("vrmconfig", "", "config file for VRM")
 	flag.Parse()
 
 	if flag.NArg() == 0 {
@@ -29,7 +29,7 @@ func main() {
 	output := flag.Arg(1)
 
 	if strings.ToLower(filepath.Ext(input)) == ".glb" {
-		err := glb2vrm(input, output, *conf)
+		err := glb2vrm(input, output, *vrmconf)
 		if err != nil {
 			log.Fatal(err)
 		}
