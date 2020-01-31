@@ -7,34 +7,12 @@ import (
 	"github.com/qmuntal/gltf"
 )
 
-type VRMDocument gltf.Document
-
-func (doc *VRMDocument) VRMExt() *VRMExt {
-	if v, ok := doc.Extensions[ExtensionName].(*VRMExt); ok {
-		return v
-	}
-	ext := &VRMExt{MaterialProperties: []*MaterialProperty{}}
-	if doc.Extensions == nil {
-		doc.Extensions = gltf.Extensions{}
-	}
-	doc.ExtensionsUsed = append(doc.ExtensionsUsed, ExtensionName)
-	doc.Extensions[ExtensionName] = ext
-	return ext
-}
-
-func (doc *VRMDocument) Title() string {
-	return doc.VRMExt().Meta.Title
-}
-
-func (doc *VRMDocument) Author() string {
-	return doc.VRMExt().Meta.Author
-}
-
+// Parse vrm data
 func Parse(r io.Reader, path string) (*VRMDocument, error) {
+	var doc gltf.Document
 	dec := gltf.NewDecoder(r).WithReadHandler(&gltf.RelativeFileHandler{Dir: filepath.Dir(path)})
-	doc := new(VRMDocument)
-	if err := dec.Decode((*gltf.Document)(doc)); err != nil {
+	if err := dec.Decode(&doc); err != nil {
 		return nil, err
 	}
-	return doc, nil
+	return (*VRMDocument)(&doc), nil
 }

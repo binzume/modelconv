@@ -8,7 +8,7 @@ import (
 
 func TestLoad(t *testing.T) {
 	doc, _ := gltf.Open("../testdata/AliciaSolid.vrm")
-	if v, ok := doc.Extensions[ExtensionName].(*VRMExt); ok {
+	if v, ok := doc.Extensions[ExtensionName].(*VRMExtension); ok {
 		t.Log(v.Meta.Title)
 		t.Log(v.Meta.Author)
 		t.Log(v.ExporterVersion)

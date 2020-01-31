@@ -2,7 +2,6 @@ package vrm
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 )
@@ -10,18 +9,33 @@ import (
 type Config struct {
 	Metadata Metadata `json:"meta"`
 
-	BoneMappings []*BoneMapping `json:"boneMappings"`
+	BoneMappings []*struct {
+		Bone
+		NodeName string `json:"nodeName"`
+	} `json:"boneMappings"`
+
+	AnimationBoneGroups []*struct {
+		SecondaryAnimationBoneGroup
+		NodeNames []string `json:"nodeNames"`
+	} `json:"animationBoneGroups"`
+
+	MorphMappings    []*MorphMapping             `json:"morphMappings"` // EXPERIMENTAL
+	MaterialSettings map[string]*MaterialSetting `json:"materialSettings"`
 }
 
-type BoneMapping struct {
-	Bone               string `json:"bone"`
-	NodeName           string `json:"nodeName"`
-	IgnoreDefaultValue bool   `json:"ignoreDefaultValue,omitempty"`
+type MorphMapping struct {
+	Name        string `json:"name"`
+	NodeName    string `json:"nodeName"`
+	TargetIndex int    `json:"targetIndex"`
+}
+
+type MaterialSetting struct {
+	ForceUnlit bool `json:"forceUnlit"`
 }
 
 func ApplyConfig(doc *VRMDocument, conf *Config) {
-	ext := doc.VRMExt()
-	ext.ExporterVersion = "modelconv-BETA"
+	ext := doc.VRM()
+	ext.ExporterVersion = ExporterVersion
 	ext.Meta = conf.Metadata
 
 	nodeMap := map[string]int{}
@@ -47,13 +61,71 @@ func ApplyConfig(doc *VRMDocument, conf *Config) {
 		}
 	}
 
+	if len(conf.MaterialSettings) > 0 {
+		var unlitMaterialExt = "KHR_materials_unlit"
+		for _, mat := range doc.Materials {
+			setting := conf.MaterialSettings[mat.Name]
+			if setting == nil {
+				setting = conf.MaterialSettings["*"]
+			}
+			if setting == nil {
+				continue
+			}
+			if setting.ForceUnlit {
+				if !doc.IsExtentionUsed(unlitMaterialExt) {
+					doc.ExtensionsUsed = append(doc.ExtensionsUsed, unlitMaterialExt)
+				}
+				mat.Extensions = map[string]interface{}{unlitMaterialExt: map[string]string{}}
+			}
+		}
+	}
+
 	ext.Humanoid.Bones = []*Bone{}
 	for _, mapping := range conf.BoneMappings {
 		if id, ok := nodeMap[mapping.NodeName]; ok {
-			b := &Bone{Bone: mapping.Bone, Node: id, UseDefaultValues: !mapping.IgnoreDefaultValue}
-			ext.Humanoid.Bones = append(ext.Humanoid.Bones, b)
+			var b = mapping.Bone
+			b.Node = id
+			b.UseDefaultValues = b.UseDefaultValues || b.Min == nil && b.Max == nil && b.Center == nil
+			ext.Humanoid.Bones = append(ext.Humanoid.Bones, &b)
+			log.Print(b)
 		} else {
 			log.Println("Bone node not found:", mapping.NodeName)
+		}
+	}
+
+	for _, boneGroup := range conf.AnimationBoneGroups {
+		var b = boneGroup.SecondaryAnimationBoneGroup
+		for _, nodeName := range boneGroup.NodeNames {
+			if id, ok := nodeMap[nodeName]; ok {
+				b.Bones = append(b.Bones, id)
+			} else {
+				log.Println("Bone node not found:", nodeName)
+			}
+		}
+		if len(b.Bones) > 0 {
+			if ext.SecondaryAnimation == nil {
+				ext.SecondaryAnimation = &SecondaryAnimation{}
+			}
+			ext.SecondaryAnimation.BoneGroups = append(ext.SecondaryAnimation.BoneGroups, &b)
+		}
+	}
+
+	for _, mapping := range conf.MorphMappings {
+		if id, ok := nodeMap[mapping.NodeName]; ok {
+			m := &BlendShapeGroup{
+				Name:       mapping.Name,
+				PresetName: mapping.Name,
+				Binds: []interface{}{
+					map[string]interface{}{
+						"mesh":   doc.Nodes[id].Mesh,
+						"index":  mapping.TargetIndex,
+						"weight": 100,
+					},
+				},
+			}
+			ext.BlendShapeMaster.BlendShapeGroups = append(ext.BlendShapeMaster.BlendShapeGroups, m)
+		} else {
+			log.Println("Morph node not found:", mapping.NodeName)
 		}
 	}
 }
@@ -69,25 +141,5 @@ func (doc *VRMDocument) ApplyConfigFile(confpath string) error {
 		return err
 	}
 	ApplyConfig(doc, &conf)
-	return nil
-}
-
-func (doc *VRMDocument) ValidateBones() error {
-	ext := doc.VRMExt()
-
-	bones := map[string]int{}
-	for _, bone := range ext.Humanoid.Bones {
-		bones[bone.Bone] = bone.Node
-	}
-
-	boneErrors := []string{}
-	for _, name := range RequiredBones {
-		if _, ok := bones[name]; !ok {
-			boneErrors = append(boneErrors, fmt.Sprintf("%v not found.", name))
-		}
-	}
-	if len(boneErrors) > 0 {
-		return fmt.Errorf("Bone error: %v", boneErrors)
-	}
 	return nil
 }

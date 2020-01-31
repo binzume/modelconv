@@ -38,7 +38,6 @@ func mul(a, b *Q) *Q {
 }
 
 func (doc *VRMDocument) FixJointMatrix() {
-	// FIXME
 	for _, skin := range doc.Skins {
 		if skin.InverseBindMatrices != nil {
 			accessor := doc.Accessors[*skin.InverseBindMatrices]
