@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/binzume/modelconv/mmd"
 	"github.com/binzume/modelconv/mqo"
@@ -196,7 +199,7 @@ func genMorphGroup(pmx *mmd.PMXDocument) ([][]int, [][]int) {
 	return mg2m, mg2fs
 }
 
-func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
+func mmd2mqo(pmx *mmd.PMXDocument) *mqo.MQODocument {
 	mq := mqo.NewDocument()
 
 	bones := convertBones(pmx)
@@ -297,4 +300,33 @@ func PMX2MQO(pmx *mmd.PMXDocument) *mqo.MQODocument {
 		}
 	}
 	return mq
+}
+
+func loadDocument(input string) (*mqo.MQODocument, error) {
+	r, err := os.Open(input)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	if strings.ToLower(filepath.Ext(input)) == ".mqo" {
+		return mqo.Parse(r, input)
+	}
+
+	pmx, err := mmd.Parse(r)
+	if err != nil {
+		return nil, err
+	}
+	log.Println("Name: ", pmx.Name)
+	log.Println("Comment: ", pmx.Comment)
+	return mmd2mqo(pmx), nil
+}
+
+func saveDocument(doc *mqo.MQODocument, output string) error {
+	w, err := os.Create(output)
+	if err != nil {
+		return err
+	}
+	defer w.Close()
+	return mqo.WriteMQO(doc, w, output)
 }
