@@ -1,7 +1,7 @@
 
 3Dモデルファイルを変換するプログラムです．
 使い方はQiitaの記事を参考にしてください．
-https://qiita.com/binzume TODO: URL
+https://qiita.com/binzume/items/d29cd21b9860809f72cf
 
 Windows(x64) 以外のバイナリが必要な場合はお手数ですがご自身でビルドしてください．
 https://github.com/binzume/modelconv
@@ -16,7 +16,7 @@ https://github.com/binzume/modelconv
 入力ファイル以外は省略可能なので，ファイルを実行ファイルにドラッグ＆ドロップすれば変換されます．
 
 ### .glb+.json → .vrm
-./modelconv -config input.vrmconfig.json input.glb output.vrm
+./modelconv -vrmconfig input.vrmconfig.json input.glb output.vrm
 
 input.vrmconfig.json の書き方はQiitaの記事を参考にしてください．
 
