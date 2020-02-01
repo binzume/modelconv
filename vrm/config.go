@@ -80,15 +80,22 @@ func ApplyConfig(doc *VRMDocument, conf *Config) {
 		}
 	}
 
+	found := map[string]bool{}
 	ext.Humanoid.Bones = []*Bone{}
 	for _, mapping := range conf.BoneMappings {
 		if id, ok := nodeMap[mapping.NodeName]; ok {
 			var b = mapping.Bone
+			found[mapping.Bone.Bone] = true
 			b.Node = id
 			b.UseDefaultValues = b.UseDefaultValues || b.Min == nil && b.Max == nil && b.Center == nil
 			ext.Humanoid.Bones = append(ext.Humanoid.Bones, &b)
 		} else {
 			log.Println("Bone node not found:", mapping.NodeName)
+		}
+	}
+	for _, name := range RequiredBones {
+		if id, ok := nodeMap[name]; ok && !found[name] {
+			ext.Humanoid.Bones = append(ext.Humanoid.Bones, &Bone{Bone: name, Node: id, UseDefaultValues: true})
 		}
 	}
 
