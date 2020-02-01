@@ -127,6 +127,7 @@ func (p *Parser) readMaterial() *Material {
 		"spc":   func() { m.Specular = p.readFloat() },
 		"power": func() { m.Power = p.readFloat() },
 		"tex":   func() { m.Texture = p.readStr() },
+		"dbls":  func() { m.DoubleSided = p.readInt() != 0 },
 		"uid":   func() { p.readInt() },
 	}, fmt.Sprintf("Material %s\n", m.Name))
 	return &m
