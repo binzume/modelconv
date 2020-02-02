@@ -21,6 +21,30 @@ import (
 	_ "golang.org/x/image/bmp"
 )
 
+func addGltfBones(m *modeler.Modeler, doc *mqo.MQODocument) {
+	bones := mqo.GetBonePlugin(doc).Bones()
+
+	idmap := map[int]uint32{}
+	bonemap := map[int]*mqo.Bone{}
+	for _, b := range bones {
+		idmap[b.ID] = uint32(len(m.Nodes))
+		bonemap[b.ID] = b
+		m.Nodes = append(m.Nodes, &gltf.Node{Name: b.Name, Translation: [3]float64{0, 0, 0}})
+	}
+
+	for _, b := range bonemap {
+		if b.Parent > 0 {
+			parent := bonemap[b.Parent]
+			node := m.Nodes[idmap[b.ID]]
+			node.Translation[0] = float64(b.Pos.X - parent.Pos.X)
+			node.Translation[1] = float64(b.Pos.Y - parent.Pos.Y)
+			node.Translation[2] = float64(b.Pos.Z - parent.Pos.Z)
+			parentNode := m.Nodes[idmap[parent.ID]]
+			parentNode.Children = append(parentNode.Children, idmap[b.ID])
+		}
+	}
+}
+
 func mqo2gltf(doc *mqo.MQODocument, textureDir string) (*gltf.Document, error) {
 	m := modeler.NewModeler()
 
@@ -128,6 +152,8 @@ func mqo2gltf(doc *mqo.MQODocument, textureDir string) (*gltf.Document, error) {
 			},
 		}
 	}
+
+	addGltfBones(m, doc)
 
 	return m.Document, nil
 }
