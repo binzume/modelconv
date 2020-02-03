@@ -121,6 +121,7 @@ type Bone struct {
 	Dummy    int      `xml:"dummy,attr,omitempty"`
 	Color    string   `xml:"color,attr,omitempty"`
 	UpVector *Vector3 `xml:"upVector,attr,omitempty"`
+	Rotate   *Vector3 `xml:"rotate,attr,omitempty"`
 
 	IK *BoneIK `xml:"IK,omitempty"`
 

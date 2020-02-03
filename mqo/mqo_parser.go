@@ -1,29 +1,35 @@
 package mqo
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/scanner"
+
+	"golang.org/x/text/encoding/japanese"
+	"golang.org/x/text/transform"
 )
 
 // Parser for mqo file.
 type Parser struct {
 	name string
+	r    io.Reader
 	s    scanner.Scanner
 }
 
 // NewParser returns new parser.
 func NewParser(r io.Reader, fname string) *Parser {
 	var s scanner.Scanner
-	s.Init(r)
 	s.Filename = fname
 	return &Parser{
 		name: fname,
+		r:    r,
 		s:    s,
 	}
 }
@@ -57,6 +63,12 @@ func (p *Parser) readStr() string {
 	return strings.Trim(p.s.TokenText(), "\"")
 }
 
+func (p *Parser) skipN(n int) {
+	for i := 0; i < n; i++ {
+		p.s.Scan()
+	}
+}
+
 func (p *Parser) skip(t string) {
 	p.s.Scan()
 	if p.s.TokenText() != t {
@@ -81,8 +93,10 @@ func (p *Parser) procAttrs(handlers map[string]func(), name string) {
 }
 
 func (p *Parser) skipBlock() {
+	errCount := p.s.ErrorCount
 	for tok := p.s.Scan(); tok != scanner.EOF; tok = p.s.Scan() {
 		if p.s.TokenText() == "}" {
+			p.s.ErrorCount = errCount
 			return
 		}
 		if p.s.TokenText() == "{" {
@@ -128,7 +142,7 @@ func (p *Parser) readMaterial() *Material {
 		"power": func() { m.Power = p.readFloat() },
 		"tex":   func() { m.Texture = p.readStr() },
 		"dbls":  func() { m.DoubleSided = p.readInt() != 0 },
-		"uid":   func() { p.readInt() },
+		"uid":   func() { m.UID = p.readInt() },
 	}, fmt.Sprintf("Material %s\n", m.Name))
 	return &m
 }
@@ -163,11 +177,11 @@ func (p *Parser) readMaterialEx() (int, *MaterialEx2) {
 
 func (p *Parser) readObject() *Object {
 	o := NewObject(p.readStr())
-	log.Println("Read object:", o.Name)
 
 	p.procObj(map[string]func(){
 		"depth":   func() { o.Depth = p.readInt() },
 		"visible": func() { o.Visible = p.readInt() > 0 },
+		"uid":     func() { o.UID = p.readInt() },
 		"vertex": func() {
 			p.procArray(func(n int) {
 				o.Vertexes = make([]*Vector3, n)
@@ -196,7 +210,7 @@ func (p *Parser) readObject() *Object {
 							f.UVs[i] = Vector2{p.readFloat(), p.readFloat()}
 						}
 					},
-					"UID": func() { p.readInt() },
+					"UID": func() { f.UID = p.readInt() },
 				}, fmt.Sprintf("Object %v F%v\n", o.Name, i))
 			}, "face")
 		},
@@ -204,7 +218,19 @@ func (p *Parser) readObject() *Object {
 	return o
 }
 
-func (p *Parser) Parse(fname string) (*MQODocument, error) {
+func (p *Parser) detectCodePage() {
+	buf := make([]byte, 128)
+	n, _ := p.r.Read(buf)
+	p.r = io.MultiReader(bytes.NewReader(buf[:n]), p.r)
+	if matched, _ := regexp.Match(`CodePage\s+utf8`, buf[:n]); !matched {
+		p.r = transform.NewReader(p.r, japanese.ShiftJIS.NewDecoder())
+	}
+}
+
+func (p *Parser) Parse() (*MQODocument, error) {
+	p.detectCodePage()
+	p.s.Init(p.r)
+
 	var doc MQODocument
 	var mqxFile string
 	for tok := p.s.Scan(); tok != scanner.EOF; tok = p.s.Scan() {
@@ -214,6 +240,10 @@ func (p *Parser) Parse(fname string) (*MQODocument, error) {
 			}, "Material")
 		} else if tok == scanner.Ident && p.s.TokenText() == "Object" {
 			doc.Objects = append(doc.Objects, p.readObject())
+		} else if tok == scanner.Ident && p.s.TokenText() == "Thumbnail" {
+			p.skipN(5)
+			p.skip("{")
+			p.skipBlock()
 		} else if tok == scanner.Ident && p.s.TokenText() == "MaterialEx2" {
 			p.procArray(func(n int) {}, func(i int) {
 				mid, ex := p.readMaterialEx()
@@ -232,8 +262,8 @@ func (p *Parser) Parse(fname string) (*MQODocument, error) {
 	if p.s.ErrorCount > 0 {
 		return &doc, fmt.Errorf("Parse error (count:%d)", p.s.ErrorCount)
 	}
-	if mqxFile != "" && fname != "" {
-		mqxPath := fname[0:len(fname)-len(filepath.Ext(fname))] + ".mqx"
+	if mqxFile != "" && p.name != "" {
+		mqxPath := p.name[0:len(p.name)-len(filepath.Ext(p.name))] + ".mqx"
 		r, _ := os.Open(mqxPath)
 		if r != nil {
 			defer r.Close()
@@ -248,5 +278,5 @@ func (p *Parser) Parse(fname string) (*MQODocument, error) {
 // Parse mqo file.
 func Parse(r io.Reader, fname string) (*MQODocument, error) {
 	p := NewParser(r, fname)
-	return p.Parse(fname)
+	return p.Parse()
 }

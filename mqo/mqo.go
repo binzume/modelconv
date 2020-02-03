@@ -42,6 +42,7 @@ type Scene struct {
 
 type Material struct {
 	Name  string
+	UID   int
 	Color Vector4
 
 	Diffuse  float32
@@ -63,12 +64,14 @@ type MaterialEx2 struct {
 }
 
 type Face struct {
+	UID      int
 	Verts    []int
 	Material int
 	UVs      []Vector2
 }
 
 type Object struct {
+	UID      int
 	Name     string
 	Vertexes []*Vector3
 	Faces    []*Face
