@@ -40,16 +40,16 @@ func addGltfBones(m *modeler.Modeler, doc *mqo.MQODocument, scale float32) {
 	bones := mqo.GetBonePlugin(doc).Bones()
 
 	idmap := map[int]uint32{}
-	idmapr := map[uint32]int{}
+	idmapr := map[uint32]*mqo.Bone{}
 	bonemap := map[int]*mqo.Bone{}
 	for _, b := range bones {
 		idmap[b.ID] = uint32(len(m.Nodes))
-		idmapr[uint32(len(m.Nodes))] = b.ID
+		idmapr[uint32(len(m.Nodes))] = b
 		bonemap[b.ID] = b
-		m.Nodes = append(m.Nodes, &gltf.Node{Name: b.Name, Translation: [3]float64{0, 0, 0}})
+		m.Nodes = append(m.Nodes, &gltf.Node{Name: b.Name, Translation: [3]float64{0, 0, 0}, Rotation: [4]float64{0, 0, 0, 1}})
 	}
 
-	for _, b := range bonemap {
+	for _, b := range bones {
 		if b.Parent > 0 {
 			parent := bonemap[b.Parent]
 			node := m.Nodes[idmap[b.ID]]
@@ -69,7 +69,7 @@ func addGltfBones(m *modeler.Modeler, doc *mqo.MQODocument, scale float32) {
 		}
 		invmats := make([][4][4]float32, len(skin.Joints))
 		for i, j := range skin.Joints {
-			b := bonemap[idmapr[j]]
+			b := idmapr[j]
 			invmats[i] = [4][4]float32{
 				{1, 0, 0, 0},
 				{0, 1, 0, 0},
@@ -117,11 +117,12 @@ func mqo2gltf(doc *mqo.MQODocument, textureDir string) (*gltf.Document, error) {
 	textures := map[string]uint32{}
 
 	var targetObjects []*mqo.Object
-	var targetObjectIDs []int // TODO: Object.ID
 	for i, obj := range doc.Objects {
 		// TODO: remove Morph target.
 		if obj.Visible && len(obj.Faces) > 0 {
-			targetObjectIDs = append(targetObjectIDs, i+1)
+			if obj.UID == 0 {
+				obj.UID = i + 1 // TODO
+			}
 			targetObjects = append(targetObjects, obj)
 		}
 	}
@@ -143,14 +144,12 @@ func mqo2gltf(doc *mqo.MQODocument, textureDir string) (*gltf.Document, error) {
 			}
 		}
 
-		positionAccessor := m.AddPosition(0, vertexes)
-		texcoodAccessor := m.AddTextureCoord(0, texcood)
 		attributes := map[string]uint32{
-			"POSITION":   positionAccessor,
-			"TEXCOORD_0": texcoodAccessor,
+			"POSITION":   m.AddPosition(0, vertexes),
+			"TEXCOORD_0": m.AddTextureCoord(0, texcood),
 		}
 
-		joints, j, w := getWeights(m, doc, targetObjectIDs[i], len(vertexes))
+		joints, j, w := getWeights(m, doc, obj.UID, len(vertexes))
 		if len(joints) > 0 {
 			attributes["JOINTS_0"] = m.AddJoints(0, j)
 			attributes["WEIGHTS_0"] = m.AddWeights(0, w)

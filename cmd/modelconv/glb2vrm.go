@@ -3,26 +3,21 @@ package main
 import (
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/binzume/modelconv/vrm"
+	"github.com/qmuntal/gltf"
 )
 
 func glb2vrm(input, output, confFile string) error {
-	if output == "" {
-		output = input[0:len(input)-len(filepath.Ext(input))] + ".vrm"
-	}
-	if confFile == "" {
-		confFile = input[0:len(input)-len(filepath.Ext(input))] + ".vrmconfig.json"
-	}
-
-	r, err := os.Open(input)
+	doc, err := gltf.Open(input)
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	return saveAsVRM(doc, output, confFile)
+}
 
-	doc, _ := vrm.Parse(r, input)
+func saveAsVRM(gltfDoc *gltf.Document, output, confFile string) error {
+	doc := (*vrm.VRMDocument)(gltfDoc)
 	if _, err := os.Stat(confFile); err != nil {
 		log.Print("vrm config error: ", err)
 	} else {

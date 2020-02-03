@@ -11,6 +11,40 @@ import (
 	"github.com/binzume/modelconv/mqo"
 )
 
+func defaultOutputFile(input string) string {
+	ext := strings.ToLower(filepath.Ext(input))
+	base := input[0 : len(input)-len(ext)]
+	if ext == ".glb" {
+		return base + ".vrm"
+	} else if ext == ".mqo" {
+		return base + ".glb"
+	} else if ext == ".pmx" || ext == ".pmd" {
+		return base + ".mqo"
+	}
+	return input + ".mqo"
+}
+
+func saveDocument(doc *mqo.MQODocument, output, srcDir, vrmConf string) error {
+	ext := strings.ToLower(filepath.Ext(output))
+	if ext == ".glb" {
+		return saveAsGlb(doc, output, srcDir)
+	}
+	if ext == ".vrm" {
+		gltfdoc, err := mqo2gltf(doc, srcDir)
+		if err != nil {
+			return err
+		}
+		return saveAsVRM(gltfdoc, output, vrmConf)
+	}
+
+	w, err := os.Create(output)
+	if err != nil {
+		return err
+	}
+	defer w.Close()
+	return mqo.WriteMQO(doc, w, output)
+}
+
 func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s input.pmx [output.mqo]\n", os.Args[0])
@@ -27,9 +61,16 @@ func main() {
 	}
 	input := flag.Arg(0)
 	output := flag.Arg(1)
+	if output == "" {
+		output = defaultOutputFile(input)
+	}
+	confFile := *vrmconf
+	if confFile == "" {
+		confFile = input[0:len(input)-len(filepath.Ext(input))] + ".vrmconfig.json"
+	}
 
 	if strings.ToLower(filepath.Ext(input)) == ".glb" {
-		err := glb2vrm(input, output, *vrmconf)
+		err := glb2vrm(input, output, confFile)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -57,11 +98,8 @@ func main() {
 		})
 	}
 
-	if output == "" {
-		output = input + ".mqo"
-	}
 	log.Print("out: ", output)
-	if err = saveDocument(doc, output); err != nil {
+	if err = saveDocument(doc, output, filepath.Dir(input), confFile); err != nil {
 		log.Fatal(err)
 	}
 }

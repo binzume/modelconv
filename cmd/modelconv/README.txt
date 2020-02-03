@@ -20,6 +20,12 @@ https://github.com/binzume/modelconv
 
 input.vrmconfig.json の書き方はQiitaの記事を参考にしてください．
 
+### .mqo → .glb
+./modelconv input.mqo outout.glb
+
+モーフ未対応．
+メタセコイアはmm単位，glTFはm単位として扱います(デフォルトで1/1000のサイズになります)
+
 # License
 
 https://github.com/binzume/modelconv

@@ -321,17 +321,3 @@ func loadDocument(input string) (*mqo.MQODocument, error) {
 	log.Println("Comment: ", pmx.Comment)
 	return mmd2mqo(pmx), nil
 }
-
-func saveDocument(doc *mqo.MQODocument, output string) error {
-
-	if strings.ToLower(filepath.Ext(output)) == ".glb" {
-		return saveAsGlb(doc, output, filepath.Dir(output))
-	}
-
-	w, err := os.Create(output)
-	if err != nil {
-		return err
-	}
-	defer w.Close()
-	return mqo.WriteMQO(doc, w, output)
-}
