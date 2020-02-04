@@ -28,21 +28,21 @@ func saveDocument(doc *mqo.MQODocument, output, srcDir, vrmConf string) error {
 	ext := strings.ToLower(filepath.Ext(output))
 	if ext == ".glb" {
 		return saveAsGlb(doc, output, srcDir)
-	}
-	if ext == ".vrm" {
-		gltfdoc, err := mqo2gltf(doc, srcDir)
+	} else if ext == ".vrm" {
+		gltfdoc, err := NewMQO2GLTF().Convert(doc, srcDir)
 		if err != nil {
 			return err
 		}
 		return saveAsVRM(gltfdoc, output, vrmConf)
+	} else if ext == ".mqo" {
+		w, err := os.Create(output)
+		if err != nil {
+			return err
+		}
+		defer w.Close()
+		return mqo.WriteMQO(doc, w, output)
 	}
-
-	w, err := os.Create(output)
-	if err != nil {
-		return err
-	}
-	defer w.Close()
-	return mqo.WriteMQO(doc, w, output)
+	return fmt.Errorf("Unsuppored output type: %v", ext)
 }
 
 func main() {

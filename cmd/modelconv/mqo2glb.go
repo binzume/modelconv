@@ -21,7 +21,21 @@ import (
 	_ "golang.org/x/image/bmp"
 )
 
-func addMatrices(m *modeler.Modeler, bufferIndex uint32, mat [][4][4]float32) uint32 {
+type mqoToGltf struct {
+	*modeler.Modeler
+	scale       float32
+	convertBone bool
+}
+
+func NewMQO2GLTF() *mqoToGltf {
+	return &mqoToGltf{
+		Modeler:     modeler.NewModeler(),
+		scale:       0.001,
+		convertBone: true,
+	}
+}
+
+func (m *mqoToGltf) addMatrices(bufferIndex uint32, mat [][4][4]float32) uint32 {
 	a := make([][4]float32, len(mat)*4)
 	for i, m := range mat {
 		a[i*4+0] = m[0]
@@ -36,9 +50,8 @@ func addMatrices(m *modeler.Modeler, bufferIndex uint32, mat [][4][4]float32) ui
 	return acc
 }
 
-func addGltfBones(m *modeler.Modeler, doc *mqo.MQODocument, scale float32) {
-	bones := mqo.GetBonePlugin(doc).Bones()
-
+func (m *mqoToGltf) addBoneNodes(bones []*mqo.Bone) (map[int]uint32, map[uint32]*mqo.Bone) {
+	scale := m.scale
 	idmap := map[int]uint32{}
 	idmapr := map[uint32]*mqo.Bone{}
 	bonemap := map[int]*mqo.Bone{}
@@ -50,71 +63,108 @@ func addGltfBones(m *modeler.Modeler, doc *mqo.MQODocument, scale float32) {
 	}
 
 	for _, b := range bones {
+		node := m.Nodes[idmap[b.ID]]
 		if b.Parent > 0 {
 			parent := bonemap[b.Parent]
-			node := m.Nodes[idmap[b.ID]]
 			node.Translation[0] = float64((b.Pos.X - parent.Pos.X) * scale)
 			node.Translation[1] = float64((b.Pos.Y - parent.Pos.Y) * scale)
 			node.Translation[2] = float64((b.Pos.Z - parent.Pos.Z) * scale)
 			parentNode := m.Nodes[idmap[parent.ID]]
 			parentNode.Children = append(parentNode.Children, idmap[b.ID])
 		} else {
+			node.Translation[0] = float64((b.Pos.X) * scale)
+			node.Translation[1] = float64((b.Pos.Y) * scale)
+			node.Translation[2] = float64((b.Pos.Z) * scale)
 			m.Scenes[0].Nodes = append(m.Scenes[0].Nodes, idmap[b.ID])
 		}
 	}
-
-	for _, skin := range m.Skins {
-		if len(skin.Joints) == 0 {
-			continue
-		}
-		invmats := make([][4][4]float32, len(skin.Joints))
-		for i, j := range skin.Joints {
-			b := idmapr[j]
-			invmats[i] = [4][4]float32{
-				{1, 0, 0, 0},
-				{0, 1, 0, 0},
-				{0, 0, 1, 0},
-				{-b.Pos.X * scale, -b.Pos.Y * scale, -b.Pos.Z * scale, 1},
-			}
-		}
-		skin.InverseBindMatrices = gltf.Index(addMatrices(m, 0, invmats))
-	}
+	return idmap, idmapr
 }
 
-func getWeights(m *modeler.Modeler, doc *mqo.MQODocument, obj int, vs int) ([]uint32, [][4]uint16, [][4]float32) {
+func (m *mqoToGltf) getWeights(bones []*mqo.Bone, obj int, vs int, boneIDToJoint map[int]uint32) ([]uint32, [][4]uint16, [][4]float32) {
 	joints := make([][4]uint16, vs)
 	weights := make([][4]float32, vs)
 	njoint := make([]int, vs)
-	var jj []uint32
-	bones := mqo.GetBonePlugin(doc).Bones()
+	var jointIds []uint32
 
 	for _, b := range bones {
 		for _, bw := range b.Weights {
 			if bw.ObjectID != obj {
 				continue
 			}
-			j := uint32(len(m.Nodes) + b.ID - 1) // TODO jointId
-			jj = append(jj, j)
+			jointIds = append(jointIds, boneIDToJoint[b.ID])
 			for _, vw := range bw.Vertexes {
 				v := vw.VertexID - 1
 				if v < 0 || v >= vs || njoint[v] >= 4 {
 					log.Fatal("invalid weight. V:", vw.VertexID, " O:", obj)
 				}
-				joints[v][njoint[v]] = uint16(len(jj)) - 1
+				joints[v][njoint[v]] = uint16(len(jointIds)) - 1
 				weights[v][njoint[v]] = vw.Weight * 0.01
 				njoint[v]++
 			}
 		}
 	}
-
-	return jj, joints, weights
+	return jointIds, joints, weights
 }
 
-func mqo2gltf(doc *mqo.MQODocument, textureDir string) (*gltf.Document, error) {
-	m := modeler.NewModeler()
-	var scale float32 = 0.001
+func (m *mqoToGltf) addSkin(joints []uint32, jointToBone map[uint32]*mqo.Bone) uint32 {
+	invmats := make([][4][4]float32, len(joints))
+	scale := m.scale
+	for i, j := range joints {
+		b := jointToBone[j]
+		invmats[i] = [4][4]float32{
+			{1, 0, 0, 0},
+			{0, 1, 0, 0},
+			{0, 0, 1, 0},
+			{-b.Pos.X * scale, -b.Pos.Y * scale, -b.Pos.Z * scale, 1},
+		}
+	}
+	m.Skins = append(m.Skins, &gltf.Skin{
+		Joints:              joints,
+		InverseBindMatrices: gltf.Index(m.addMatrices(0, invmats)),
+	})
+	return uint32(len(m.Skins) - 1)
+}
 
-	textures := map[string]uint32{}
+func (m *mqoToGltf) addTexture(textureDir string, texture string) uint32 {
+	f, err := os.Open(filepath.Join(textureDir, texture))
+	if err != nil {
+		log.Print("Texture file not found:", texture)
+	}
+	defer f.Close()
+	var r io.Reader = f
+	var mimeType string
+	ext := strings.ToLower(filepath.Ext(texture))
+	if ext == ".jpg" || ext == ".jpeg" {
+		mimeType = "image/jpeg"
+	} else if ext == ".png" {
+		mimeType = "image/png"
+	} else {
+		mimeType = "image/png"
+		img, _, err := image.Decode(r)
+		if err != nil {
+			log.Fatal("Texture read error:", err, texture)
+		}
+		w := new(bytes.Buffer)
+		err = png.Encode(w, img)
+		if err != nil {
+			log.Fatal("Texture encode error:", err, texture)
+		}
+		r = w
+	}
+	img, err := m.AddImage(0, filepath.Base(texture), mimeType, r)
+	if err != nil {
+		log.Fatal("Texture read error:", err, texture)
+	}
+	m.Buffers[0].ByteLength = uint32(len(m.Buffers[0].Data)) // avoid AddImage bug
+	m.Textures = append(m.Textures,
+		&gltf.Texture{Sampler: gltf.Index(0), Source: gltf.Index(img)})
+
+	return uint32(len(m.Textures)) - 1
+}
+
+func (m *mqoToGltf) Convert(doc *mqo.MQODocument, textureDir string) (*gltf.Document, error) {
+	scale := m.scale
 
 	var targetObjects []*mqo.Object
 	for i, obj := range doc.Objects {
@@ -128,6 +178,12 @@ func mqo2gltf(doc *mqo.MQODocument, textureDir string) (*gltf.Document, error) {
 	}
 
 	m.Nodes = make([]*gltf.Node, len(targetObjects))
+
+	var bones []*mqo.Bone
+	if m.convertBone {
+		bones = mqo.GetBonePlugin(doc).Bones()
+	}
+	boneIDToJoint, jointToBone := m.addBoneNodes(bones)
 
 	for i, obj := range targetObjects {
 		var vertexes [][3]float32
@@ -149,7 +205,7 @@ func mqo2gltf(doc *mqo.MQODocument, textureDir string) (*gltf.Document, error) {
 			"TEXCOORD_0": m.AddTextureCoord(0, texcood),
 		}
 
-		joints, j, w := getWeights(m, doc, obj.UID, len(vertexes))
+		joints, j, w := m.getWeights(bones, obj.UID, len(vertexes), boneIDToJoint)
 		if len(joints) > 0 {
 			attributes["JOINTS_0"] = m.AddJoints(0, j)
 			attributes["WEIGHTS_0"] = m.AddWeights(0, w)
@@ -172,17 +228,14 @@ func mqo2gltf(doc *mqo.MQODocument, textureDir string) (*gltf.Document, error) {
 		meshIndex := uint32(len(m.Document.Meshes))
 		m.Document.Meshes = append(m.Document.Meshes, mesh)
 		m.Nodes[i] = &gltf.Node{Name: obj.Name, Mesh: gltf.Index(meshIndex)}
+		m.Scenes[0].Nodes = append(m.Scenes[0].Nodes, uint32(i))
 
 		if len(joints) > 0 {
-			m.Nodes[i].Skin = gltf.Index(uint32(len(m.Skins)))
-			skin := &gltf.Skin{}
-			skin.Joints = joints
-			m.Skins = append(m.Skins, skin)
+			m.Nodes[i].Skin = gltf.Index(m.addSkin(joints, jointToBone))
 		}
-
-		m.Scenes[0].Nodes = append(m.Scenes[0].Nodes, uint32(i))
 	}
 
+	textures := map[string]uint32{}
 	for _, mat := range doc.Materials {
 		mm := gltf.Material{
 			Name: mat.Name,
@@ -192,62 +245,31 @@ func mqo2gltf(doc *mqo.MQODocument, textureDir string) (*gltf.Document, error) {
 			DoubleSided: mat.DoubleSided,
 		}
 		if mat.Texture != "" {
-			tex, exist := textures[mat.Texture]
-			if !exist {
-				f, err := os.Open(filepath.Join(textureDir, mat.Texture))
-				if err != nil {
-					log.Print("Texture file not found:", mat.Texture)
-				}
-				defer f.Close()
-				var r io.Reader = f
-				if !strings.HasSuffix(mat.Texture, ".png") {
-					img, _, err := image.Decode(r)
-					if err != nil {
-						log.Fatal("Texture read error:", err, mat.Texture)
-					}
-					w := new(bytes.Buffer)
-					err = png.Encode(w, img)
-					if err != nil {
-						log.Fatal("Texture encode error:", err, mat.Texture)
-					}
-					r = w
-				}
-				img, err := m.AddImage(0, filepath.Base(mat.Texture), "image/png", r)
-				if err != nil {
-					log.Fatal("Texture read error:", err, mat.Texture)
-				}
-				m.Document.Buffers[0].ByteLength = uint32(len(m.Document.Buffers[0].Data)) // avoid AddImage bug
-				tex = uint32(len(m.Document.Textures))
-				m.Document.Textures = append(m.Document.Textures,
-					&gltf.Texture{Sampler: gltf.Index(0), Source: gltf.Index(img)})
-
-				textures[mat.Texture] = tex
+			if _, exist := textures[mat.Texture]; !exist {
+				textures[mat.Texture] = m.addTexture(textureDir, mat.Texture)
 			}
 			mm.PBRMetallicRoughness.BaseColorTexture = &gltf.TextureInfo{
-				Index: tex,
+				Index: textures[mat.Texture],
 			}
+		}
+		if mat.Color.W != 1 {
+			mm.AlphaMode = gltf.AlphaBlend
+		} else if strings.HasSuffix(mat.Texture, ".tga") || strings.HasSuffix(mat.Texture, ".png") {
+			// TODO: check texture alpha.
+			mm.AlphaMode = gltf.AlphaMask
 		}
 		m.Document.Materials = append(m.Document.Materials, &mm)
 	}
 
 	if len(m.Document.Textures) > 0 {
-		m.Document.Samplers = []*gltf.Sampler{
-			{
-				MagFilter: gltf.MagLinear,
-				MinFilter: gltf.MinLinear,
-				WrapS:     gltf.WrapRepeat,
-				WrapT:     gltf.WrapRepeat,
-			},
-		}
+		m.Document.Samplers = []*gltf.Sampler{{}}
 	}
-
-	addGltfBones(m, doc, scale)
 
 	return m.Document, nil
 }
 
 func saveAsGlb(doc *mqo.MQODocument, path, textureDir string) error {
-	gltfdoc, err := mqo2gltf(doc, textureDir)
+	gltfdoc, err := NewMQO2GLTF().Convert(doc, textureDir)
 	if err != nil {
 		return err
 	}
