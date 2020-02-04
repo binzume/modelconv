@@ -22,6 +22,8 @@
         {"bone": "rightUpperLeg", "nodeName": "右足"},
         {"bone": "rightLowerLeg", "nodeName": "右ひざ"},
         {"bone": "rightFoot", "nodeName": "右足首"},
+        {"bone": "leftEye", "nodeName": "左目"},
+        {"bone": "rightEye", "nodeName": "右目"},
         {"bone": "leftThumbProximal", "nodeName": "左親指０"},
         {"bone": "leftThumbIntermediate", "nodeName": "左親指１"},
         {"bone": "leftThumbDistal", "nodeName": "左親指２"},
