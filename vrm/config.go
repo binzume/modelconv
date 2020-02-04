@@ -4,23 +4,28 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"os"
+	"path/filepath"
 )
 
 type Config struct {
 	Metadata Metadata `json:"meta"`
 
-	BoneMappings []*struct {
-		Bone
-		NodeName string `json:"nodeName"`
-	} `json:"boneMappings"`
+	BoneMappings     []*BoneMapping              `json:"boneMappings"`
+	MorphMappings    []*MorphMapping             `json:"morphMappings"` // EXPERIMENTAL
+	MaterialSettings map[string]*MaterialSetting `json:"materialSettings"`
 
 	AnimationBoneGroups []*struct {
 		SecondaryAnimationBoneGroup
 		NodeNames []string `json:"nodeNames"`
 	} `json:"animationBoneGroups"`
 
-	MorphMappings    []*MorphMapping             `json:"morphMappings"` // EXPERIMENTAL
-	MaterialSettings map[string]*MaterialSetting `json:"materialSettings"`
+	Preset string `json:"preset"`
+}
+
+type BoneMapping struct {
+	Bone
+	NodeName string `json:"nodeName"`
 }
 
 type MorphMapping struct {
@@ -33,31 +38,25 @@ type MaterialSetting struct {
 	ForceUnlit bool `json:"forceUnlit"`
 }
 
-func ApplyConfig(doc *VRMDocument, conf *Config) {
+func applyConfigInternal(doc *VRMDocument, conf *Config, foundBones map[string]bool, nodeMap map[string]int) {
 	ext := doc.VRM()
-	ext.ExporterVersion = ExporterVersion
-	ext.Meta = conf.Metadata
-
-	nodeMap := map[string]int{}
-	for id, node := range doc.Nodes {
-		nodeMap[node.Name] = id
-	}
-
-	if len(ext.MaterialProperties) != len(doc.Materials) {
-		ext.MaterialProperties = []*MaterialProperty{}
-		for _, mat := range doc.Materials {
-			var mp MaterialProperty
-			mp.Name = mat.Name
-			mp.Shader = "VRM_USE_GLTFSHADER"
-			mp.RenderQueue = 2000
-
-			mp.FloatProperties = map[string]float64{}
-			mp.VectorProperties = map[string]interface{}{}
-			mp.TextureProperties = map[string]interface{}{}
-			mp.KeywordMap = map[string]interface{}{}
-			mp.TagMap = map[string]interface{}{}
-
-			ext.MaterialProperties = append(ext.MaterialProperties, &mp)
+	for _, mapping := range conf.BoneMappings {
+		if foundBones[mapping.Bone.Bone] {
+			continue
+		}
+		if mapping.NodeName == "" {
+			// ignore
+			foundBones[mapping.Bone.Bone] = true
+			continue
+		}
+		if id, ok := nodeMap[mapping.NodeName]; ok {
+			var b = mapping.Bone
+			foundBones[mapping.Bone.Bone] = true
+			b.Node = id
+			b.UseDefaultValues = b.UseDefaultValues || b.Min == nil && b.Max == nil && b.Center == nil
+			ext.Humanoid.Bones = append(ext.Humanoid.Bones, &b)
+		} else {
+			log.Println("Bone node not found:", mapping.NodeName)
 		}
 	}
 
@@ -77,25 +76,6 @@ func ApplyConfig(doc *VRMDocument, conf *Config) {
 				}
 				mat.Extensions = map[string]interface{}{unlitMaterialExt: map[string]string{}}
 			}
-		}
-	}
-
-	found := map[string]bool{}
-	ext.Humanoid.Bones = []*Bone{}
-	for _, mapping := range conf.BoneMappings {
-		if id, ok := nodeMap[mapping.NodeName]; ok {
-			var b = mapping.Bone
-			found[mapping.Bone.Bone] = true
-			b.Node = id
-			b.UseDefaultValues = b.UseDefaultValues || b.Min == nil && b.Max == nil && b.Center == nil
-			ext.Humanoid.Bones = append(ext.Humanoid.Bones, &b)
-		} else {
-			log.Println("Bone node not found:", mapping.NodeName)
-		}
-	}
-	for _, name := range RequiredBones {
-		if id, ok := nodeMap[name]; ok && !found[name] {
-			ext.Humanoid.Bones = append(ext.Humanoid.Bones, &Bone{Bone: name, Node: id, UseDefaultValues: true})
 		}
 	}
 
@@ -132,6 +112,63 @@ func ApplyConfig(doc *VRMDocument, conf *Config) {
 			ext.BlendShapeMaster.BlendShapeGroups = append(ext.BlendShapeMaster.BlendShapeGroups, m)
 		} else {
 			log.Println("Morph node not found:", mapping.NodeName)
+		}
+	}
+}
+
+func ApplyConfig(doc *VRMDocument, conf *Config) {
+	ext := doc.VRM()
+	ext.ExporterVersion = ExporterVersion
+	ext.Meta = conf.Metadata
+
+	if len(ext.MaterialProperties) != len(doc.Materials) {
+		ext.MaterialProperties = []*MaterialProperty{}
+		for _, mat := range doc.Materials {
+			var mp MaterialProperty
+			mp.Name = mat.Name
+			mp.Shader = "VRM_USE_GLTFSHADER"
+			mp.RenderQueue = 2000
+
+			mp.FloatProperties = map[string]float64{}
+			mp.VectorProperties = map[string]interface{}{}
+			mp.TextureProperties = map[string]interface{}{}
+			mp.KeywordMap = map[string]interface{}{}
+			mp.TagMap = map[string]interface{}{}
+
+			ext.MaterialProperties = append(ext.MaterialProperties, &mp)
+		}
+	}
+
+	nodeMap := map[string]int{}
+	for id, node := range doc.Nodes {
+		nodeMap[node.Name] = id
+	}
+	foundBones := map[string]bool{}
+	ext.Humanoid.Bones = []*Bone{}
+
+	if conf.Preset != "" {
+		execPath, err := os.Executable()
+		if err != nil {
+			log.Fatal("preset error:", conf.Preset, err)
+		}
+		presetPath := filepath.Join(filepath.Dir(execPath), "vrmconfig_presets", conf.Preset+".json")
+		data, err := ioutil.ReadFile(presetPath)
+		if err != nil {
+			log.Fatal("preset error:", conf.Preset, err)
+		}
+		var presetConf Config
+		err = json.Unmarshal(data, &presetConf)
+		if err != nil {
+			log.Fatal("preset error:", conf.Preset, err)
+		}
+		applyConfigInternal(doc, &presetConf, foundBones, nodeMap)
+	}
+
+	applyConfigInternal(doc, conf, foundBones, nodeMap)
+
+	for _, name := range RequiredBones {
+		if id, ok := nodeMap[name]; ok && !foundBones[name] {
+			ext.Humanoid.Bones = append(ext.Humanoid.Bones, &Bone{Bone: name, Node: id, UseDefaultValues: true})
 		}
 	}
 }
