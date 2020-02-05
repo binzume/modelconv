@@ -1,4 +1,4 @@
-package main
+package converter
 
 import (
 	"bytes"
@@ -13,9 +13,10 @@ import (
 	"github.com/qmuntal/gltf/modeler"
 
 	"image"
+	"image/png"
+
 	_ "image/gif"
 	_ "image/jpeg"
-	"image/png"
 
 	_ "github.com/ftrvxmtrx/tga"
 	_ "golang.org/x/image/bmp"
@@ -27,7 +28,7 @@ type mqoToGltf struct {
 	convertBone bool
 }
 
-func NewMQO2GLTF() *mqoToGltf {
+func NewMQOToGLTFConverter() *mqoToGltf {
 	return &mqoToGltf{
 		Modeler:     modeler.NewModeler(),
 		scale:       0.001,
@@ -266,12 +267,4 @@ func (m *mqoToGltf) Convert(doc *mqo.MQODocument, textureDir string) (*gltf.Docu
 	}
 
 	return m.Document, nil
-}
-
-func saveAsGlb(doc *mqo.MQODocument, path, textureDir string) error {
-	gltfdoc, err := NewMQO2GLTF().Convert(doc, textureDir)
-	if err != nil {
-		return err
-	}
-	return gltf.SaveBinary(gltfdoc, path)
 }

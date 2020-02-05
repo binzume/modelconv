@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/binzume/modelconv/converter"
 	"github.com/binzume/modelconv/mqo"
 )
 
@@ -29,7 +30,7 @@ func saveDocument(doc *mqo.MQODocument, output, srcDir, vrmConf string) error {
 	if ext == ".glb" {
 		return saveAsGlb(doc, output, srcDir)
 	} else if ext == ".vrm" {
-		gltfdoc, err := NewMQO2GLTF().Convert(doc, srcDir)
+		gltfdoc, err := converter.NewMQOToGLTFConverter().Convert(doc, srcDir)
 		if err != nil {
 			return err
 		}

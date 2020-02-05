@@ -1,21 +1,25 @@
-package main
+package converter
 
 import (
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/binzume/modelconv/mmd"
 	"github.com/binzume/modelconv/mqo"
 )
 
-func convertVec3(v *mmd.Vector3) *mqo.Vector3 {
+type mmdToMQO struct {
+}
+
+func NewMMDToMQOConverter() *mmdToMQO {
+	return &mmdToMQO{}
+}
+
+func (c *mmdToMQO) convertVec3(v *mmd.Vector3) *mqo.Vector3 {
 	return &mqo.Vector3{X: v.X, Y: v.Y, Z: v.Z * -1}
 }
 
-func convertMaterial(mat *mmd.Material, model *mmd.PMXDocument) *mqo.Material {
+func (c *mmdToMQO) convertMaterial(mat *mmd.Material, model *mmd.PMXDocument) *mqo.Material {
 	var m mqo.Material
 	m.Name = mat.Name
 	m.Color = mqo.Vector4{X: mat.Color.X, Y: mat.Color.Y, Z: mat.Color.Z, W: mat.Color.W}
@@ -38,7 +42,7 @@ func convertMaterial(mat *mmd.Material, model *mmd.PMXDocument) *mqo.Material {
 	return &m
 }
 
-func convertBones(pmx *mmd.PMXDocument) []*mqo.Bone {
+func (c *mmdToMQO) convertBones(pmx *mmd.PMXDocument) []*mqo.Bone {
 	var bones []*mqo.Bone
 
 	for boneIdx, pmBone := range pmx.Bones {
@@ -46,7 +50,7 @@ func convertBones(pmx *mmd.PMXDocument) []*mqo.Bone {
 			ID:     boneIdx + 1,
 			Name:   pmBone.Name,
 			Group:  pmBone.Layer,
-			Pos:    *convertVec3(&pmBone.Pos),
+			Pos:    *c.convertVec3(&pmBone.Pos),
 			Parent: pmBone.ParentID + 1,
 		}
 		if pmBone.Flags&mmd.BoneFlagTranslatable != 0 {
@@ -63,7 +67,7 @@ func convertBones(pmx *mmd.PMXDocument) []*mqo.Bone {
 	return bones
 }
 
-func convertFaces(pmx *mmd.PMXDocument, faces []int, face2mat []int, o *mqo.Object, vmap map[int]int) {
+func (c *mmdToMQO) convertFaces(pmx *mmd.PMXDocument, faces []int, face2mat []int, o *mqo.Object, vmap map[int]int) {
 	o.Faces = make([]*mqo.Face, len(faces))
 	for i, fi := range faces {
 		face := pmx.Faces[fi]
@@ -78,14 +82,14 @@ func convertFaces(pmx *mmd.PMXDocument, faces []int, face2mat []int, o *mqo.Obje
 			} else {
 				vmap[vi] = len(o.Vertexes)
 				verts[i] = vmap[vi]
-				o.Vertexes = append(o.Vertexes, convertVec3(&v.Pos))
+				o.Vertexes = append(o.Vertexes, c.convertVec3(&v.Pos))
 			}
 		}
 		o.Faces[i] = &mqo.Face{Verts: verts, Material: face2mat[fi], UVs: uvs}
 	}
 }
 
-func setWeight(pmx *mmd.PMXDocument, bones []*mqo.Bone, objid int, vmap map[int]int) {
+func (c *mmdToMQO) setWeight(pmx *mmd.PMXDocument, bones []*mqo.Bone, objid int, vmap map[int]int) {
 	for pmv, mqv := range vmap {
 		v := pmx.Vertexes[pmv]
 		c := map[int]*mqo.VertexWeight{}
@@ -101,33 +105,33 @@ func setWeight(pmx *mmd.PMXDocument, bones []*mqo.Bone, objid int, vmap map[int]
 	}
 }
 
-func newFg(pmx *mmd.PMXDocument, f2fg []int, v2f [][]int, fi int, fgid int, fs []int) []int {
+func (c *mmdToMQO) newFg(pmx *mmd.PMXDocument, f2fg []int, v2f [][]int, fi int, fgid int, fs []int) []int {
 	f2fg[fi] = fgid
 	fs = append(fs, fi)
 	for _, vi := range pmx.Faces[fi].Verts {
 		for _, f := range v2f[vi] {
 			if f2fg[f] == 0 {
-				fs = newFg(pmx, f2fg, v2f, f, fgid, fs)
+				fs = c.newFg(pmx, f2fg, v2f, f, fgid, fs)
 			}
 		}
 	}
 	return fs
 }
 
-func newMg(pmx *mmd.PMXDocument, m2mg []int, m2fg, fg2m [][]int, mi int, mgid int, ms []int) []int {
+func (c *mmdToMQO) newMg(pmx *mmd.PMXDocument, m2mg []int, m2fg, fg2m [][]int, mi int, mgid int, ms []int) []int {
 	m2mg[mi] = mgid
 	ms = append(ms, mi)
 	for _, fg := range m2fg[mi] {
 		for _, m := range fg2m[fg] {
 			if m2mg[m] == 0 {
-				ms = newMg(pmx, m2mg, m2fg, fg2m, m, mgid, ms)
+				ms = c.newMg(pmx, m2mg, m2fg, fg2m, m, mgid, ms)
 			}
 		}
 	}
 	return ms
 }
 
-func genMorphGroup(pmx *mmd.PMXDocument) ([][]int, [][]int) {
+func (c *mmdToMQO) genMorphGroup(pmx *mmd.PMXDocument) ([][]int, [][]int) {
 	// TODO: more better impl.
 	v2f := make([][]int, len(pmx.Vertexes))
 	for fid, f := range pmx.Faces {
@@ -139,7 +143,7 @@ func genMorphGroup(pmx *mmd.PMXDocument) ([][]int, [][]int) {
 	fgs := [][]int{[]int{}}
 	for fid := range pmx.Faces {
 		if f2fg[fid] == 0 {
-			fgs = append(fgs, newFg(pmx, f2fg, v2f, fid, len(fgs), []int{}))
+			fgs = append(fgs, c.newFg(pmx, f2fg, v2f, fid, len(fgs), []int{}))
 		}
 	}
 	log.Println("face groups: ", len(fgs))
@@ -179,7 +183,7 @@ func genMorphGroup(pmx *mmd.PMXDocument) ([][]int, [][]int) {
 	mg2m := [][]int{[]int{}}
 	for mi, fg := range m2fg {
 		if len(fg) > 0 && m2mg[mi] == 0 {
-			mg2m = append(mg2m, newMg(pmx, m2mg, m2fg, fg2m, mi, len(mg2m), []int{}))
+			mg2m = append(mg2m, c.newMg(pmx, m2mg, m2fg, fg2m, mi, len(mg2m), []int{}))
 		}
 	}
 
@@ -199,13 +203,13 @@ func genMorphGroup(pmx *mmd.PMXDocument) ([][]int, [][]int) {
 	return mg2m, mg2fs
 }
 
-func mmd2mqo(pmx *mmd.PMXDocument) *mqo.MQODocument {
+func (c *mmdToMQO) Convert(pmx *mmd.PMXDocument) *mqo.MQODocument {
 	mq := mqo.NewDocument()
 
-	bones := convertBones(pmx)
+	bones := c.convertBones(pmx)
 	mqo.GetBonePlugin(mq).SetBones(bones)
 
-	mg2m, mg2fs := genMorphGroup(pmx)
+	mg2m, mg2fs := c.genMorphGroup(pmx)
 
 	baseFaces := map[int]bool{}
 	for _, f := range mg2fs[0] {
@@ -215,7 +219,7 @@ func mmd2mqo(pmx *mmd.PMXDocument) *mqo.MQODocument {
 	face2mat := make([]int, len(pmx.Faces))
 	vpos := 0
 	for matIdx, mat := range pmx.Materials {
-		m := convertMaterial(mat, pmx)
+		m := c.convertMaterial(mat, pmx)
 		mq.Materials = append(mq.Materials, m)
 
 		for fi := vpos; fi < vpos+mat.Count/3; fi++ {
@@ -232,11 +236,11 @@ func mmd2mqo(pmx *mmd.PMXDocument) *mqo.MQODocument {
 		vpos += mat.Count / 3
 
 		vmap := map[int]int{}
-		convertFaces(pmx, faces, face2mat, o, vmap)
+		c.convertFaces(pmx, faces, face2mat, o, vmap)
 		if len(o.Faces) == 0 && mat.Count != 0 {
 			continue
 		}
-		setWeight(pmx, bones, len(mq.Objects)+1, vmap)
+		c.setWeight(pmx, bones, len(mq.Objects)+1, vmap)
 		mq.Objects = append(mq.Objects, o)
 	}
 
@@ -250,7 +254,7 @@ func mmd2mqo(pmx *mmd.PMXDocument) *mqo.MQODocument {
 		morphPlugin.MorphSet.Targets = append(morphPlugin.MorphSet.Targets, &morphTargets)
 		morphTargets.Base = o.Name
 		vmap := map[int]int{}
-		convertFaces(pmx, faces, face2mat, o, vmap)
+		c.convertFaces(pmx, faces, face2mat, o, vmap)
 		for pmv, mqv := range vmap {
 			v := pmx.Vertexes[pmv]
 			c := map[int]*mqo.VertexWeight{}
@@ -300,24 +304,4 @@ func mmd2mqo(pmx *mmd.PMXDocument) *mqo.MQODocument {
 		}
 	}
 	return mq
-}
-
-func loadDocument(input string) (*mqo.MQODocument, error) {
-	r, err := os.Open(input)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Close()
-
-	if strings.ToLower(filepath.Ext(input)) == ".mqo" {
-		return mqo.Parse(r, input)
-	}
-
-	pmx, err := mmd.Parse(r)
-	if err != nil {
-		return nil, err
-	}
-	log.Println("Name: ", pmx.Name)
-	log.Println("Comment: ", pmx.Comment)
-	return mmd2mqo(pmx), nil
 }
