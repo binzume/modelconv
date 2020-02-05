@@ -51,7 +51,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 	rot180 := flag.Bool("rot180", false, "rotate 180 degrees around Y (.mqo)")
-	scale := flag.Float64("scale", 1.0, "scale (.mqo)")
+	scale := flag.Float64("scale", 0, "0:auto")
 	vrmconf := flag.String("vrmconfig", "", "config file for VRM")
 	flag.Parse()
 
@@ -69,12 +69,21 @@ func main() {
 		confFile = input[0:len(input)-len(filepath.Ext(input))] + ".vrmconfig.json"
 	}
 
-	if strings.ToLower(filepath.Ext(input)) == ".glb" {
+	inputExt := strings.ToLower(filepath.Ext(input))
+	if inputExt == ".glb" {
 		err := glb2vrm(input, output, confFile)
 		if err != nil {
 			log.Fatal(err)
 		}
 		return
+	}
+
+	if *scale == 0 {
+		if inputExt == ".pmx" || inputExt == ".pmd" {
+			*scale = 80
+		} else {
+			*scale = 1
+		}
 	}
 
 	doc, err := loadDocument(input)
