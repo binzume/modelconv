@@ -39,3 +39,12 @@ func saveAsGlb(doc *mqo.MQODocument, path, textureDir string) error {
 	}
 	return gltf.SaveBinary(gltfdoc, path)
 }
+
+func saveAsPmx(doc *mqo.MQODocument, path string) error {
+	result, err := converter.NewMQOToMMDConverter().Convert(doc)
+	if err != nil {
+		return err
+	}
+	w, _ := os.Create(path)
+	return mmd.WritePMX(result, w)
+}

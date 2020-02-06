@@ -42,6 +42,8 @@ func saveDocument(doc *mqo.MQODocument, output, srcDir, vrmConf string) error {
 		}
 		defer w.Close()
 		return mqo.WriteMQO(doc, w, output)
+	} else if ext == ".pmx" {
+		return saveAsPmx(doc, output)
 	}
 	return fmt.Errorf("Unsuppored output type: %v", ext)
 }

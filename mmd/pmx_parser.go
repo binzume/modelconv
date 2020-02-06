@@ -57,7 +57,6 @@ func (p *PMXParser) readHeader() error {
 	p.read(&h.Version)
 	h.Info = make([]byte, p.readUint8())
 	p.read(&h.Info)
-	log.Print(h)
 	return nil
 }
 
