@@ -78,7 +78,7 @@ type PMXWriter struct {
 	header *Header
 }
 
-func (w *PMXWriter) Write(doc *PMXDocument) error {
+func (w *PMXWriter) Write(doc *Document) error {
 	// header
 	w.writeHeader(doc.Header)
 	w.writeText(doc.Name)
@@ -328,6 +328,6 @@ func (w *PMXWriter) writeMorph(m *Morph) {
 }
 
 // WritePMX writes .pmx data
-func WritePMX(doc *PMXDocument, w io.Writer) error {
+func WritePMX(doc *Document, w io.Writer) error {
 	return (&PMXWriter{baseWriter: baseWriter{w}}).Write(doc)
 }

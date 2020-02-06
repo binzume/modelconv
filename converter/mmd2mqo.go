@@ -19,7 +19,7 @@ func (c *mmdToMQO) convertVec3(v *mmd.Vector3) *mqo.Vector3 {
 	return &mqo.Vector3{X: v.X, Y: v.Y, Z: v.Z * -1}
 }
 
-func (c *mmdToMQO) convertMaterial(mat *mmd.Material, model *mmd.PMXDocument) *mqo.Material {
+func (c *mmdToMQO) convertMaterial(mat *mmd.Material, model *mmd.Document) *mqo.Material {
 	var m mqo.Material
 	m.Name = mat.Name
 	m.Color = mqo.Vector4{X: mat.Color.X, Y: mat.Color.Y, Z: mat.Color.Z, W: mat.Color.W}
@@ -42,7 +42,7 @@ func (c *mmdToMQO) convertMaterial(mat *mmd.Material, model *mmd.PMXDocument) *m
 	return &m
 }
 
-func (c *mmdToMQO) convertBones(pmx *mmd.PMXDocument) []*mqo.Bone {
+func (c *mmdToMQO) convertBones(pmx *mmd.Document) []*mqo.Bone {
 	var bones []*mqo.Bone
 
 	for boneIdx, pmBone := range pmx.Bones {
@@ -67,7 +67,7 @@ func (c *mmdToMQO) convertBones(pmx *mmd.PMXDocument) []*mqo.Bone {
 	return bones
 }
 
-func (c *mmdToMQO) convertFaces(pmx *mmd.PMXDocument, faces []int, face2mat []int, o *mqo.Object, vmap map[int]int) {
+func (c *mmdToMQO) convertFaces(pmx *mmd.Document, faces []int, face2mat []int, o *mqo.Object, vmap map[int]int) {
 	o.Faces = make([]*mqo.Face, len(faces))
 	for i, fi := range faces {
 		face := pmx.Faces[fi]
@@ -89,7 +89,7 @@ func (c *mmdToMQO) convertFaces(pmx *mmd.PMXDocument, faces []int, face2mat []in
 	}
 }
 
-func (c *mmdToMQO) setWeight(pmx *mmd.PMXDocument, bones []*mqo.Bone, objid int, vmap map[int]int) {
+func (c *mmdToMQO) setWeight(pmx *mmd.Document, bones []*mqo.Bone, objid int, vmap map[int]int) {
 	for pmv, mqv := range vmap {
 		v := pmx.Vertexes[pmv]
 		c := map[int]*mqo.VertexWeight{}
@@ -105,7 +105,7 @@ func (c *mmdToMQO) setWeight(pmx *mmd.PMXDocument, bones []*mqo.Bone, objid int,
 	}
 }
 
-func (c *mmdToMQO) newFg(pmx *mmd.PMXDocument, f2fg []int, v2f [][]int, fi int, fgid int, fs []int) []int {
+func (c *mmdToMQO) newFg(pmx *mmd.Document, f2fg []int, v2f [][]int, fi int, fgid int, fs []int) []int {
 	f2fg[fi] = fgid
 	fs = append(fs, fi)
 	for _, vi := range pmx.Faces[fi].Verts {
@@ -118,7 +118,7 @@ func (c *mmdToMQO) newFg(pmx *mmd.PMXDocument, f2fg []int, v2f [][]int, fi int, 
 	return fs
 }
 
-func (c *mmdToMQO) newMg(pmx *mmd.PMXDocument, m2mg []int, m2fg, fg2m [][]int, mi int, mgid int, ms []int) []int {
+func (c *mmdToMQO) newMg(pmx *mmd.Document, m2mg []int, m2fg, fg2m [][]int, mi int, mgid int, ms []int) []int {
 	m2mg[mi] = mgid
 	ms = append(ms, mi)
 	for _, fg := range m2fg[mi] {
@@ -131,7 +131,7 @@ func (c *mmdToMQO) newMg(pmx *mmd.PMXDocument, m2mg []int, m2fg, fg2m [][]int, m
 	return ms
 }
 
-func (c *mmdToMQO) genMorphGroup(pmx *mmd.PMXDocument) ([][]int, [][]int) {
+func (c *mmdToMQO) genMorphGroup(pmx *mmd.Document) ([][]int, [][]int) {
 	// TODO: more better impl.
 	v2f := make([][]int, len(pmx.Vertexes))
 	for fid, f := range pmx.Faces {
@@ -203,7 +203,7 @@ func (c *mmdToMQO) genMorphGroup(pmx *mmd.PMXDocument) ([][]int, [][]int) {
 	return mg2m, mg2fs
 }
 
-func (c *mmdToMQO) Convert(pmx *mmd.PMXDocument) *mqo.MQODocument {
+func (c *mmdToMQO) Convert(pmx *mmd.Document) *mqo.MQODocument {
 	mq := mqo.NewDocument()
 
 	bones := c.convertBones(pmx)

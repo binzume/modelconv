@@ -56,7 +56,7 @@ func (p *PMDParser) readVertex() *Vertex {
 	return &v
 }
 
-func (p *PMDParser) readMaterial(model *PMXDocument, i int) *Material {
+func (p *PMDParser) readMaterial(model *Document, i int) *Material {
 	var m Material
 	m.Name = fmt.Sprintf("mat%d", i+1)
 	p.read(&m.Color)
@@ -110,8 +110,8 @@ func (p *PMDParser) readMorph() *Morph {
 }
 
 // Parse model data.
-func (p *PMDParser) Parse() (*PMXDocument, error) {
-	var model PMXDocument
+func (p *PMDParser) Parse() (*Document, error) {
+	var model Document
 
 	if err := p.readHeader(); err != nil {
 		return nil, err

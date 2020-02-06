@@ -18,6 +18,34 @@ type Vector4 struct {
 	W float32
 }
 
+type Document struct {
+	Header    *Header
+	Name      string
+	NameEn    string
+	Comment   string
+	CommentEn string
+	Vertexes  []*Vertex
+	Faces     []*Face
+	Textures  []string
+	Materials []*Material
+	Bones     []*Bone
+	Morphs    []*Morph
+}
+
+func NewDocument() *Document {
+	return &Document{Header: &Header{
+		Format:  []byte("PMX "),
+		Version: 2,
+		Info:    []byte{1, 0, 2, 1, 1, 2, 1, 1},
+	}}
+}
+
+type Header struct {
+	Format  []byte
+	Version float32
+	Info    []byte
+}
+
 type Vertex struct {
 	Pos       Vector3
 	Normal    Vector3
@@ -32,13 +60,6 @@ type Vertex struct {
 
 type Face struct {
 	Verts [3]int
-}
-
-type Header struct {
-	Format   []byte
-	Version  float32
-	Info     []byte
-	Encoding uint8
 }
 
 type Material struct {
@@ -158,20 +179,6 @@ type Morph struct {
 	Vertex   []*MorphVertex
 	UV       []*MorphUV
 	Material []*MorphMaterial
-}
-
-type PMXDocument struct {
-	Header    *Header
-	Name      string
-	NameEn    string
-	Comment   string
-	CommentEn string
-	Vertexes  []*Vertex
-	Faces     []*Face
-	Textures  []string
-	Materials []*Material
-	Bones     []*Bone
-	Morphs    []*Morph
 }
 
 const (

@@ -57,6 +57,7 @@ func (p *PMXParser) readHeader() error {
 	p.read(&h.Version)
 	h.Info = make([]byte, p.readUint8())
 	p.read(&h.Info)
+	log.Print(h)
 	return nil
 }
 
@@ -263,8 +264,8 @@ func (p *PMXParser) readMorph() *Morph {
 }
 
 // Parse model data.
-func (p *PMXParser) Parse() (*PMXDocument, error) {
-	var pmx PMXDocument
+func (p *PMXParser) Parse() (*Document, error) {
+	var pmx Document
 
 	if err := p.readHeader(); err != nil {
 		return nil, err
@@ -316,7 +317,7 @@ func (p *PMXParser) Parse() (*PMXDocument, error) {
 }
 
 // Parse pmx/pmd file.
-func Parse(r io.Reader) (*PMXDocument, error) {
+func Parse(r io.Reader) (*Document, error) {
 	// check format
 	format := make([]byte, 4)
 	if _, err := r.Read(format[:3]); err != nil {
