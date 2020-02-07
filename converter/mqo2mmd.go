@@ -6,14 +6,16 @@ import (
 )
 
 type mqoToMMD struct {
+	Scale float32
 }
 
 func NewMQOToMMDConverter() *mqoToMMD {
-	return &mqoToMMD{}
+	return &mqoToMMD{Scale: 1.0 / 80}
 }
 
 func (c *mqoToMMD) Convert(doc *mqo.MQODocument) (*mmd.Document, error) {
 	dst := mmd.NewDocument()
+	c.addBones(dst, doc)
 	for mi, m := range doc.Materials {
 		vmap := map[int]int{}
 		faceCount := 0
@@ -25,6 +27,7 @@ func (c *mqoToMMD) Convert(doc *mqo.MQODocument) (*mmd.Document, error) {
 				var verts [3]int
 				for i, v := range f.Verts[0:3] {
 					if id, ok := vmap[v]; ok {
+						// TODO: check UV
 						verts[i] = id
 					} else {
 						verts[i] = len(dst.Vertexes)
@@ -55,12 +58,25 @@ func (c *mqoToMMD) Convert(doc *mqo.MQODocument) (*mmd.Document, error) {
 			Color:       mmd.Vector4{X: m.Color.X, Y: m.Color.Y, Z: m.Color.Z, W: m.Color.W},
 			Specularity: m.Power,
 			TextureID:   texture,
+			Toon:        -1,
 			Count:       faceCount * 3,
 		})
 	}
 	return dst, nil
 }
 
+func (c *mqoToMMD) addBones(dst *mmd.Document, src *mqo.MQODocument) {
+	bones := mqo.GetBonePlugin(src).Bones()
+	for _, bone := range bones {
+		dst.Bones = append(dst.Bones, &mmd.Bone{
+			Name:     bone.Name,
+			Pos:      *c.convertVec3(&bone.Pos),
+			ParentID: bone.Parent - 1,
+			Flags:    mmd.BoneFlagVisible | mmd.BoneFlagEnabled | mmd.BoneFlagRotatable,
+		})
+	}
+}
+
 func (c *mqoToMMD) convertVec3(v *mqo.Vector3) *mmd.Vector3 {
-	return &mmd.Vector3{X: v.X, Y: v.Y, Z: v.Z * -1}
+	return &mmd.Vector3{X: v.X * c.Scale, Y: v.Y * c.Scale, Z: v.Z * c.Scale * -1}
 }
