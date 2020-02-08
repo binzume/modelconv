@@ -165,12 +165,20 @@ func (w *PMXWriter) writeVertex(v *Vertex) {
 
 	var wehghtType uint8
 	switch len(v.BoneWeights) {
+	case 0:
+		v.BoneWeights = append(v.BoneWeights, 0)
+		v.Bones = append(v.Bones, -1)
+		fallthrough
 	case 1:
 		wehghtType = 0
 		break
 	case 2:
 		wehghtType = 1
 		break
+	case 3:
+		v.BoneWeights = append(v.BoneWeights, 0)
+		v.Bones = append(v.Bones, -1)
+		fallthrough
 	case 4:
 		wehghtType = 2
 		break
