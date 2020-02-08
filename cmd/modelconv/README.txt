@@ -3,14 +3,14 @@
 使い方はQiitaの記事を参考にしてください．
 https://qiita.com/binzume/items/d29cd21b9860809f72cf
 
-Windows(x64) 以外のバイナリが必要な場合はお手数ですがご自身でビルドしてください．
+最新版はGitHubにあります．Windows(x64) 以外のバイナリが必要な場合はお手数ですがご自身でビルドしてください．
 https://github.com/binzume/modelconv
 
 # Usage
 
-以下の組み合わせの変換ができます．vrmファイルを出力するためには，設定が書かれたjsonファイルが必要です．
+以下の組み合わせの変換ができます．
 
-- (.pmd, .pmx, .mqo) → (.mqo, .glb, .vrm)
+- (.pmd | .pmx | .mqo) → (.mqo | .pmx | .glb | .vrm)
 - .glb → .vrm
 
 座標の単位については以下のように扱っています(異なる場合は変換時の-scaleオプションで調整してください)
@@ -18,6 +18,9 @@ https://github.com/binzume/modelconv
 - MQO: 1mm
 - MMD: 80mm
 - glTF/VRM: 1m
+
+vrmファイルを出力するためには，設定が書かれたjsonファイルが必要です．
+jsonファイルの内容はQiitaに書いた説明を参考にしてください．
 
 ## 例
 
@@ -33,8 +36,7 @@ MMDから変換する場合，scaleを省略すると単位をmmにするため�
 ### .glb+vrmconfig.json → .vrm
 ./modelconv -vrmconfig input.vrmconfig.json input.glb output.vrm
 
-input.vrmconfig.json の書き方はQiitaに書いた説明を参考にしてください．
-glbからvrmへの変換は特別扱いしているので，scale等は指定できません．
+glbからvrmへの変換は特別扱いしているので，スケールや回転は指定できません．
 
 # License
 

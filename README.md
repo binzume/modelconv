@@ -14,7 +14,7 @@ Goで3Dモデルファイルを読み書きするライブラリ＆変換ツー�
 
 ## Usage:
 
-PMX/PMDを.mqoに変換するサンプルプログラム．(上記の表の全フォーマットが扱えるわけではないです)
+[cmd/modelconv](cmd/modelconv) : PMX/PMDを.mqoに変換するサンプルプログラム．
 
 Pure golangなのでGoがあればビルドできると思います．
 [Releases](https://github.com/binzume/modelconv/releases/latest)からビルド済みのWindows用のバイナリがダウンロードできます．
