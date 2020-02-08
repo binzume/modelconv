@@ -167,10 +167,24 @@ func (m *mqoToGltf) addTexture(textureDir string, texture string) uint32 {
 func (m *mqoToGltf) Convert(doc *mqo.MQODocument, textureDir string) (*gltf.Document, error) {
 	scale := m.scale
 
+	objectByName := map[string]*mqo.Object{}
+	morphTargets := map[string]*mqo.Object{}
+	morphBases := map[string]*mqo.MorphTargetList{}
+	for _, obj := range doc.Objects {
+		objectByName[obj.Name] = obj
+	}
+
+	morphs := mqo.GetMorphPlugin(doc).Morphs()
+	for _, m := range morphs {
+		morphBases[m.Base] = m
+		for _, t := range m.Target {
+			morphTargets[t.Name] = objectByName[t.Name]
+		}
+	}
+
 	var targetObjects []*mqo.Object
 	for i, obj := range doc.Objects {
-		// TODO: remove Morph target.
-		if obj.Visible && len(obj.Faces) > 0 {
+		if obj.Visible && len(obj.Faces) > 0 && morphTargets[obj.Name] == nil {
 			if obj.UID == 0 {
 				obj.UID = i + 1 // TODO
 			}
@@ -212,6 +226,19 @@ func (m *mqoToGltf) Convert(doc *mqo.MQODocument, textureDir string) (*gltf.Docu
 			attributes["WEIGHTS_0"] = m.AddWeights(0, w)
 		}
 
+		var targets []map[string]uint32
+		if morph, ok := morphBases[obj.Name]; ok {
+			for _, t := range morph.Target {
+				var mv [][3]float32
+				for i, v := range objectByName[t.Name].Vertexes {
+					mv = append(mv, [3]float32{v.X*scale - vertexes[i][0], v.Y*scale - vertexes[i][1], v.Z*scale - vertexes[i][2]})
+				}
+				targets = append(targets, map[string]uint32{
+					"POSITION": m.AddPosition(0, mv),
+				})
+			}
+		}
+
 		// make primitive for each materials
 		var primitives []*gltf.Primitive
 		for mat, ind := range indices {
@@ -220,6 +247,7 @@ func (m *mqoToGltf) Convert(doc *mqo.MQODocument, textureDir string) (*gltf.Docu
 				Indices:    gltf.Index(indicesAccessor),
 				Attributes: attributes,
 				Material:   gltf.Index(uint32(mat)),
+				Targets:    targets,
 			})
 		}
 		mesh := &gltf.Mesh{

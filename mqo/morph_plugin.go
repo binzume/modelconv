@@ -9,6 +9,10 @@ type MorphPlugin struct {
 	MorphSet MorphSet
 }
 
+func (p *MorphPlugin) Morphs() []*MorphTargetList {
+	return p.MorphSet.Targets
+}
+
 func GetMorphPlugin(mqo *MQODocument) *MorphPlugin {
 	for _, p := range mqo.Plugins {
 		if bp, ok := p.(*MorphPlugin); ok {
