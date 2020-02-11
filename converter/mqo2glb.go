@@ -82,7 +82,7 @@ func (m *mqoToGltf) addBoneNodes(bones []*mqo.Bone) (map[int]uint32, map[uint32]
 	return idmap, idmapr
 }
 
-func (m *mqoToGltf) getWeights(bones []*mqo.Bone, obj int, vs int, boneIDToJoint map[int]uint32) ([]uint32, [][4]uint16, [][4]float32) {
+func (m *mqoToGltf) getWeights(bones []*mqo.Bone, obj *mqo.Object, vs int, boneIDToJoint map[int]uint32) ([]uint32, [][4]uint16, [][4]float32) {
 	joints := make([][4]uint16, vs)
 	weights := make([][4]float32, vs)
 	njoint := make([]int, vs)
@@ -90,14 +90,14 @@ func (m *mqoToGltf) getWeights(bones []*mqo.Bone, obj int, vs int, boneIDToJoint
 
 	for _, b := range bones {
 		for _, bw := range b.Weights {
-			if bw.ObjectID != obj {
+			if bw.ObjectID != obj.UID {
 				continue
 			}
 			jointIds = append(jointIds, boneIDToJoint[b.ID])
 			for _, vw := range bw.Vertexes {
-				v := vw.VertexID - 1
+				v := obj.GetVertexIndexByID(vw.VertexID)
 				if v < 0 || v >= vs || njoint[v] >= 4 {
-					log.Fatal("invalid weight. V:", vw.VertexID, " O:", obj)
+					log.Fatal("invalid weight. V:", vw.VertexID, " O:", obj.Name)
 				}
 				joints[v][njoint[v]] = uint16(len(jointIds)) - 1
 				weights[v][njoint[v]] = vw.Weight * 0.01
@@ -220,7 +220,7 @@ func (m *mqoToGltf) Convert(doc *mqo.MQODocument, textureDir string) (*gltf.Docu
 			"TEXCOORD_0": m.AddTextureCoord(0, texcood),
 		}
 
-		joints, j, w := m.getWeights(bones, obj.UID, len(vertexes), boneIDToJoint)
+		joints, j, w := m.getWeights(bones, obj, len(vertexes), boneIDToJoint)
 		if len(joints) > 0 {
 			attributes["JOINTS_0"] = m.AddJoints(0, j)
 			attributes["WEIGHTS_0"] = m.AddWeights(0, w)

@@ -94,7 +94,7 @@ func (c *mqoToMMD) Convert(doc *mqo.MQODocument) (*mmd.Document, error) {
 			if objID == 0 {
 				objID = i + 1
 			}
-			c.setWeights(dst, objID, vmap, bones)
+			c.setWeights(dst, objID, obj, vmap, bones)
 		}
 		texture := -1
 		if m.Texture != "" {
@@ -106,14 +106,15 @@ func (c *mqoToMMD) Convert(doc *mqo.MQODocument) (*mmd.Document, error) {
 	return dst, nil
 }
 
-func (c *mqoToMMD) setWeights(dst *mmd.Document, objID int, vmap map[int]int, bones []*mqo.Bone) {
+func (c *mqoToMMD) setWeights(dst *mmd.Document, objID int, obj *mqo.Object, vmap map[int]int, bones []*mqo.Bone) {
 	for bi, b := range bones {
 		for _, bw := range b.Weights {
 			if bw.ObjectID != objID {
 				continue
 			}
 			for _, vw := range bw.Vertexes {
-				if v, ok := vmap[vw.VertexID-1]; ok {
+				vi := obj.GetVertexIndexByID(vw.VertexID)
+				if v, ok := vmap[vi]; ok {
 					vertex := dst.Vertexes[v]
 					if len(vertex.BoneWeights) >= 4 {
 						continue

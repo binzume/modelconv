@@ -214,6 +214,17 @@ func (p *Parser) readObject() *Object {
 				}, fmt.Sprintf("Object %v F%v\n", o.Name, i))
 			}, "face")
 		},
+		"vertexattr": func() {
+			p.procObj(map[string]func(){
+				"uid": func() {
+					p.skip("{")
+					for i := 0; i < len(o.Vertexes); i++ {
+						o.VertexByUID[p.readInt()] = i
+					}
+					p.skip("}")
+				},
+			}, "vertexattr")
+		},
 	}, fmt.Sprintf("Object %v\n", o.Name))
 	return o
 }

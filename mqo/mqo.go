@@ -71,17 +71,18 @@ type Face struct {
 }
 
 type Object struct {
-	UID      int
-	Name     string
-	Vertexes []*Vector3
-	Faces    []*Face
-	Visible  bool
-	Locked   bool
-	Depth    int
+	UID         int
+	Name        string
+	Vertexes    []*Vector3
+	Faces       []*Face
+	Visible     bool
+	Locked      bool
+	Depth       int
+	VertexByUID map[int]int
 }
 
 func NewObject(name string) *Object {
-	return &Object{Name: name, Visible: true}
+	return &Object{Name: name, Visible: true, VertexByUID: map[int]int{}}
 }
 
 func (o *Object) Clone() *Object {
@@ -99,6 +100,16 @@ func (o *Object) Clone() *Object {
 		cp.Faces[i] = d
 	}
 	return &cp
+}
+
+func (o *Object) GetVertexIndexByID(uid int) int {
+	if v, ok := o.VertexByUID[uid]; ok {
+		return v
+	}
+	if len(o.Vertexes) >= uid {
+		return uid - 1
+	}
+	return -1
 }
 
 type Plugin interface {
