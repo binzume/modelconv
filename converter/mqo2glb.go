@@ -227,6 +227,7 @@ func (m *mqoToGltf) Convert(doc *mqo.MQODocument, textureDir string) (*gltf.Docu
 		}
 
 		var targets []map[string]uint32
+		var targetNames []string
 		if morph, ok := morphBases[obj.Name]; ok {
 			for _, t := range morph.Target {
 				var mv [][3]float32
@@ -236,6 +237,7 @@ func (m *mqoToGltf) Convert(doc *mqo.MQODocument, textureDir string) (*gltf.Docu
 				targets = append(targets, map[string]uint32{
 					"POSITION": m.AddPosition(0, mv),
 				})
+				targetNames = append(targetNames, t.Name)
 			}
 		}
 
@@ -253,6 +255,7 @@ func (m *mqoToGltf) Convert(doc *mqo.MQODocument, textureDir string) (*gltf.Docu
 		mesh := &gltf.Mesh{
 			Name:       obj.Name,
 			Primitives: primitives,
+			Extras:     map[string]interface{}{"targetNames": targetNames},
 		}
 		meshIndex := uint32(len(m.Document.Meshes))
 		m.Document.Meshes = append(m.Document.Meshes, mesh)
