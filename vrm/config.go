@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 )
 
+// TODO: move into converter package.
 type Config struct {
 	Metadata Metadata `json:"meta"`
 
@@ -31,6 +32,7 @@ type BoneMapping struct {
 type MorphMapping struct {
 	Name        string `json:"name"`
 	NodeName    string `json:"nodeName"`
+	TargetName  string `json:"targetName"`
 	TargetIndex int    `json:"targetIndex"`
 }
 
@@ -96,7 +98,35 @@ func applyConfigInternal(doc *VRMDocument, conf *Config, foundBones map[string]b
 		}
 	}
 
+	targets := map[string][2]int{}
+	for mi, mesh := range doc.Meshes {
+		if extras, ok := mesh.Extras.(map[string]interface{}); ok {
+			if names, ok := extras["targetNames"].([]string); ok {
+				for i, name := range names {
+					targets[name] = [2]int{mi, i}
+				}
+			}
+		}
+	}
 	for _, mapping := range conf.MorphMappings {
+		if mapping.TargetName != "" {
+			if t, ok := targets[mapping.TargetName]; ok {
+				m := &BlendShapeGroup{
+					Name:       mapping.Name,
+					PresetName: mapping.Name,
+					Binds: []interface{}{
+						map[string]interface{}{
+							"mesh":   t[0],
+							"index":  t[1],
+							"weight": 100,
+						},
+					},
+				}
+				ext.BlendShapeMaster.BlendShapeGroups = append(ext.BlendShapeMaster.BlendShapeGroups, m)
+			}
+			continue
+		}
+
 		if id, ok := nodeMap[mapping.NodeName]; ok {
 			m := &BlendShapeGroup{
 				Name:       mapping.Name,
@@ -110,8 +140,8 @@ func applyConfigInternal(doc *VRMDocument, conf *Config, foundBones map[string]b
 				},
 			}
 			ext.BlendShapeMaster.BlendShapeGroups = append(ext.BlendShapeMaster.BlendShapeGroups, m)
-		} else {
-			log.Println("Morph node not found:", mapping.NodeName)
+		} else if mapping.NodeName == "" {
+			log.Println("Morph node not found:", mapping.NodeName, ":", mapping.TargetIndex)
 		}
 	}
 }

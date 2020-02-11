@@ -33,6 +33,5 @@ func saveAsVRM(gltfDoc *gltf.Document, output, confFile string) error {
 		log.Print(err)
 	}
 
-	log.Print("out: ", output)
 	return gltf.SaveBinary(gltfDoc, output)
 }
