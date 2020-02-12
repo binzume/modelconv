@@ -70,6 +70,9 @@ func main() {
 	confFile := *vrmconf
 	if confFile == "" {
 		confFile = input[0:len(input)-len(filepath.Ext(input))] + ".vrmconfig.json"
+		if _, err := os.Stat(confFile); err != nil {
+			confFile = ""
+		}
 	}
 
 	inputExt := strings.ToLower(filepath.Ext(input))
@@ -86,6 +89,16 @@ func main() {
 			*scale = 80
 		} else {
 			*scale = 1
+		}
+	}
+
+	// mmd to vrm
+	outputExt := strings.ToLower(filepath.Ext(output))
+	if (inputExt == ".pmx" || inputExt == ".pmd") && outputExt == ".vrm" {
+		*rot180 = true
+		if confFile == "" {
+			execPath, _ := os.Executable()
+			confFile = filepath.Join(filepath.Dir(execPath), "vrmconfig_presets/mmd_ja.json")
 		}
 	}
 
