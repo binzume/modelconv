@@ -44,7 +44,7 @@ func WriteMQO(mqo *MQODocument, ww io.Writer, path string) error {
 			mat.Color.X, mat.Color.Y, mat.Color.Z, mat.Color.W,
 			mat.Diffuse, mat.Ambient, mat.Emmition, mat.Specular, mat.Power)
 		if mat.Texture != "" {
-			fmt.Fprintf(w, " tex(\"%v\")", mat.Texture)
+			fmt.Fprintf(w, " tex(\"%v\")", strings.Replace(mat.Texture, "\\", "/", -1))
 		}
 		w.WriteString("\n")
 
