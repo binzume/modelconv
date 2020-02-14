@@ -182,12 +182,10 @@ func (m *mqoToGltf) Convert(doc *mqo.MQODocument, textureDir string) (*gltf.Docu
 		}
 	}
 
+	doc.FixObjectID()
 	var targetObjects []*mqo.Object
-	for i, obj := range doc.Objects {
+	for _, obj := range doc.Objects {
 		if obj.Visible && len(obj.Faces) > 0 && morphTargets[obj.Name] == nil {
-			if obj.UID == 0 {
-				obj.UID = i + 1 // TODO
-			}
 			targetObjects = append(targetObjects, obj)
 		}
 	}

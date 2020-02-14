@@ -46,9 +46,10 @@ func (c *mqoToMMD) Convert(doc *mqo.MQODocument) (*mmd.Document, error) {
 		}
 	}
 
+	doc.FixObjectID()
 	for mi, m := range doc.Materials {
 		faceCount := 0
-		for i, obj := range doc.Objects {
+		for _, obj := range doc.Objects {
 			if !obj.Visible || morphTargets[obj.Name] != nil {
 				continue
 			}
@@ -90,11 +91,7 @@ func (c *mqoToMMD) Convert(doc *mqo.MQODocument) (*mmd.Document, error) {
 				dst.Faces = append(dst.Faces, &mmd.Face{Verts: verts})
 				faceCount++
 			}
-			objID := obj.UID
-			if objID == 0 {
-				objID = i + 1
-			}
-			c.setWeights(dst, objID, obj, vmap, bones)
+			c.setWeights(dst, obj, vmap, bones)
 		}
 		texture := -1
 		if m.Texture != "" {
@@ -106,10 +103,10 @@ func (c *mqoToMMD) Convert(doc *mqo.MQODocument) (*mmd.Document, error) {
 	return dst, nil
 }
 
-func (c *mqoToMMD) setWeights(dst *mmd.Document, objID int, obj *mqo.Object, vmap map[int]int, bones []*mqo.Bone) {
+func (c *mqoToMMD) setWeights(dst *mmd.Document, obj *mqo.Object, vmap map[int]int, bones []*mqo.Bone) {
 	for bi, b := range bones {
 		for _, bw := range b.Weights {
-			if bw.ObjectID != objID {
+			if bw.ObjectID != obj.UID {
 				continue
 			}
 			for _, vw := range bw.Vertexes {

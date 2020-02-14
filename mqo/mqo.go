@@ -30,8 +30,16 @@ func NewDocument() *MQODocument {
 	return &MQODocument{}
 }
 
-func (mqo *MQODocument) GetPlugins() []Plugin {
-	return mqo.Plugins
+func (doc *MQODocument) GetPlugins() []Plugin {
+	return doc.Plugins
+}
+
+func (doc *MQODocument) FixObjectID() {
+	for i, obj := range doc.Objects {
+		if obj.UID == 0 {
+			obj.UID = i + 1 // TODO: unique id
+		}
+	}
 }
 
 type Scene struct {
