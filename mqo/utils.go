@@ -12,7 +12,7 @@ func (o *Object) Transform(transform func(v *Vector3)) {
 }
 
 // Transform all objects and plugins
-func (doc *MQODocument) Transform(transform func(v *Vector3)) {
+func (doc *Document) Transform(transform func(v *Vector3)) {
 	for _, o := range doc.Objects {
 		o.Transform(transform)
 	}

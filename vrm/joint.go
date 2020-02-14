@@ -37,7 +37,7 @@ func mul(a, b *Q) *Q {
 	return &r
 }
 
-func (doc *VRMDocument) FixJointMatrix() {
+func (doc *Document) FixJointMatrix() {
 	for _, skin := range doc.Skins {
 		if skin.InverseBindMatrices != nil {
 			accessor := doc.Accessors[*skin.InverseBindMatrices]
@@ -103,7 +103,7 @@ func (doc *VRMDocument) FixJointMatrix() {
 	}
 }
 
-func (doc *VRMDocument) FixJointComponentType() {
+func (doc *Document) FixJointComponentType() {
 	fixedbuffer := map[uint32]bool{}
 	for _, mesh := range doc.Meshes {
 		for _, primitiv := range mesh.Primitives {

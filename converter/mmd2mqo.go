@@ -203,7 +203,7 @@ func (c *mmdToMQO) genMorphGroup(pmx *mmd.Document) ([][]int, [][]int) {
 	return mg2m, mg2fs
 }
 
-func (c *mmdToMQO) Convert(pmx *mmd.Document) *mqo.MQODocument {
+func (c *mmdToMQO) Convert(pmx *mmd.Document) *mqo.Document {
 	mq := mqo.NewDocument()
 
 	bones := c.convertBones(pmx)

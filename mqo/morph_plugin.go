@@ -13,7 +13,7 @@ func (p *MorphPlugin) Morphs() []*MorphTargetList {
 	return p.MorphSet.Targets
 }
 
-func GetMorphPlugin(mqo *MQODocument) *MorphPlugin {
+func GetMorphPlugin(mqo *Document) *MorphPlugin {
 	for _, p := range mqo.Plugins {
 		if bp, ok := p.(*MorphPlugin); ok {
 			return bp
@@ -38,8 +38,8 @@ type MorphTarget struct {
 	Param int    `xml:"param,attr"`
 }
 
-func (p *MorphPlugin) PreSerialize(mqo *MQODocument) {
+func (p *MorphPlugin) PreSerialize(mqo *Document) {
 }
 
-func (p *MorphPlugin) PostDeserialize(mqo *MQODocument) {
+func (p *MorphPlugin) PostDeserialize(mqo *Document) {
 }

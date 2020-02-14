@@ -255,11 +255,11 @@ func (p *Parser) detectCodePage() {
 	}
 }
 
-func (p *Parser) Parse() (*MQODocument, error) {
+func (p *Parser) Parse() (*Document, error) {
 	p.detectCodePage()
 	p.s.Init(p.r)
 
-	var doc MQODocument
+	var doc Document
 	var mqxFile string
 	for tok := p.s.Scan(); tok != scanner.EOF; tok = p.s.Scan() {
 		if tok == scanner.Ident && p.s.TokenText() == "Material" {
@@ -304,7 +304,7 @@ func (p *Parser) Parse() (*MQODocument, error) {
 }
 
 // Parse mqo file.
-func Parse(r io.Reader, fname string) (*MQODocument, error) {
+func Parse(r io.Reader, fname string) (*Document, error) {
 	p := NewParser(r, fname)
 	return p.Parse()
 }

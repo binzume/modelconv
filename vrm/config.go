@@ -40,7 +40,7 @@ type MaterialSetting struct {
 	ForceUnlit bool `json:"forceUnlit"`
 }
 
-func applyConfigInternal(doc *VRMDocument, conf *Config, foundBones map[string]bool, nodeMap map[string]int) {
+func applyConfigInternal(doc *Document, conf *Config, foundBones map[string]bool, nodeMap map[string]int) {
 	ext := doc.VRM()
 	for _, mapping := range conf.BoneMappings {
 		if foundBones[mapping.Bone.Bone] {
@@ -146,7 +146,7 @@ func applyConfigInternal(doc *VRMDocument, conf *Config, foundBones map[string]b
 	}
 }
 
-func ApplyConfig(doc *VRMDocument, conf *Config) {
+func ApplyConfig(doc *Document, conf *Config) {
 	ext := doc.VRM()
 	ext.ExporterVersion = ExporterVersion
 	ext.Meta = conf.Metadata
@@ -203,7 +203,7 @@ func ApplyConfig(doc *VRMDocument, conf *Config) {
 	}
 }
 
-func (doc *VRMDocument) ApplyConfigFile(confpath string) error {
+func (doc *Document) ApplyConfigFile(confpath string) error {
 	data, err := ioutil.ReadFile(confpath)
 	if err != nil {
 		return err

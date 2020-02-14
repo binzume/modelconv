@@ -15,7 +15,7 @@ type BonePlugin struct {
 	Obj      []BoneObj
 }
 
-func GetBonePlugin(mqo *MQODocument) *BonePlugin {
+func GetBonePlugin(mqo *Document) *BonePlugin {
 	for _, p := range mqo.Plugins {
 		if bp, ok := p.(*BonePlugin); ok {
 			return bp
@@ -194,7 +194,7 @@ type BonePose struct {
 	ScP float32 `xml:"scP,attr"`
 }
 
-func (p *BonePlugin) PreSerialize(mqo *MQODocument) {
+func (p *BonePlugin) PreSerialize(mqo *Document) {
 	// TODO
 	p.Name = "Bone"
 	for i, o := range mqo.Objects {
@@ -204,7 +204,7 @@ func (p *BonePlugin) PreSerialize(mqo *MQODocument) {
 	}
 }
 
-func (p *BonePlugin) PostDeserialize(mqo *MQODocument) {
+func (p *BonePlugin) PostDeserialize(mqo *Document) {
 }
 
 func (p *BonePlugin) Transform(transform func(v *Vector3)) {

@@ -8,11 +8,11 @@ import (
 )
 
 // Parse vrm data
-func Parse(r io.Reader, path string) (*VRMDocument, error) {
+func Parse(r io.Reader, path string) (*Document, error) {
 	var doc gltf.Document
 	dec := gltf.NewDecoder(r).WithReadHandler(&gltf.RelativeFileHandler{Dir: filepath.Dir(path)})
 	if err := dec.Decode(&doc); err != nil {
 		return nil, err
 	}
-	return (*VRMDocument)(&doc), nil
+	return (*Document)(&doc), nil
 }

@@ -12,7 +12,7 @@ type MQXDoc struct {
 	Plugins []Plugin
 }
 
-func WriteMQX(mqo *MQODocument, w io.Writer, mqoName string) error {
+func WriteMQX(mqo *Document, w io.Writer, mqoName string) error {
 	mqx := &MQXDoc{IncludedBy: mqoName, Plugins: mqo.GetPlugins()}
 	for _, p := range mqx.Plugins {
 		p.PreSerialize(mqo)

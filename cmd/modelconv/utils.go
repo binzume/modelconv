@@ -12,7 +12,7 @@ import (
 	"github.com/qmuntal/gltf"
 )
 
-func loadDocument(input string) (*mqo.MQODocument, error) {
+func loadDocument(input string) (*mqo.Document, error) {
 	r, err := os.Open(input)
 	if err != nil {
 		return nil, err
@@ -32,7 +32,7 @@ func loadDocument(input string) (*mqo.MQODocument, error) {
 	return converter.NewMMDToMQOConverter().Convert(pmx), nil
 }
 
-func saveAsGlb(doc *mqo.MQODocument, path, textureDir string) error {
+func saveAsGlb(doc *mqo.Document, path, textureDir string) error {
 	gltfdoc, err := converter.NewMQOToGLTFConverter().Convert(doc, textureDir)
 	if err != nil {
 		return err
@@ -40,7 +40,7 @@ func saveAsGlb(doc *mqo.MQODocument, path, textureDir string) error {
 	return gltf.SaveBinary(gltfdoc, path)
 }
 
-func saveAsPmx(doc *mqo.MQODocument, path string) error {
+func saveAsPmx(doc *mqo.Document, path string) error {
 	result, err := converter.NewMQOToMMDConverter().Convert(doc)
 	if err != nil {
 		return err

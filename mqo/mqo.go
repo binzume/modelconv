@@ -18,7 +18,7 @@ type Vector4 struct {
 	W float32
 }
 
-type MQODocument struct {
+type Document struct {
 	Scene     *Scene
 	Materials []*Material
 	Objects   []*Object
@@ -26,15 +26,15 @@ type MQODocument struct {
 	Plugins []Plugin
 }
 
-func NewDocument() *MQODocument {
-	return &MQODocument{}
+func NewDocument() *Document {
+	return &Document{}
 }
 
-func (doc *MQODocument) GetPlugins() []Plugin {
+func (doc *Document) GetPlugins() []Plugin {
 	return doc.Plugins
 }
 
-func (doc *MQODocument) FixObjectID() {
+func (doc *Document) FixObjectID() {
 	for i, obj := range doc.Objects {
 		if obj.UID == 0 {
 			obj.UID = i + 1 // TODO: unique id
@@ -121,6 +121,6 @@ func (o *Object) GetVertexIndexByID(uid int) int {
 }
 
 type Plugin interface {
-	PreSerialize(mqo *MQODocument)
-	PostDeserialize(mqo *MQODocument)
+	PreSerialize(mqo *Document)
+	PostDeserialize(mqo *Document)
 }

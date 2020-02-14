@@ -25,7 +25,7 @@ func defaultOutputFile(input string) string {
 	return input + ".mqo"
 }
 
-func saveDocument(doc *mqo.MQODocument, output, srcDir, vrmConf string) error {
+func saveDocument(doc *mqo.Document, output, srcDir, vrmConf string) error {
 	ext := strings.ToLower(filepath.Ext(output))
 	if ext == ".glb" {
 		return saveAsGlb(doc, output, srcDir)

@@ -8,7 +8,7 @@ import (
 )
 
 // Write vrm file
-func Write(doc *VRMDocument, w io.Writer, path string) error {
+func Write(doc *Document, w io.Writer, path string) error {
 	e := gltf.NewEncoder(w).WithWriteHandler(&gltf.RelativeFileHandler{Dir: filepath.Dir(path)})
 	e.AsBinary = true
 	if err := e.Encode((*gltf.Document)(doc)); err != nil {

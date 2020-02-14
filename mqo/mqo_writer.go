@@ -16,7 +16,7 @@ func boolToInt(b bool) int {
 	return 0
 }
 
-func WriteMQO(mqo *MQODocument, ww io.Writer, path string) error {
+func WriteMQO(mqo *Document, ww io.Writer, path string) error {
 	w := bufio.NewWriter(ww)
 	w.WriteString("Metasequoia Document\n")
 	w.WriteString("Format Text Ver 1.1\n")

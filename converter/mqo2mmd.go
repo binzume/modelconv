@@ -13,7 +13,7 @@ func NewMQOToMMDConverter() *mqoToMMD {
 	return &mqoToMMD{Scale: 1.0 / 80}
 }
 
-func (c *mqoToMMD) Convert(doc *mqo.MQODocument) (*mmd.Document, error) {
+func (c *mqoToMMD) Convert(doc *mqo.Document) (*mmd.Document, error) {
 	dst := mmd.NewDocument()
 	bones := mqo.GetBonePlugin(doc).Bones()
 	for _, b := range bones {

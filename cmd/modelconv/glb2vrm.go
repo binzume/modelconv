@@ -17,7 +17,7 @@ func glb2vrm(input, output, confFile string) error {
 }
 
 func saveAsVRM(gltfDoc *gltf.Document, output, confFile string) error {
-	doc := (*vrm.VRMDocument)(gltfDoc)
+	doc := (*vrm.Document)(gltfDoc)
 	if _, err := os.Stat(confFile); err != nil {
 		log.Print("vrm config error: ", err)
 	} else {

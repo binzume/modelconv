@@ -121,9 +121,9 @@ func Unmarshal(data []byte) (interface{}, error) {
 	return &vrmext, nil
 }
 
-type VRMDocument gltf.Document
+type Document gltf.Document
 
-func (doc *VRMDocument) VRM() *VRMExtension {
+func (doc *Document) VRM() *VRMExtension {
 	if ext, ok := doc.Extensions[ExtensionName].(*VRMExtension); ok {
 		return ext
 	}
@@ -138,15 +138,15 @@ func (doc *VRMDocument) VRM() *VRMExtension {
 	return ext
 }
 
-func (doc *VRMDocument) Title() string {
+func (doc *Document) Title() string {
 	return doc.VRM().Meta.Title
 }
 
-func (doc *VRMDocument) Author() string {
+func (doc *Document) Author() string {
 	return doc.VRM().Meta.Author
 }
 
-func (doc *VRMDocument) IsExtentionUsed(extname string) bool {
+func (doc *Document) IsExtentionUsed(extname string) bool {
 	for _, ex := range doc.ExtensionsUsed {
 		if ex == extname {
 			return true
@@ -155,7 +155,7 @@ func (doc *VRMDocument) IsExtentionUsed(extname string) bool {
 	return false
 }
 
-func (doc *VRMDocument) ValidateBones() error {
+func (doc *Document) ValidateBones() error {
 	ext := doc.VRM()
 
 	bones := map[string]int{}

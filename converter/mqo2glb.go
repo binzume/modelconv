@@ -164,7 +164,7 @@ func (m *mqoToGltf) addTexture(textureDir string, texture string) uint32 {
 	return uint32(len(m.Textures)) - 1
 }
 
-func (m *mqoToGltf) Convert(doc *mqo.MQODocument, textureDir string) (*gltf.Document, error) {
+func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Document, error) {
 	scale := m.scale
 
 	objectByName := map[string]*mqo.Object{}
