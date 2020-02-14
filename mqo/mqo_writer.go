@@ -42,7 +42,7 @@ func WriteMQO(mqo *Document, ww io.Writer, path string) error {
 		}
 		fmt.Fprintf(w, " col(%v %v %v %v) dif(%v) amb(%v) emi(%v) spc(%v) power(%v)",
 			mat.Color.X, mat.Color.Y, mat.Color.Z, mat.Color.W,
-			mat.Diffuse, mat.Ambient, mat.Emmition, mat.Specular, mat.Power)
+			mat.Diffuse, mat.Ambient, mat.Emission, mat.Specular, mat.Power)
 		if mat.Texture != "" {
 			fmt.Fprintf(w, " tex(\"%v\")", strings.Replace(mat.Texture, "\\", "/", -1))
 		}
@@ -70,6 +70,8 @@ func WriteMQO(mqo *Document, ww io.Writer, path string) error {
 				if b, ok := v.(bool); ok {
 					typ = "bool"
 					v = boolToInt(b)
+				} else if _, ok := v.(float64); ok {
+					typ = "float"
 				}
 				fmt.Fprintf(w, "\t\t\t%v %v %v\n", name, typ, v)
 			}

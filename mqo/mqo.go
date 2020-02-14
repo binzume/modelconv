@@ -55,10 +55,12 @@ type Material struct {
 
 	Diffuse  float32
 	Ambient  float32
-	Emmition float32
+	Emission float32
 	Specular float32
 	Power    float32
 	Texture  string
+
+	EmissionColor *Vector3
 
 	DoubleSided bool
 
@@ -69,6 +71,27 @@ type MaterialEx2 struct {
 	ShaderType   string
 	ShaderName   string
 	ShaderParams map[string]interface{}
+}
+
+func (m *MaterialEx2) StringParam(name string) string {
+	if v, ok := m.ShaderParams[name].(string); ok {
+		return v
+	}
+	return ""
+}
+
+func (m *MaterialEx2) IntParam(name string) int {
+	if v, ok := m.ShaderParams[name].(int); ok {
+		return v
+	}
+	return 0
+}
+
+func (m *MaterialEx2) FloatParam(name string) float64 {
+	if v, ok := m.ShaderParams[name].(float64); ok {
+		return v
+	}
+	return 0
 }
 
 type Face struct {

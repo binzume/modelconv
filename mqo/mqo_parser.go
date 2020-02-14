@@ -151,15 +151,16 @@ func (p *Parser) readMaterial() *Material {
 	var m Material
 	m.Name = p.readStr()
 	p.procAttrs(map[string]func(){
-		"col":   func() { m.Color = Vector4{p.readFloat(), p.readFloat(), p.readFloat(), p.readFloat()} },
-		"dif":   func() { m.Diffuse = p.readFloat() },
-		"amb":   func() { m.Ambient = p.readFloat() },
-		"emi":   func() { m.Emmition = p.readFloat() },
-		"spc":   func() { m.Specular = p.readFloat() },
-		"power": func() { m.Power = p.readFloat() },
-		"tex":   func() { m.Texture = p.readStr() },
-		"dbls":  func() { m.DoubleSided = p.readInt() != 0 },
-		"uid":   func() { m.UID = p.readInt() },
+		"col":     func() { m.Color = Vector4{p.readFloat(), p.readFloat(), p.readFloat(), p.readFloat()} },
+		"emi_col": func() { m.EmissionColor = &Vector3{p.readFloat(), p.readFloat(), p.readFloat()} },
+		"dif":     func() { m.Diffuse = p.readFloat() },
+		"amb":     func() { m.Ambient = p.readFloat() },
+		"emi":     func() { m.Emission = p.readFloat() },
+		"spc":     func() { m.Specular = p.readFloat() },
+		"power":   func() { m.Power = p.readFloat() },
+		"tex":     func() { m.Texture = p.readStr() },
+		"dbls":    func() { m.DoubleSided = p.readInt() != 0 },
+		"uid":     func() { m.UID = p.readInt() },
 	}, fmt.Sprintf("Material %s\n", m.Name))
 	return &m
 }
@@ -183,6 +184,8 @@ func (p *Parser) readMaterialEx() (int, *MaterialEx2) {
 				v := p.s.TokenText()
 				if t == "int" {
 					ex.ShaderParams[n], _ = strconv.Atoi(v)
+				} else if t == "float" {
+					ex.ShaderParams[n], _ = strconv.ParseFloat(v, 32)
 				} else if t == "bool" {
 					ex.ShaderParams[n] = v == "true"
 				}

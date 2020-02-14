@@ -164,6 +164,47 @@ func (m *mqoToGltf) addTexture(textureDir string, texture string) uint32 {
 	return uint32(len(m.Textures)) - 1
 }
 
+func (m *mqoToGltf) convertMaterial(mat *mqo.Material) *gltf.Material {
+	mm := &gltf.Material{
+		Name: mat.Name,
+		PBRMetallicRoughness: &gltf.PBRMetallicRoughness{
+			BaseColorFactor: &gltf.RGBA{R: float64(mat.Color.X), G: float64(mat.Color.Y), B: float64(mat.Color.Z), A: float64(mat.Color.W)},
+		},
+		DoubleSided: mat.DoubleSided,
+	}
+	if mat.EmissionColor != nil {
+		mm.EmissiveFactor = [3]float64{float64(mat.EmissionColor.X), float64(mat.EmissionColor.Y), float64(mat.EmissionColor.Z)}
+	} else if mat.Emission > 0 {
+		mm.EmissiveFactor = [3]float64{float64(mat.Emission), float64(mat.Emission), float64(mat.Emission)}
+	}
+	if mat.Ex2 != nil && mat.Ex2.ShaderName == "glTF" {
+		metallicFactor := mat.Ex2.FloatParam("Metallic")
+		mm.PBRMetallicRoughness.MetallicFactor = &metallicFactor
+		roughnessFactor := mat.Ex2.FloatParam("Roughness")
+		mm.PBRMetallicRoughness.RoughnessFactor = &roughnessFactor
+		switch mat.Ex2.IntParam("AlphaMode") {
+		case 1:
+			mm.AlphaMode = gltf.AlphaOpaque
+		case 2:
+			mm.AlphaMode = gltf.AlphaMask
+			cutoff := mat.Ex2.FloatParam("AlphaCutoff")
+			mm.AlphaCutoff = &cutoff
+		case 3:
+			mm.AlphaMode = gltf.AlphaBlend
+		}
+		if metallicFactor == 0 && roughnessFactor == 1 {
+			var unlitMaterialExt = "KHR_materials_unlit"
+			mm.Extensions = map[string]interface{}{unlitMaterialExt: map[string]string{}}
+		}
+	} else if mat.Color.W != 1 {
+		mm.AlphaMode = gltf.AlphaBlend
+	} else if strings.HasSuffix(mat.Texture, ".tga") || strings.HasSuffix(mat.Texture, ".png") {
+		// TODO: check texture alpha.
+		mm.AlphaMode = gltf.AlphaMask
+	}
+	return mm
+}
+
 func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Document, error) {
 	scale := m.scale
 
@@ -266,14 +307,9 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 	}
 
 	textures := map[string]uint32{}
+	useUnlit := false
 	for _, mat := range doc.Materials {
-		mm := gltf.Material{
-			Name: mat.Name,
-			PBRMetallicRoughness: &gltf.PBRMetallicRoughness{
-				BaseColorFactor: &gltf.RGBA{R: float64(mat.Color.X), G: float64(mat.Color.Y), B: float64(mat.Color.Z), A: float64(mat.Color.W)},
-			},
-			DoubleSided: mat.DoubleSided,
-		}
+		mm := m.convertMaterial(mat)
 		if mat.Texture != "" {
 			if _, exist := textures[mat.Texture]; !exist {
 				textures[mat.Texture] = m.addTexture(textureDir, mat.Texture)
@@ -282,13 +318,13 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 				Index: textures[mat.Texture],
 			}
 		}
-		if mat.Color.W != 1 {
-			mm.AlphaMode = gltf.AlphaBlend
-		} else if strings.HasSuffix(mat.Texture, ".tga") || strings.HasSuffix(mat.Texture, ".png") {
-			// TODO: check texture alpha.
-			mm.AlphaMode = gltf.AlphaMask
+		if mm.Extensions["KHR_materials_unlit"] != nil {
+			useUnlit = true
 		}
-		m.Document.Materials = append(m.Document.Materials, &mm)
+		m.Document.Materials = append(m.Document.Materials, mm)
+	}
+	if useUnlit {
+		m.ExtensionsUsed = append(m.ExtensionsUsed, "KHR_materials_unlit")
 	}
 
 	if len(m.Document.Textures) > 0 {
