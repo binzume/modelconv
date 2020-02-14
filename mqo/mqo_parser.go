@@ -34,6 +34,21 @@ func NewParser(r io.Reader, fname string) *Parser {
 	}
 }
 
+type basckSlashReplacer struct{}
+
+func (*basckSlashReplacer) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
+	n := copy(dst, src)
+	for i := 0; i < n; i++ {
+		if dst[i] == '\\' {
+			dst[i] = '/'
+		}
+	}
+	return n, n, nil
+}
+
+func (*basckSlashReplacer) Reset() {
+}
+
 func (p *Parser) readFloat() float32 {
 	tok := p.s.Scan()
 	var s float32 = 1
@@ -93,10 +108,12 @@ func (p *Parser) procAttrs(handlers map[string]func(), name string) {
 }
 
 func (p *Parser) skipBlock() {
-	errCount := p.s.ErrorCount
+	p.s.Error = func(s *scanner.Scanner, msg string) {
+		s.ErrorCount--
+	}
+	defer func() { p.s.Error = nil }()
 	for tok := p.s.Scan(); tok != scanner.EOF; tok = p.s.Scan() {
 		if p.s.TokenText() == "}" {
-			p.s.ErrorCount = errCount
 			return
 		}
 		if p.s.TokenText() == "{" {
@@ -234,7 +251,7 @@ func (p *Parser) detectCodePage() {
 	n, _ := p.r.Read(buf)
 	p.r = io.MultiReader(bytes.NewReader(buf[:n]), p.r)
 	if matched, _ := regexp.Match(`CodePage\s+utf8`, buf[:n]); !matched {
-		p.r = transform.NewReader(p.r, japanese.ShiftJIS.NewDecoder())
+		p.r = transform.NewReader(p.r, transform.Chain(japanese.ShiftJIS.NewDecoder(), &basckSlashReplacer{}))
 	}
 }
 
