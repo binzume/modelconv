@@ -1,4 +1,4 @@
-package vrm
+package converter
 
 import (
 	"encoding/json"
@@ -6,18 +6,20 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/binzume/modelconv/vrm"
 )
 
 // TODO: move into converter package.
 type Config struct {
-	Metadata Metadata `json:"meta"`
+	Metadata vrm.Metadata `json:"meta"`
 
 	BoneMappings     []*BoneMapping              `json:"boneMappings"`
 	MorphMappings    []*MorphMapping             `json:"morphMappings"` // EXPERIMENTAL
 	MaterialSettings map[string]*MaterialSetting `json:"materialSettings"`
 
 	AnimationBoneGroups []*struct {
-		SecondaryAnimationBoneGroup
+		vrm.SecondaryAnimationBoneGroup
 		NodeNames []string `json:"nodeNames"`
 	} `json:"animationBoneGroups"`
 
@@ -25,7 +27,7 @@ type Config struct {
 }
 
 type BoneMapping struct {
-	Bone
+	vrm.Bone
 	NodeName string `json:"nodeName"`
 }
 
@@ -40,7 +42,7 @@ type MaterialSetting struct {
 	ForceUnlit bool `json:"forceUnlit"`
 }
 
-func applyConfigInternal(doc *Document, conf *Config, foundBones map[string]bool, nodeMap map[string]int) {
+func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]bool, nodeMap map[string]int) {
 	ext := doc.VRM()
 	for _, mapping := range conf.BoneMappings {
 		if foundBones[mapping.Bone.Bone] {
@@ -92,7 +94,7 @@ func applyConfigInternal(doc *Document, conf *Config, foundBones map[string]bool
 		}
 		if len(b.Bones) > 0 {
 			if ext.SecondaryAnimation == nil {
-				ext.SecondaryAnimation = &SecondaryAnimation{}
+				ext.SecondaryAnimation = &vrm.SecondaryAnimation{}
 			}
 			ext.SecondaryAnimation.BoneGroups = append(ext.SecondaryAnimation.BoneGroups, &b)
 		}
@@ -111,7 +113,7 @@ func applyConfigInternal(doc *Document, conf *Config, foundBones map[string]bool
 	for _, mapping := range conf.MorphMappings {
 		if mapping.TargetName != "" {
 			if t, ok := targets[mapping.TargetName]; ok {
-				m := &BlendShapeGroup{
+				m := &vrm.BlendShapeGroup{
 					Name:       mapping.Name,
 					PresetName: mapping.Name,
 					Binds: []interface{}{
@@ -128,7 +130,7 @@ func applyConfigInternal(doc *Document, conf *Config, foundBones map[string]bool
 		}
 
 		if id, ok := nodeMap[mapping.NodeName]; ok {
-			m := &BlendShapeGroup{
+			m := &vrm.BlendShapeGroup{
 				Name:       mapping.Name,
 				PresetName: mapping.Name,
 				Binds: []interface{}{
@@ -146,15 +148,15 @@ func applyConfigInternal(doc *Document, conf *Config, foundBones map[string]bool
 	}
 }
 
-func ApplyConfig(doc *Document, conf *Config) {
+func ApplyConfig(doc *vrm.Document, conf *Config) {
 	ext := doc.VRM()
-	ext.ExporterVersion = ExporterVersion
+	ext.ExporterVersion = vrm.ExporterVersion
 	ext.Meta = conf.Metadata
 
 	if len(ext.MaterialProperties) != len(doc.Materials) {
-		ext.MaterialProperties = []*MaterialProperty{}
+		ext.MaterialProperties = []*vrm.MaterialProperty{}
 		for _, mat := range doc.Materials {
-			var mp MaterialProperty
+			var mp vrm.MaterialProperty
 			mp.Name = mat.Name
 			mp.Shader = "VRM_USE_GLTFSHADER"
 			mp.RenderQueue = 2000
@@ -174,7 +176,7 @@ func ApplyConfig(doc *Document, conf *Config) {
 		nodeMap[node.Name] = id
 	}
 	foundBones := map[string]bool{}
-	ext.Humanoid.Bones = []*Bone{}
+	ext.Humanoid.Bones = []*vrm.Bone{}
 
 	if conf.Preset != "" {
 		execPath, err := os.Executable()
@@ -196,14 +198,14 @@ func ApplyConfig(doc *Document, conf *Config) {
 
 	applyConfigInternal(doc, conf, foundBones, nodeMap)
 
-	for _, name := range RequiredBones {
+	for _, name := range vrm.RequiredBones {
 		if id, ok := nodeMap[name]; ok && !foundBones[name] {
-			ext.Humanoid.Bones = append(ext.Humanoid.Bones, &Bone{Bone: name, Node: id, UseDefaultValues: true})
+			ext.Humanoid.Bones = append(ext.Humanoid.Bones, &vrm.Bone{Bone: name, Node: id, UseDefaultValues: true})
 		}
 	}
 }
 
-func (doc *Document) ApplyConfigFile(confpath string) error {
+func ApplyVRMConfigFile(doc *vrm.Document, confpath string) error {
 	data, err := ioutil.ReadFile(confpath)
 	if err != nil {
 		return err

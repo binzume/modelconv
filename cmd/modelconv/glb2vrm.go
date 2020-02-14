@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/binzume/modelconv/converter"
 	"github.com/binzume/modelconv/vrm"
 	"github.com/qmuntal/gltf"
 )
@@ -21,12 +22,12 @@ func saveAsVRM(gltfDoc *gltf.Document, output, confFile string) error {
 	if _, err := os.Stat(confFile); err != nil {
 		log.Print("vrm config error: ", err)
 	} else {
-		if err = doc.ApplyConfigFile(confFile); err != nil {
+		if err = converter.ApplyVRMConfigFile(doc, confFile); err != nil {
 			return err
 		}
 	}
-	log.Print("Title: ", doc.Title())
-	log.Print("Author: ", doc.Author())
+	log.Print("Title: ", doc.VRM().Title())
+	log.Print("Author: ", doc.VRM().Author())
 	doc.FixJointComponentType()
 	doc.FixJointMatrix()
 	if err := doc.ValidateBones(); err != nil {

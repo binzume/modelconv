@@ -3,15 +3,8 @@ package vrm
 // https://vrm.dev/
 // https://github.com/vrm-c/vrm-specification/blob/master/specification/0.0/README.ja.md
 
-import (
-	"encoding/json"
-	"fmt"
-
-	"github.com/qmuntal/gltf"
-)
-
 // ExporterVersion
-var ExporterVersion = "modelconv-v0.0.1"
+var ExporterVersion = "modelconv-v0.2"
 
 // RequiredBones for Humanoid
 var RequiredBones = []string{
@@ -22,13 +15,7 @@ var RequiredBones = []string{
 	"rightUpperLeg", "rightLowerLeg", "rightFoot",
 }
 
-const ExtensionName = "VRM"
-
-func init() {
-	gltf.RegisterExtension(ExtensionName, Unmarshal)
-}
-
-type VRMExtension struct {
+type VRM struct {
 	Meta     Metadata `json:"meta"`
 	Humanoid Humanoid `json:"humanoid"`
 
@@ -40,8 +27,30 @@ type VRMExtension struct {
 	ExporterVersion string `json:"exporterVersion"`
 }
 
-func NewVRMExtension() *VRMExtension {
-	return &VRMExtension{MaterialProperties: []*MaterialProperty{}}
+func NewVRM() *VRM {
+	return &VRM{MaterialProperties: []*MaterialProperty{}}
+}
+
+func (v *VRM) Title() string {
+	return v.Meta.Title
+}
+
+func (v *VRM) Author() string {
+	return v.Meta.Author
+}
+
+func (v *VRM) CheckRequiredBones() []string {
+	bones := map[string]int{}
+	for _, bone := range v.Humanoid.Bones {
+		bones[bone.Bone] = bone.Node
+	}
+	var errorBones []string
+	for _, name := range RequiredBones {
+		if _, ok := bones[name]; !ok {
+			errorBones = append(errorBones, name)
+		}
+	}
+	return errorBones
 }
 
 type Metadata struct {
@@ -111,66 +120,4 @@ type MaterialProperty struct {
 	TextureProperties map[string]interface{} `json:"textureProperties"`
 	KeywordMap        map[string]interface{} `json:"keywordMap"`
 	TagMap            map[string]interface{} `json:"tagMap"`
-}
-
-func Unmarshal(data []byte) (interface{}, error) {
-	var vrmext VRMExtension
-	if err := json.Unmarshal([]byte(data), &vrmext); err != nil {
-		return nil, err
-	}
-	return &vrmext, nil
-}
-
-type Document gltf.Document
-
-func (doc *Document) VRM() *VRMExtension {
-	if ext, ok := doc.Extensions[ExtensionName].(*VRMExtension); ok {
-		return ext
-	}
-	ext := NewVRMExtension()
-	if doc.Extensions == nil {
-		doc.Extensions = gltf.Extensions{}
-	}
-	doc.Extensions[ExtensionName] = ext
-	if !doc.IsExtentionUsed(ExtensionName) {
-		doc.ExtensionsUsed = append(doc.ExtensionsUsed, ExtensionName)
-	}
-	return ext
-}
-
-func (doc *Document) Title() string {
-	return doc.VRM().Meta.Title
-}
-
-func (doc *Document) Author() string {
-	return doc.VRM().Meta.Author
-}
-
-func (doc *Document) IsExtentionUsed(extname string) bool {
-	for _, ex := range doc.ExtensionsUsed {
-		if ex == extname {
-			return true
-		}
-	}
-	return false
-}
-
-func (doc *Document) ValidateBones() error {
-	ext := doc.VRM()
-
-	bones := map[string]int{}
-	for _, bone := range ext.Humanoid.Bones {
-		bones[bone.Bone] = bone.Node
-	}
-
-	boneErrors := []string{}
-	for _, name := range RequiredBones {
-		if _, ok := bones[name]; !ok {
-			boneErrors = append(boneErrors, fmt.Sprintf("%v not found.", name))
-		}
-	}
-	if len(boneErrors) > 0 {
-		return fmt.Errorf("Bone error: %v", boneErrors)
-	}
-	return nil
 }
