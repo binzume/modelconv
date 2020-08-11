@@ -25,12 +25,13 @@ func defaultOutputFile(input string) string {
 	return input + ".mqo"
 }
 
-func saveDocument(doc *mqo.Document, output, srcDir, vrmConf string) error {
+func saveDocument(doc *mqo.Document, output, srcDir, vrmConf string, forceUnlit bool) error {
 	ext := strings.ToLower(filepath.Ext(output))
 	if ext == ".glb" {
 		return saveAsGlb(doc, output, srcDir)
 	} else if ext == ".vrm" {
-		gltfdoc, err := converter.NewMQOToGLTFConverter().Convert(doc, srcDir)
+		options := &converter.MQOToGLTFOption{ForceUnlit: forceUnlit}
+		gltfdoc, err := converter.NewMQOToGLTFConverter(options).Convert(doc, srcDir)
 		if err != nil {
 			return err
 		}
@@ -54,6 +55,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 	rot180 := flag.Bool("rot180", false, "rotate 180 degrees around Y (.mqo)")
+	forceUnlit := flag.Bool("gltfunlit", false, "unlit all materials")
 	scale := flag.Float64("scale", 0, "0:auto")
 	vrmconf := flag.String("vrmconfig", "", "config file for VRM")
 	flag.Parse()
@@ -124,7 +126,7 @@ func main() {
 	}
 
 	log.Print("out: ", output)
-	if err = saveDocument(doc, output, filepath.Dir(input), confFile); err != nil {
+	if err = saveDocument(doc, output, filepath.Dir(input), confFile, *forceUnlit); err != nil {
 		log.Fatal(err)
 	}
 }

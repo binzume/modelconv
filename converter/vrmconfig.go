@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/binzume/modelconv/vrm"
+	"github.com/qmuntal/gltf"
 )
 
 // TODO: move into converter package.
@@ -39,7 +40,8 @@ type MorphMapping struct {
 }
 
 type MaterialSetting struct {
-	ForceUnlit bool `json:"forceUnlit"`
+	ForceUnlit bool   `json:"forceUnlit"`
+	AlphaMode  string `json:"alphaMode"`
 }
 
 func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]bool, nodeMap map[string]int) {
@@ -79,6 +81,11 @@ func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]
 					doc.ExtensionsUsed = append(doc.ExtensionsUsed, unlitMaterialExt)
 				}
 				mat.Extensions = map[string]interface{}{unlitMaterialExt: map[string]string{}}
+			}
+			if setting.AlphaMode == "blend" {
+				mat.AlphaMode = gltf.AlphaBlend
+			} else if setting.AlphaMode == "mask" {
+				mat.AlphaMode = gltf.AlphaMask
 			}
 		}
 	}

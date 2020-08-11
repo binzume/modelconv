@@ -33,7 +33,7 @@ func loadDocument(input string) (*mqo.Document, error) {
 }
 
 func saveAsGlb(doc *mqo.Document, path, textureDir string) error {
-	gltfdoc, err := converter.NewMQOToGLTFConverter().Convert(doc, textureDir)
+	gltfdoc, err := converter.NewMQOToGLTFConverter(nil).Convert(doc, textureDir)
 	if err != nil {
 		return err
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/qmuntal/gltf/modeler"
 
 	"image"
+	"image/color"
 	"image/png"
 
 	_ "image/gif"
@@ -22,17 +23,26 @@ import (
 	_ "golang.org/x/image/bmp"
 )
 
+type MQOToGLTFOption struct {
+	ForceUnlit bool
+}
+
 type mqoToGltf struct {
 	*modeler.Modeler
+	options     *MQOToGLTFOption
 	scale       float32
 	convertBone bool
 }
 
-func NewMQOToGLTFConverter() *mqoToGltf {
+func NewMQOToGLTFConverter(options *MQOToGLTFOption) *mqoToGltf {
+	if options == nil {
+		options = &MQOToGLTFOption{}
+	}
 	return &mqoToGltf{
 		Modeler:     modeler.NewModeler(),
 		scale:       0.001,
 		convertBone: true,
+		options:     options,
 	}
 }
 
@@ -127,6 +137,28 @@ func (m *mqoToGltf) addSkin(joints []uint32, jointToBone map[uint32]*mqo.Bone) u
 	return uint32(len(m.Skins) - 1)
 }
 
+func (m *mqoToGltf) hasAlpha(textureDir string, texture string) bool {
+	if strings.HasSuffix(texture, ".jpg") || strings.HasSuffix(texture, ".bmp") {
+		return false
+	}
+	f, err := os.Open(filepath.Join(textureDir, texture))
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return false
+	}
+	switch img.ColorModel() {
+	case color.YCbCrModel, color.CMYKModel:
+		return false
+	case color.RGBAModel:
+		return !img.(*image.RGBA).Opaque()
+	}
+	return false
+}
+
 func (m *mqoToGltf) addTexture(textureDir string, texture string) uint32 {
 	f, err := os.Open(filepath.Join(textureDir, texture))
 	if err != nil {
@@ -164,7 +196,7 @@ func (m *mqoToGltf) addTexture(textureDir string, texture string) uint32 {
 	return uint32(len(m.Textures)) - 1
 }
 
-func (m *mqoToGltf) convertMaterial(mat *mqo.Material) *gltf.Material {
+func (m *mqoToGltf) convertMaterial(textureDir string, mat *mqo.Material) *gltf.Material {
 	mm := &gltf.Material{
 		Name: mat.Name,
 		PBRMetallicRoughness: &gltf.PBRMetallicRoughness{
@@ -192,15 +224,14 @@ func (m *mqoToGltf) convertMaterial(mat *mqo.Material) *gltf.Material {
 		case 3:
 			mm.AlphaMode = gltf.AlphaBlend
 		}
-		if metallicFactor == 0 && roughnessFactor == 1 {
+		if m.options.ForceUnlit || metallicFactor == 0 && roughnessFactor == 1 {
 			var unlitMaterialExt = "KHR_materials_unlit"
 			mm.Extensions = map[string]interface{}{unlitMaterialExt: map[string]string{}}
 		}
 	} else if mat.Color.W != 1 {
 		mm.AlphaMode = gltf.AlphaBlend
-	} else if strings.HasSuffix(mat.Texture, ".tga") || strings.HasSuffix(mat.Texture, ".png") {
-		// TODO: check texture alpha.
-		mm.AlphaMode = gltf.AlphaMask
+	} else if m.hasAlpha(textureDir, mat.Texture) {
+		mm.AlphaMode = gltf.AlphaBlend
 	}
 	return mm
 }
@@ -249,6 +280,9 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		indices := map[int][]uint32{}
 		for _, f := range obj.Faces {
 			indices[f.Material] = append(indices[f.Material], uint32(f.Verts[2]), uint32(f.Verts[1]), uint32(f.Verts[0]))
+			if len(f.UVs) == 0 {
+				continue
+			}
 			for i, index := range f.Verts {
 				texcood[index] = [2]float32{f.UVs[i].X, f.UVs[i].Y}
 			}
@@ -309,7 +343,7 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 	textures := map[string]uint32{}
 	useUnlit := false
 	for _, mat := range doc.Materials {
-		mm := m.convertMaterial(mat)
+		mm := m.convertMaterial(textureDir, mat)
 		if mat.Texture != "" {
 			if _, exist := textures[mat.Texture]; !exist {
 				textures[mat.Texture] = m.addTexture(textureDir, mat.Texture)
