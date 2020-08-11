@@ -219,7 +219,7 @@ func (m *mqoToGltf) convertMaterial(textureDir string, mat *mqo.Material) *gltf.
 			mm.AlphaMode = gltf.AlphaOpaque
 		case 2:
 			mm.AlphaMode = gltf.AlphaMask
-			cutoff := mat.Ex2.FloatParam("AlphaCutoff")
+			cutoff := mat.Ex2.FloatParam("AlphaCutOff")
 			mm.AlphaCutoff = &cutoff
 		case 3:
 			mm.AlphaMode = gltf.AlphaBlend
@@ -272,31 +272,63 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 
 	for i, obj := range targetObjects {
 		var vertexes [][3]float32
-		for _, v := range obj.Vertexes {
+		var srcIndices []int
+		for i, v := range obj.Vertexes {
 			vertexes = append(vertexes, [3]float32{v.X * scale, v.Y * scale, v.Z * scale})
+			srcIndices = append(srcIndices, i)
 		}
 
-		texcood := make([][2]float32, len(vertexes))
+		joints, joints0, weights0 := m.getWeights(bones, obj, len(vertexes), boneIDToJoint)
 		indices := map[int][]uint32{}
+		texcood0 := make([][2]float32, len(vertexes))
+		type uvkey struct {
+			i int
+			u float32
+			v float32
+		}
+		indicesMap := map[uvkey]int{}
+		useTexcood0 := false
 		for _, f := range obj.Faces {
-			indices[f.Material] = append(indices[f.Material], uint32(f.Verts[2]), uint32(f.Verts[1]), uint32(f.Verts[0]))
-			if len(f.UVs) == 0 {
+			if len(f.Verts) < 3 {
 				continue
 			}
-			for i, index := range f.Verts {
-				texcood[index] = [2]float32{f.UVs[i].X, f.UVs[i].Y}
+			verts := make([]int, len(f.Verts))
+			copy(verts, f.Verts)
+			if len(f.UVs) > 0 {
+				useTexcood0 = true
+				for i, index := range verts {
+					if (texcood0[index][0] != 0 || texcood0[index][1] != 0) && (texcood0[index][0] != f.UVs[i].X || texcood0[index][1] != f.UVs[i].Y) {
+						if ii, ok := indicesMap[uvkey{index, f.UVs[i].X, f.UVs[i].Y}]; ok {
+							verts[i] = ii
+						} else {
+							// copy attrs.
+							verts[i] = len(vertexes)
+							srcIndices = append(srcIndices, index)
+							vertexes = append(vertexes, vertexes[index])
+							texcood0 = append(texcood0, texcood0[index])
+							joints0 = append(joints0, joints0[index])
+							weights0 = append(weights0, weights0[index])
+							indicesMap[uvkey{index, f.UVs[i].X, f.UVs[i].Y}] = verts[i]
+						}
+					}
+					texcood0[verts[i]] = [2]float32{f.UVs[i].X, f.UVs[i].Y}
+				}
+			}
+			// convex polygon only. TODO: triangulation.
+			for n := 0; n < len(verts)-2; n++ {
+				indices[f.Material] = append(indices[f.Material], uint32(verts[0]), uint32(verts[n+2]), uint32(verts[n+1]))
 			}
 		}
 
 		attributes := map[string]uint32{
-			"POSITION":   m.AddPosition(0, vertexes),
-			"TEXCOORD_0": m.AddTextureCoord(0, texcood),
+			"POSITION": m.AddPosition(0, vertexes),
 		}
-
-		joints, j, w := m.getWeights(bones, obj, len(vertexes), boneIDToJoint)
+		if useTexcood0 {
+			attributes["TEXCOORD_0"] = m.AddTextureCoord(0, texcood0)
+		}
 		if len(joints) > 0 {
-			attributes["JOINTS_0"] = m.AddJoints(0, j)
-			attributes["WEIGHTS_0"] = m.AddWeights(0, w)
+			attributes["JOINTS_0"] = m.AddJoints(0, joints0)
+			attributes["WEIGHTS_0"] = m.AddWeights(0, weights0)
 		}
 
 		var targets []map[string]uint32
@@ -304,7 +336,8 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		if morph, ok := morphBases[obj.Name]; ok {
 			for _, t := range morph.Target {
 				var mv [][3]float32
-				for i, v := range objectByName[t.Name].Vertexes {
+				for _, i := range srcIndices {
+					v := objectByName[t.Name].Vertexes[i]
 					mv = append(mv, [3]float32{v.X*scale - vertexes[i][0], v.Y*scale - vertexes[i][1], v.Z*scale - vertexes[i][2]})
 				}
 				targets = append(targets, map[string]uint32{
