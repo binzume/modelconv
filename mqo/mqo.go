@@ -42,6 +42,15 @@ func (doc *Document) FixObjectID() {
 	}
 }
 
+func (doc *Document) GetObjectByID(id int) *Object {
+	for _, obj := range doc.Objects {
+		if obj.UID == id {
+			return obj
+		}
+	}
+	return nil
+}
+
 type Scene struct {
 	CameraPos    Vector3
 	CameraLookAt Vector3

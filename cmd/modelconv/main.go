@@ -28,7 +28,8 @@ func defaultOutputFile(input string) string {
 func saveDocument(doc *mqo.Document, output, srcDir, vrmConf string, forceUnlit bool) error {
 	ext := strings.ToLower(filepath.Ext(output))
 	if ext == ".glb" {
-		return saveAsGlb(doc, output, srcDir)
+		options := &converter.MQOToGLTFOption{ForceUnlit: forceUnlit}
+		return saveAsGlb(doc, output, srcDir, options)
 	} else if ext == ".vrm" {
 		options := &converter.MQOToGLTFOption{ForceUnlit: forceUnlit}
 		gltfdoc, err := converter.NewMQOToGLTFConverter(options).Convert(doc, srcDir)
@@ -55,6 +56,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 	rot180 := flag.Bool("rot180", false, "rotate 180 degrees around Y (.mqo)")
+	autoTpose := flag.String("autotpose", "", "Arm bone names(.mqo)")
 	forceUnlit := flag.Bool("gltfunlit", false, "unlit all materials")
 	scale := flag.Float64("scale", 0, "0:auto")
 	vrmconf := flag.String("vrmconfig", "", "config file for VRM")
@@ -123,6 +125,16 @@ func main() {
 			v.Y *= s
 			v.Z *= s
 		})
+	}
+
+	if *autoTpose != "" {
+		for _, boneName := range strings.Split(*autoTpose, ",") {
+			for _, b := range mqo.GetBonePlugin(doc).Bones() {
+				if b.Name == boneName {
+					doc.BoneAdjustX(b)
+				}
+			}
+		}
 	}
 
 	log.Print("out: ", output)

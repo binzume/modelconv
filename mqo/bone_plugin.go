@@ -3,6 +3,8 @@ package mqo
 import (
 	"encoding/xml"
 	"fmt"
+	"log"
+	"math"
 )
 
 type BonePlugin struct {
@@ -210,5 +212,61 @@ func (p *BonePlugin) PostDeserialize(mqo *Document) {
 func (p *BonePlugin) Transform(transform func(v *Vector3)) {
 	for _, b := range p.BoneSet2.Bones {
 		transform(&b.Pos)
+	}
+}
+
+// for T-Pose adjustment
+// TODO: more generic function.
+func (doc *Document) BoneAdjustX(baseBone *Bone) {
+	bones := GetBonePlugin(doc).Bones()
+	targetBones := map[*Bone]bool{baseBone: true}
+	boneByID := map[int]*Bone{}
+	var boneVec Vector3
+	for _, b := range bones {
+		boneByID[b.ID] = b
+		if b.Parent == baseBone.ID {
+			boneVec = Vector3{X: b.Pos.X - baseBone.Pos.X, Y: b.Pos.Y - baseBone.Pos.Y, Z: b.Pos.Z - baseBone.Pos.Z}
+		}
+	}
+
+	bd := math.Atan2(float64(boneVec.Y), float64(boneVec.X))
+	log.Println(baseBone.Name, boneVec, bd/math.Pi*180)
+	var rot float64
+	if math.Abs(bd) < math.Pi/2 {
+		rot = -bd
+	} else {
+		rot = math.Pi - bd
+	}
+
+	// broken if bone.Parent > bone.ID ...
+	for _, b := range bones {
+		if b.Parent > 0 && targetBones[boneByID[b.Parent]] && !targetBones[b] {
+			targetBones[b] = true
+		}
+	}
+
+	verts := map[*Vector3]float32{}
+	for b := range targetBones {
+		verts[&b.Pos] = 1
+		for _, bw := range b.Weights {
+			obj := doc.GetObjectByID(bw.ObjectID)
+			if obj == nil {
+				continue
+			}
+			for _, vw := range bw.Vertexes {
+				w := vw.Weight / 100
+				v := obj.Vertexes[obj.GetVertexIndexByID(vw.VertexID)]
+				verts[v] = verts[v] + w
+			}
+		}
+	}
+
+	pos := baseBone.Pos
+	for v, w := range verts {
+		dv := &Vector3{X: v.X - pos.X, Y: v.Y - pos.Y, Z: v.Z - pos.Z}
+		x := dv.X*float32(math.Cos(rot)) - dv.Y*float32(math.Sin(rot))
+		y := dv.X*float32(math.Sin(rot)) + dv.Y*float32(math.Cos(rot))
+		v.X = (x+pos.X)*w + v.X*(1-w)
+		v.Y = (y+pos.Y)*w + v.Y*(1-w)
 	}
 }

@@ -32,8 +32,8 @@ func loadDocument(input string) (*mqo.Document, error) {
 	return converter.NewMMDToMQOConverter().Convert(pmx), nil
 }
 
-func saveAsGlb(doc *mqo.Document, path, textureDir string) error {
-	gltfdoc, err := converter.NewMQOToGLTFConverter(nil).Convert(doc, textureDir)
+func saveAsGlb(doc *mqo.Document, path, textureDir string, options *converter.MQOToGLTFOption) error {
+	gltfdoc, err := converter.NewMQOToGLTFConverter(options).Convert(doc, textureDir)
 	if err != nil {
 		return err
 	}
