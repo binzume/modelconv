@@ -29,9 +29,10 @@ type MQOToGLTFOption struct {
 
 type mqoToGltf struct {
 	*modeler.Modeler
-	options     *MQOToGLTFOption
-	scale       float32
-	convertBone bool
+	options      *MQOToGLTFOption
+	scale        float32
+	convertBone  bool
+	convertMorph bool
 }
 
 func NewMQOToGLTFConverter(options *MQOToGLTFOption) *mqoToGltf {
@@ -39,10 +40,11 @@ func NewMQOToGLTFConverter(options *MQOToGLTFOption) *mqoToGltf {
 		options = &MQOToGLTFOption{}
 	}
 	return &mqoToGltf{
-		Modeler:     modeler.NewModeler(),
-		scale:       0.001,
-		convertBone: true,
-		options:     options,
+		Modeler:      modeler.NewModeler(),
+		scale:        0.001,
+		convertBone:  true,
+		convertMorph: true,
+		options:      options,
 	}
 }
 
@@ -197,10 +199,15 @@ func (m *mqoToGltf) addTexture(textureDir string, texture string) uint32 {
 }
 
 func (m *mqoToGltf) convertMaterial(textureDir string, mat *mqo.Material) *gltf.Material {
+	var unlitMaterialExt = "KHR_materials_unlit"
+	var rf = 0.4
+	var mf = float64(mat.Specular)
 	mm := &gltf.Material{
 		Name: mat.Name,
 		PBRMetallicRoughness: &gltf.PBRMetallicRoughness{
 			BaseColorFactor: &gltf.RGBA{R: float64(mat.Color.X), G: float64(mat.Color.Y), B: float64(mat.Color.Z), A: float64(mat.Color.W)},
+			RoughnessFactor: &rf,
+			MetallicFactor:  &mf,
 		},
 		DoubleSided: mat.DoubleSided,
 	}
@@ -224,8 +231,7 @@ func (m *mqoToGltf) convertMaterial(textureDir string, mat *mqo.Material) *gltf.
 		case 3:
 			mm.AlphaMode = gltf.AlphaBlend
 		}
-		if m.options.ForceUnlit || metallicFactor == 0 && roughnessFactor == 1 {
-			var unlitMaterialExt = "KHR_materials_unlit"
+		if metallicFactor == 0 && roughnessFactor == 1 {
 			mm.Extensions = map[string]interface{}{unlitMaterialExt: map[string]string{}}
 		}
 	} else if mat.Color.W != 1 {
@@ -233,12 +239,110 @@ func (m *mqoToGltf) convertMaterial(textureDir string, mat *mqo.Material) *gltf.
 	} else if m.hasAlpha(textureDir, mat.Texture) {
 		mm.AlphaMode = gltf.AlphaBlend
 	}
+	if m.options.ForceUnlit {
+		mm.Extensions = map[string]interface{}{unlitMaterialExt: map[string]string{}}
+	}
 	return mm
 }
 
-func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Document, error) {
+func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJoint map[int]uint32,
+	morphObjs []*mqo.Object) (*gltf.Mesh, []uint32) {
 	scale := m.scale
 
+	var vertexes [][3]float32
+	var srcIndices []int
+	for i, v := range obj.Vertexes {
+		vertexes = append(vertexes, [3]float32{v.X * scale, v.Y * scale, v.Z * scale})
+		srcIndices = append(srcIndices, i)
+	}
+
+	joints, joints0, weights0 := m.getWeights(bones, obj, len(vertexes), boneIDToJoint)
+	indices := map[int][]uint32{}
+	texcood0 := make([][2]float32, len(vertexes))
+	type uvkey struct {
+		i int
+		u float32
+		v float32
+	}
+	indicesMap := map[uvkey]int{}
+	useTexcood0 := false
+	for _, f := range obj.Faces {
+		if len(f.Verts) < 3 {
+			continue
+		}
+		verts := make([]int, len(f.Verts))
+		copy(verts, f.Verts)
+		if len(f.UVs) > 0 {
+			useTexcood0 = true
+			for i, index := range verts {
+				if (texcood0[index][0] != 0 || texcood0[index][1] != 0) && (texcood0[index][0] != f.UVs[i].X || texcood0[index][1] != f.UVs[i].Y) {
+					if ii, ok := indicesMap[uvkey{index, f.UVs[i].X, f.UVs[i].Y}]; ok {
+						verts[i] = ii
+					} else {
+						// copy attrs.
+						verts[i] = len(vertexes)
+						srcIndices = append(srcIndices, index)
+						vertexes = append(vertexes, vertexes[index])
+						texcood0 = append(texcood0, texcood0[index])
+						joints0 = append(joints0, joints0[index])
+						weights0 = append(weights0, weights0[index])
+						indicesMap[uvkey{index, f.UVs[i].X, f.UVs[i].Y}] = verts[i]
+					}
+				}
+				texcood0[verts[i]] = [2]float32{f.UVs[i].X, f.UVs[i].Y}
+			}
+		}
+		// convex polygon only. TODO: triangulation.
+		for n := 0; n < len(verts)-2; n++ {
+			indices[f.Material] = append(indices[f.Material], uint32(verts[0]), uint32(verts[n+2]), uint32(verts[n+1]))
+		}
+	}
+
+	attributes := map[string]uint32{
+		"POSITION": m.AddPosition(0, vertexes),
+	}
+	if useTexcood0 {
+		attributes["TEXCOORD_0"] = m.AddTextureCoord(0, texcood0)
+	}
+	if len(joints) > 0 {
+		attributes["JOINTS_0"] = m.AddJoints(0, joints0)
+		attributes["WEIGHTS_0"] = m.AddWeights(0, weights0)
+	}
+
+	// morph
+	var targets []map[string]uint32
+	var targetNames []string
+	for _, morphObj := range morphObjs {
+		var mv [][3]float32
+		for _, i := range srcIndices {
+			v := morphObj.Vertexes[i]
+			mv = append(mv, [3]float32{v.X*scale - vertexes[i][0], v.Y*scale - vertexes[i][1], v.Z*scale - vertexes[i][2]})
+		}
+		targets = append(targets, map[string]uint32{
+			"POSITION": m.AddPosition(0, mv),
+		})
+		targetNames = append(targetNames, morphObj.Name)
+	}
+
+	// make primitive for each materials
+	var primitives []*gltf.Primitive
+	for mat, ind := range indices {
+		indicesAccessor := m.AddIndices(0, ind)
+		primitives = append(primitives, &gltf.Primitive{
+			Indices:    gltf.Index(indicesAccessor),
+			Attributes: attributes,
+			Material:   gltf.Index(uint32(mat)),
+			Targets:    targets,
+		})
+	}
+	return &gltf.Mesh{
+		Name:       obj.Name,
+		Primitives: primitives,
+		Extras:     map[string]interface{}{"targetNames": targetNames},
+	}, joints
+}
+
+func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Document, error) {
 	objectByName := map[string]*mqo.Object{}
 	morphTargets := map[string]*mqo.Object{}
 	morphBases := map[string]*mqo.MorphTargetList{}
@@ -265,112 +369,31 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 	m.Nodes = make([]*gltf.Node, len(targetObjects))
 
 	var bones []*mqo.Bone
+	var boneIDToJoint map[int]uint32
+	var jointToBone map[uint32]*mqo.Bone
 	if m.convertBone {
 		bones = mqo.GetBonePlugin(doc).Bones()
+		boneIDToJoint, jointToBone = m.addBoneNodes(bones)
 	}
-	boneIDToJoint, jointToBone := m.addBoneNodes(bones)
 
 	for i, obj := range targetObjects {
-		var vertexes [][3]float32
-		var srcIndices []int
-		for i, v := range obj.Vertexes {
-			vertexes = append(vertexes, [3]float32{v.X * scale, v.Y * scale, v.Z * scale})
-			srcIndices = append(srcIndices, i)
-		}
-
-		joints, joints0, weights0 := m.getWeights(bones, obj, len(vertexes), boneIDToJoint)
-		indices := map[int][]uint32{}
-		texcood0 := make([][2]float32, len(vertexes))
-		type uvkey struct {
-			i int
-			u float32
-			v float32
-		}
-		indicesMap := map[uvkey]int{}
-		useTexcood0 := false
-		for _, f := range obj.Faces {
-			if len(f.Verts) < 3 {
-				continue
-			}
-			verts := make([]int, len(f.Verts))
-			copy(verts, f.Verts)
-			if len(f.UVs) > 0 {
-				useTexcood0 = true
-				for i, index := range verts {
-					if (texcood0[index][0] != 0 || texcood0[index][1] != 0) && (texcood0[index][0] != f.UVs[i].X || texcood0[index][1] != f.UVs[i].Y) {
-						if ii, ok := indicesMap[uvkey{index, f.UVs[i].X, f.UVs[i].Y}]; ok {
-							verts[i] = ii
-						} else {
-							// copy attrs.
-							verts[i] = len(vertexes)
-							srcIndices = append(srcIndices, index)
-							vertexes = append(vertexes, vertexes[index])
-							texcood0 = append(texcood0, texcood0[index])
-							joints0 = append(joints0, joints0[index])
-							weights0 = append(weights0, weights0[index])
-							indicesMap[uvkey{index, f.UVs[i].X, f.UVs[i].Y}] = verts[i]
-						}
-					}
-					texcood0[verts[i]] = [2]float32{f.UVs[i].X, f.UVs[i].Y}
+		var morphTargets []*mqo.Object
+		if m.convertMorph {
+			if morph, ok := morphBases[obj.Name]; ok {
+				for _, t := range morph.Target {
+					morphTargets = append(morphTargets, objectByName[t.Name])
 				}
 			}
-			// convex polygon only. TODO: triangulation.
-			for n := 0; n < len(verts)-2; n++ {
-				indices[f.Material] = append(indices[f.Material], uint32(verts[0]), uint32(verts[n+2]), uint32(verts[n+1]))
-			}
 		}
-
-		attributes := map[string]uint32{
-			"POSITION": m.AddPosition(0, vertexes),
-		}
-		if useTexcood0 {
-			attributes["TEXCOORD_0"] = m.AddTextureCoord(0, texcood0)
-		}
-		if len(joints) > 0 {
-			attributes["JOINTS_0"] = m.AddJoints(0, joints0)
-			attributes["WEIGHTS_0"] = m.AddWeights(0, weights0)
-		}
-
-		var targets []map[string]uint32
-		var targetNames []string
-		if morph, ok := morphBases[obj.Name]; ok {
-			for _, t := range morph.Target {
-				var mv [][3]float32
-				for _, i := range srcIndices {
-					v := objectByName[t.Name].Vertexes[i]
-					mv = append(mv, [3]float32{v.X*scale - vertexes[i][0], v.Y*scale - vertexes[i][1], v.Z*scale - vertexes[i][2]})
-				}
-				targets = append(targets, map[string]uint32{
-					"POSITION": m.AddPosition(0, mv),
-				})
-				targetNames = append(targetNames, t.Name)
-			}
-		}
-
-		// make primitive for each materials
-		var primitives []*gltf.Primitive
-		for mat, ind := range indices {
-			indicesAccessor := m.AddIndices(0, ind)
-			primitives = append(primitives, &gltf.Primitive{
-				Indices:    gltf.Index(indicesAccessor),
-				Attributes: attributes,
-				Material:   gltf.Index(uint32(mat)),
-				Targets:    targets,
-			})
-		}
-		mesh := &gltf.Mesh{
-			Name:       obj.Name,
-			Primitives: primitives,
-			Extras:     map[string]interface{}{"targetNames": targetNames},
-		}
+		mesh, joints := m.ConvertObject(obj, bones, boneIDToJoint, morphTargets)
 		meshIndex := uint32(len(m.Document.Meshes))
 		m.Document.Meshes = append(m.Document.Meshes, mesh)
-		m.Nodes[i] = &gltf.Node{Name: obj.Name, Mesh: gltf.Index(meshIndex)}
-		m.Scenes[0].Nodes = append(m.Scenes[0].Nodes, uint32(i))
-
+		node := &gltf.Node{Name: obj.Name, Mesh: gltf.Index(meshIndex)}
 		if len(joints) > 0 {
-			m.Nodes[i].Skin = gltf.Index(m.addSkin(joints, jointToBone))
+			node.Skin = gltf.Index(m.addSkin(joints, jointToBone))
 		}
+		m.Nodes[i] = node
+		m.Scenes[0].Nodes = append(m.Scenes[0].Nodes, uint32(i))
 	}
 
 	textures := map[string]uint32{}
