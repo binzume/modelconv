@@ -94,16 +94,45 @@ func (m *mqoToGltf) addBoneNodes(bones []*mqo.Bone) (map[int]uint32, map[uint32]
 	return idmap, idmapr
 }
 
-func (m *mqoToGltf) getWeights(bones []*mqo.Bone, obj *mqo.Object, vs int, boneIDToJoint map[int]uint32) ([]uint32, [][4]uint16, [][4]float32) {
-	joints := make([][4]uint16, vs)
-	weights := make([][4]float32, vs)
-	njoint := make([]int, vs)
+func (m *mqoToGltf) getNormal(obj *mqo.Object) [][3]float32 {
+	normal := make([][3]float32, len(obj.Vertexes))
+
+	for _, face := range obj.Faces {
+		for i, v := range face.Verts {
+			v1 := obj.Vertexes[face.Verts[(i+len(face.Verts)-1)%len(face.Verts)]].Sub(obj.Vertexes[v])
+			v2 := obj.Vertexes[face.Verts[(i+1)%len(face.Verts)]].Sub(obj.Vertexes[v])
+			cross := mqo.Vector3{X: v1.Y*v2.Z - v1.Z*v2.Y, Y: v1.Z*v2.X - v1.X*v2.Z, Z: v1.X*v2.Y - v1.Y*v2.X}
+			cross.Normalize()
+			normal[v][0] += cross.X
+			normal[v][1] += cross.Y
+			normal[v][2] += cross.Z
+		}
+	}
+
+	for _, n := range normal {
+		v := mqo.Vector3{X: n[0], Y: n[1], Z: n[2]}
+		v.Normalize()
+		v.ToArray(n)
+	}
+	return normal
+}
+
+func (m *mqoToGltf) getWeights(bones []*mqo.Bone, obj *mqo.Object, boneIDToJoint map[int]uint32) ([]uint32, [][4]uint16, [][4]float32) {
+	var joints [][4]uint16
+	var weights [][4]float32
+	var njoint []int
 	var jointIds []uint32
 
+	vs := len(obj.Vertexes)
 	for _, b := range bones {
 		for _, bw := range b.Weights {
 			if bw.ObjectID != obj.UID {
 				continue
+			}
+			if joints == nil {
+				joints = make([][4]uint16, vs)
+				weights = make([][4]float32, vs)
+				njoint = make([]int, vs)
 			}
 			jointIds = append(jointIds, boneIDToJoint[b.ID])
 			for _, vw := range bw.Vertexes {
@@ -256,8 +285,9 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 		srcIndices = append(srcIndices, i)
 	}
 
-	joints, joints0, weights0 := m.getWeights(bones, obj, len(vertexes), boneIDToJoint)
+	joints, joints0, weights0 := m.getWeights(bones, obj, boneIDToJoint)
 	indices := map[int][]uint32{}
+	normal := m.getNormal(obj)
 	texcood0 := make([][2]float32, len(vertexes))
 	type uvkey struct {
 		i int
@@ -284,8 +314,11 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 						srcIndices = append(srcIndices, index)
 						vertexes = append(vertexes, vertexes[index])
 						texcood0 = append(texcood0, texcood0[index])
-						joints0 = append(joints0, joints0[index])
-						weights0 = append(weights0, weights0[index])
+						normal = append(normal, normal[index])
+						if len(joints) > 0 {
+							joints0 = append(joints0, joints0[index])
+							weights0 = append(weights0, weights0[index])
+						}
 						indicesMap[uvkey{index, f.UVs[i].X, f.UVs[i].Y}] = verts[i]
 					}
 				}
@@ -303,6 +336,9 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 	}
 	if useTexcood0 {
 		attributes["TEXCOORD_0"] = m.AddTextureCoord(0, texcood0)
+	}
+	if obj.Shading > 0 && !m.options.ForceUnlit {
+		attributes["NORMAL"] = m.AddNormal(0, normal)
 	}
 	if len(joints) > 0 {
 		attributes["JOINTS_0"] = m.AddJoints(0, joints0)

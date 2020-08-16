@@ -99,7 +99,13 @@ func (p *Parser) procAttrs(handlers map[string]func(), name string) {
 			handler()
 			p.skip(")")
 		} else {
-			log.Printf("  %s %s\n", name, p.s.TokenText())
+			log.Printf("  skip %s %s\n", name, p.s.TokenText())
+			p.skip("(")
+			for tok := p.s.Scan(); line == p.s.Pos().Line && tok != scanner.EOF; tok = p.s.Scan() {
+				if p.s.TokenText() == ")" {
+					break
+				}
+			}
 		}
 		if p.s.Peek() == 0x0d || p.s.Peek() == 0x0a {
 			break
@@ -161,7 +167,8 @@ func (p *Parser) readMaterial() *Material {
 		"tex":     func() { m.Texture = p.readStr() },
 		"dbls":    func() { m.DoubleSided = p.readInt() != 0 },
 		"uid":     func() { m.UID = p.readInt() },
-	}, fmt.Sprintf("Material %s\n", m.Name))
+		"shader":  func() { m.Shader = p.readInt() },
+	}, "Material "+m.Name)
 	return &m
 }
 
@@ -201,6 +208,7 @@ func (p *Parser) readObject() *Object {
 	p.procObj(map[string]func(){
 		"depth":   func() { o.Depth = p.readInt() },
 		"visible": func() { o.Visible = p.readInt() > 0 },
+		"shading": func() { o.Shading = p.readInt() },
 		"uid":     func() { o.UID = p.readInt() },
 		"vertex": func() {
 			p.procArray(func(n int) {
@@ -228,6 +236,11 @@ func (p *Parser) readObject() *Object {
 						f.UVs = make([]Vector2, vn)
 						for i := 0; i < vn; i++ {
 							f.UVs[i] = Vector2{p.readFloat(), p.readFloat()}
+						}
+					},
+					"CRS": func() {
+						for i := 0; i < vn; i++ {
+							p.readFloat()
 						}
 					},
 					"UID": func() { f.UID = p.readInt() },

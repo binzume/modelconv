@@ -1,5 +1,7 @@
 package mqo
 
+import "math"
+
 type Vector2 struct {
 	X float32
 	Y float32
@@ -9,6 +11,29 @@ type Vector3 struct {
 	X float32
 	Y float32
 	Z float32
+}
+
+func (v *Vector3) Len() float32 {
+	return float32(math.Sqrt(float64(v.X*v.X + v.Y*v.Y + v.Z*v.Z)))
+}
+
+func (v *Vector3) Normalize() {
+	l := v.Len()
+	if l > 0 {
+		v.X /= l
+		v.Y /= l
+		v.Z /= l
+	}
+}
+
+func (v *Vector3) Sub(v2 *Vector3) *Vector3 {
+	return &Vector3{X: v.X - v2.X, Y: v.Y - v2.Y, Z: v.Z - v2.Z}
+}
+
+func (v *Vector3) ToArray(array [3]float32) {
+	array[0] = v.X
+	array[1] = v.Y
+	array[2] = v.Z
 }
 
 type Vector4 struct {
@@ -73,7 +98,8 @@ type Material struct {
 
 	DoubleSided bool
 
-	Ex2 *MaterialEx2
+	Shader int
+	Ex2    *MaterialEx2
 }
 
 type MaterialEx2 struct {
@@ -118,6 +144,7 @@ type Object struct {
 	Visible     bool
 	Locked      bool
 	Depth       int
+	Shading     int
 	VertexByUID map[int]int
 }
 

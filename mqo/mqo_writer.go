@@ -93,6 +93,7 @@ func WriteMQO(mqo *Document, ww io.Writer, path string) error {
 		if !obj.Visible {
 			fmt.Fprint(w, "\tvisible 0\n")
 		}
+		fmt.Fprintf(w, "\tsharding %v\n", obj.Shading)
 
 		fmt.Fprintf(w, "\tvertex %v {\n", len(obj.Vertexes))
 		for _, v := range obj.Vertexes {
