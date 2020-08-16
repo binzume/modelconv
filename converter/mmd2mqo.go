@@ -303,5 +303,6 @@ func (c *mmdToMQO) Convert(pmx *mmd.Document) *mqo.Document {
 			mq.Objects = append(mq.Objects, o)
 		}
 	}
+	mq.FixObjectID()
 	return mq
 }
