@@ -137,19 +137,25 @@ type Face struct {
 }
 
 type Object struct {
-	UID         int
-	Name        string
-	Vertexes    []*Vector3
-	Faces       []*Face
-	Visible     bool
-	Locked      bool
-	Depth       int
-	Shading     int
+	UID       int
+	Name      string
+	Vertexes  []*Vector3
+	Faces     []*Face
+	Visible   bool
+	Locked    bool
+	Depth     int
+	Shading   int
+	Facet     float32
+	Patch     int
+	Segment   int
+	Mirror    int
+	MirrorDis float32
+
 	VertexByUID map[int]int
 }
 
 func NewObject(name string) *Object {
-	return &Object{Name: name, Visible: true, VertexByUID: map[int]int{}}
+	return &Object{Name: name, Visible: true, VertexByUID: map[int]int{}, Shading: 1, Facet: 59.5}
 }
 
 func (o *Object) Clone() *Object {

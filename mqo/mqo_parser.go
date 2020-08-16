@@ -206,10 +206,15 @@ func (p *Parser) readObject() *Object {
 	o := NewObject(p.readStr())
 
 	p.procObj(map[string]func(){
-		"depth":   func() { o.Depth = p.readInt() },
-		"visible": func() { o.Visible = p.readInt() > 0 },
-		"shading": func() { o.Shading = p.readInt() },
-		"uid":     func() { o.UID = p.readInt() },
+		"uid":        func() { o.UID = p.readInt() },
+		"depth":      func() { o.Depth = p.readInt() },
+		"visible":    func() { o.Visible = p.readInt() > 0 },
+		"shading":    func() { o.Shading = p.readInt() },
+		"facet":      func() { o.Facet = p.readFloat() },
+		"patch":      func() { o.Patch = p.readInt() },
+		"segment":    func() { o.Segment = p.readInt() },
+		"mirror":     func() { o.Mirror = p.readInt() },
+		"mirror_dis": func() { o.MirrorDis = p.readFloat() },
 		"vertex": func() {
 			p.procArray(func(n int) {
 				o.Vertexes = make([]*Vector3, n)

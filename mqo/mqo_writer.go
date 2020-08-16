@@ -35,12 +35,12 @@ func WriteMQO(mqo *Document, ww io.Writer, path string) error {
 	for _, mat := range mqo.Materials {
 		fmt.Fprintf(w, "\t\"%v\"", mat.Name)
 		if mat.DoubleSided {
-			fmt.Fprintf(w, " dbls(%v)", boolToInt(mat.DoubleSided))
+			fmt.Fprintf(w, " dbls(%d)", boolToInt(mat.DoubleSided))
 		}
 		if mat.UID > 0 {
-			fmt.Fprintf(w, " uid(%v)", mat.UID)
+			fmt.Fprintf(w, " uid(%d)", mat.UID)
 		}
-		fmt.Fprintf(w, " col(%v %v %v %v) dif(%v) amb(%v) emi(%v) spc(%v) power(%v)",
+		fmt.Fprintf(w, " col(%.3f %.3f %.3f %.3f) dif(%.3f) amb(%.3f) emi(%.3f) spc(%.3f) power(%.2f)",
 			mat.Color.X, mat.Color.Y, mat.Color.Z, mat.Color.W,
 			mat.Diffuse, mat.Ambient, mat.Emission, mat.Specular, mat.Power)
 		if mat.Texture != "" {
@@ -93,13 +93,37 @@ func WriteMQO(mqo *Document, ww io.Writer, path string) error {
 		if !obj.Visible {
 			fmt.Fprint(w, "\tvisible 0\n")
 		}
-		fmt.Fprintf(w, "\tsharding %v\n", obj.Shading)
+		fmt.Fprintf(w, "\tshading %v\n", obj.Shading)
+		fmt.Fprintf(w, "\tfacet %v\n", obj.Facet)
+		fmt.Fprintf(w, "\tmirror %d\n", obj.Mirror)
+		fmt.Fprintf(w, "\tmirror_dis %f\n", obj.MirrorDis)
+		if obj.Patch > 0 {
+			fmt.Fprintf(w, "\tpatch %d\n", obj.Patch)
+			fmt.Fprintf(w, "\tsegment %d\n", obj.Segment)
+		}
 
 		fmt.Fprintf(w, "\tvertex %v {\n", len(obj.Vertexes))
 		for _, v := range obj.Vertexes {
 			fmt.Fprintf(w, "\t\t%v %v %v\n", v.X, v.Y, v.Z)
 		}
 		w.WriteString("\t}\n")
+
+		if len(obj.VertexByUID) > 0 {
+			w.WriteString("\tvertexattr {\n")
+			w.WriteString("\t\tuid {\n")
+			uids := make([]int, len(obj.Vertexes))
+			for uid, v := range obj.VertexByUID {
+				uids[v] = uid
+			}
+			for i, uid := range uids {
+				if uid == 0 {
+					uid = i + 1
+				}
+				fmt.Fprintf(w, "\t\t\t%d\n", uid)
+			}
+			w.WriteString("\t\t}\n")
+			w.WriteString("\t}\n")
+		}
 
 		fmt.Fprintf(w, "\tface %v {\n", len(obj.Faces))
 		for _, f := range obj.Faces {
@@ -109,8 +133,11 @@ func WriteMQO(mqo *Document, ww io.Writer, path string) error {
 			}
 			if len(f.UVs) > 0 {
 				w.WriteString(" UV(")
-				for _, uv := range f.UVs {
-					fmt.Fprintf(w, "%v %v ", uv.X, uv.Y)
+				for i, uv := range f.UVs {
+					if i != 0 {
+						fmt.Fprint(w, " ")
+					}
+					fmt.Fprintf(w, "%v %v", uv.X, uv.Y)
 				}
 				w.WriteString(")")
 			}

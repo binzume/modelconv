@@ -25,10 +25,12 @@ jsonファイルの内容はQiitaに書いた説明を参考にしてくださ�
 ## 例
 
 ### .pmx → .mqo
-./modelconv -rot180 -scale 80 input.pmx output.mqo
+./modelconv -rot180 -scale 80 -autotpose 右腕,左腕 input.pmx output.mqo
 
 -rot180 : Y軸回りに100°回転します
 -scale : 変換時にスケールをかけます
+-autotpose : 指定した腕のボーンがX軸に沿うように調整します
+
 入力ファイル以外は省略可能なので，ファイルを実行ファイルにドラッグ＆ドロップすれば変換されます．
 
 MMDから変換する場合，scaleを省略すると単位をmmにするために暗黙的に"-scale 80"とみなします．

@@ -16,13 +16,17 @@ func NewMQOToMMDConverter() *mqoToMMD {
 func (c *mqoToMMD) Convert(doc *mqo.Document) (*mmd.Document, error) {
 	dst := mmd.NewDocument()
 	bones := mqo.GetBonePlugin(doc).Bones()
-	for _, b := range bones {
+	boneIndexByID := map[int]int{}
+	for i, b := range bones {
+		boneIndexByID[b.ID] = i
 		dst.Bones = append(dst.Bones, c.convertBone(b))
 	}
 	for i, b := range bones {
 		if b.Parent > 0 {
-			dst.Bones[b.Parent-1].TailID = i
-			dst.Bones[b.Parent-1].Flags = dst.Bones[b.Parent-1].Flags | mmd.BoneFlagTailIndex
+			parentID := boneIndexByID[b.Parent]
+			dst.Bones[i].ParentID = parentID
+			dst.Bones[parentID].TailID = i
+			dst.Bones[parentID].Flags = dst.Bones[parentID].Flags | mmd.BoneFlagTailIndex
 		}
 	}
 
@@ -58,8 +62,8 @@ func (c *mqoToMMD) Convert(doc *mqo.Document) (*mmd.Document, error) {
 				if len(f.Verts) < 3 || f.Material != mi {
 					continue
 				}
-				var verts [3]int
-				for i, v := range f.Verts[0:3] {
+				verts := make([]int, len(f.Verts))
+				for i, v := range f.Verts {
 					if id, ok := vmap[v]; ok {
 						// TODO: check UV
 						verts[i] = id
@@ -88,8 +92,11 @@ func (c *mqoToMMD) Convert(doc *mqo.Document) (*mmd.Document, error) {
 						}
 					}
 				}
-				dst.Faces = append(dst.Faces, &mmd.Face{Verts: verts})
-				faceCount++
+				// convex polygon only. TODO: triangulation.
+				for n := 0; n < len(verts)-2; n++ {
+					dst.Faces = append(dst.Faces, &mmd.Face{Verts: [3]int{verts[0], verts[n+1], verts[n+2]}})
+					faceCount++
+				}
 			}
 			c.setWeights(dst, obj, vmap, bones)
 		}
@@ -128,7 +135,7 @@ func (c *mqoToMMD) convertBone(bone *mqo.Bone) *mmd.Bone {
 	return &mmd.Bone{
 		Name:     bone.Name,
 		Pos:      *c.convertVec3(&bone.Pos),
-		ParentID: bone.Parent - 1,
+		ParentID: -1,
 		TailID:   -1,
 		Flags:    mmd.BoneFlagVisible | mmd.BoneFlagEnabled | mmd.BoneFlagRotatable,
 	}
