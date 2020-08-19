@@ -26,6 +26,10 @@ func (v *Vector3) Normalize() {
 	}
 }
 
+func (v *Vector3) Add(v2 *Vector3) *Vector3 {
+	return &Vector3{X: v.X + v2.X, Y: v.Y + v2.Y, Z: v.Z + v2.Z}
+}
+
 func (v *Vector3) Sub(v2 *Vector3) *Vector3 {
 	return &Vector3{X: v.X - v2.X, Y: v.Y - v2.Y, Z: v.Z - v2.Z}
 }

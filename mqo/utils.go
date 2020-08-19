@@ -22,3 +22,21 @@ func (doc *Document) Transform(transform func(v *Vector3)) {
 		}
 	}
 }
+
+func (obj *Object) GetSmoothNormals() []Vector3 {
+	normal := make([]Vector3, len(obj.Vertexes))
+
+	for _, face := range obj.Faces {
+		for i, v := range face.Verts {
+			v1 := obj.Vertexes[face.Verts[(i+len(face.Verts)-1)%len(face.Verts)]].Sub(obj.Vertexes[v])
+			v2 := obj.Vertexes[face.Verts[(i+1)%len(face.Verts)]].Sub(obj.Vertexes[v])
+			cross := Vector3{X: v1.Y*v2.Z - v1.Z*v2.Y, Y: v1.Z*v2.X - v1.X*v2.Z, Z: v1.X*v2.Y - v1.Y*v2.X}
+			cross.Normalize()
+			normal[v] = *normal[v].Add(&cross)
+		}
+	}
+	for i := range normal {
+		normal[i].Normalize()
+	}
+	return normal
+}

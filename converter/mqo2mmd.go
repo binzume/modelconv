@@ -57,24 +57,36 @@ func (c *mqoToMMD) Convert(doc *mqo.Document) (*mmd.Document, error) {
 			if !obj.Visible || morphTargets[obj.Name] != nil {
 				continue
 			}
-			vmap := map[int]int{}
+			type vertexKey struct {
+				i  int
+				uv mqo.Vector2
+			}
+			indicesMap := map[vertexKey]int{}
+			vmap := map[int][]int{}
+			normals := obj.GetSmoothNormals()
+
 			for _, f := range obj.Faces {
 				if len(f.Verts) < 3 || f.Material != mi {
 					continue
 				}
 				verts := make([]int, len(f.Verts))
 				for i, v := range f.Verts {
-					if id, ok := vmap[v]; ok {
-						// TODO: check UV
+					var uv mqo.Vector2
+					if len(f.UVs) > i {
+						uv = f.UVs[i]
+					}
+
+					if id, ok := indicesMap[vertexKey{v, uv}]; ok {
 						verts[i] = id
 					} else {
 						verts[i] = len(dst.Vertexes)
-						vmap[v] = verts[i]
+						indicesMap[vertexKey{v, uv}] = verts[i]
+						vmap[v] = append(vmap[v], verts[i])
 						vert := &mmd.Vertex{
-							Pos: *c.convertVec3(obj.Vertexes[v]),
-						}
-						if len(f.UVs) > i {
-							vert.UV = mmd.Vector2{X: f.UVs[i].X, Y: f.UVs[i].Y}
+							Pos:       *c.convertVec3(obj.Vertexes[v]),
+							UV:        mmd.Vector2{X: uv.X, Y: uv.Y},
+							Normal:    mmd.Vector3{X: normals[v].X, Y: normals[v].Y, Z: normals[v].Z},
+							EdgeScale: 1,
 						}
 						dst.Vertexes = append(dst.Vertexes, vert)
 						if morphBases[obj.Name] != nil {
@@ -110,7 +122,7 @@ func (c *mqoToMMD) Convert(doc *mqo.Document) (*mmd.Document, error) {
 	return dst, nil
 }
 
-func (c *mqoToMMD) setWeights(dst *mmd.Document, obj *mqo.Object, vmap map[int]int, bones []*mqo.Bone) {
+func (c *mqoToMMD) setWeights(dst *mmd.Document, obj *mqo.Object, vmap map[int][]int, bones []*mqo.Bone) {
 	for bi, b := range bones {
 		for _, bw := range b.Weights {
 			if bw.ObjectID != obj.UID {
@@ -118,7 +130,7 @@ func (c *mqoToMMD) setWeights(dst *mmd.Document, obj *mqo.Object, vmap map[int]i
 			}
 			for _, vw := range bw.Vertexes {
 				vi := obj.GetVertexIndexByID(vw.VertexID)
-				if v, ok := vmap[vi]; ok {
+				for _, v := range vmap[vi] {
 					vertex := dst.Vertexes[v]
 					if len(vertex.BoneWeights) >= 4 {
 						continue

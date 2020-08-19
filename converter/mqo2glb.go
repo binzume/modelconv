@@ -95,26 +95,12 @@ func (m *mqoToGltf) addBoneNodes(bones []*mqo.Bone) (map[int]uint32, map[uint32]
 }
 
 func (m *mqoToGltf) getNormal(obj *mqo.Object) [][3]float32 {
-	normal := make([][3]float32, len(obj.Vertexes))
-
-	for _, face := range obj.Faces {
-		for i, v := range face.Verts {
-			v1 := obj.Vertexes[face.Verts[(i+len(face.Verts)-1)%len(face.Verts)]].Sub(obj.Vertexes[v])
-			v2 := obj.Vertexes[face.Verts[(i+1)%len(face.Verts)]].Sub(obj.Vertexes[v])
-			cross := mqo.Vector3{X: v1.Y*v2.Z - v1.Z*v2.Y, Y: v1.Z*v2.X - v1.X*v2.Z, Z: v1.X*v2.Y - v1.Y*v2.X}
-			cross.Normalize()
-			normal[v][0] += cross.X
-			normal[v][1] += cross.Y
-			normal[v][2] += cross.Z
-		}
+	normals := obj.GetSmoothNormals()
+	normalArray := make([][3]float32, len(obj.Vertexes))
+	for i, n := range normals {
+		n.ToArray(normalArray[i])
 	}
-
-	for _, n := range normal {
-		v := mqo.Vector3{X: n[0], Y: n[1], Z: n[2]}
-		v.Normalize()
-		v.ToArray(n)
-	}
-	return normal
+	return normalArray
 }
 
 func (m *mqoToGltf) getWeights(bones []*mqo.Bone, obj *mqo.Object, boneIDToJoint map[int]uint32) ([]uint32, [][4]uint16, [][4]float32) {
@@ -263,9 +249,7 @@ func (m *mqoToGltf) convertMaterial(textureDir string, mat *mqo.Material) *gltf.
 		if metallicFactor == 0 && roughnessFactor == 1 {
 			mm.Extensions = map[string]interface{}{unlitMaterialExt: map[string]string{}}
 		}
-	} else if mat.Color.W != 1 {
-		mm.AlphaMode = gltf.AlphaBlend
-	} else if m.hasAlpha(textureDir, mat.Texture) {
+	} else if mat.Color.W < 0.99 || m.hasAlpha(textureDir, mat.Texture) {
 		mm.AlphaMode = gltf.AlphaBlend
 	}
 	if m.options.ForceUnlit {
@@ -289,12 +273,11 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 	indices := map[int][]uint32{}
 	normal := m.getNormal(obj)
 	texcood0 := make([][2]float32, len(vertexes))
-	type uvkey struct {
-		i int
-		u float32
-		v float32
+	type vertexKey struct {
+		i  int
+		uv mqo.Vector2
 	}
-	indicesMap := map[uvkey]int{}
+	indicesMap := map[vertexKey]int{}
 	useTexcood0 := false
 	for _, f := range obj.Faces {
 		if len(f.Verts) < 3 {
@@ -306,7 +289,7 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 			useTexcood0 = true
 			for i, index := range verts {
 				if (texcood0[index][0] != 0 || texcood0[index][1] != 0) && (texcood0[index][0] != f.UVs[i].X || texcood0[index][1] != f.UVs[i].Y) {
-					if ii, ok := indicesMap[uvkey{index, f.UVs[i].X, f.UVs[i].Y}]; ok {
+					if ii, ok := indicesMap[vertexKey{index, f.UVs[i]}]; ok {
 						verts[i] = ii
 					} else {
 						// copy attrs.
@@ -319,7 +302,7 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 							joints0 = append(joints0, joints0[index])
 							weights0 = append(weights0, weights0[index])
 						}
-						indicesMap[uvkey{index, f.UVs[i].X, f.UVs[i].Y}] = verts[i]
+						indicesMap[vertexKey{index, f.UVs[i]}] = verts[i]
 					}
 				}
 				texcood0[verts[i]] = [2]float32{f.UVs[i].X, f.UVs[i].Y}
