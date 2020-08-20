@@ -256,7 +256,7 @@ func (doc *Document) BoneAdjustX(baseBone *Bone) {
 			for _, vw := range bw.Vertexes {
 				w := vw.Weight / 100
 				v := obj.Vertexes[obj.GetVertexIndexByID(vw.VertexID)]
-				verts[v] = verts[v] + w
+				verts[v] += w
 			}
 		}
 	}

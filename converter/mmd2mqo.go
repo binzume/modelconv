@@ -96,7 +96,7 @@ func (c *mmdToMQO) setWeight(pmx *mmd.Document, bones []*mqo.Bone, objid int, vm
 		for bi, b := range v.Bones {
 			if v.BoneWeights[bi] > 0 {
 				if c[b] != nil {
-					c[b].Weight += v.BoneWeights[bi]
+					c[b].Weight += 100 * v.BoneWeights[bi]
 					continue
 				}
 				c[b] = bones[b].SetVertexWeight(objid, mqv+1, 100*v.BoneWeights[bi])
