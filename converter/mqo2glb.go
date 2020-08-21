@@ -339,6 +339,7 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 		}
 		targets = append(targets, map[string]uint32{
 			"POSITION": m.AddPosition(0, mv),
+			"NORMAL":   attributes["NORMAL"], // for UniVRM. TODO
 		})
 		targetNames = append(targetNames, morphObj.Name)
 	}
