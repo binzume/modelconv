@@ -11,13 +11,13 @@ import (
 	"github.com/qmuntal/gltf"
 )
 
-// TODO: move into converter package.
 type Config struct {
 	Metadata vrm.Metadata `json:"meta"`
 
 	BoneMappings     []*BoneMapping              `json:"boneMappings"`
 	MorphMappings    []*MorphMapping             `json:"morphMappings"` // EXPERIMENTAL
 	MaterialSettings map[string]*MaterialSetting `json:"materialSettings"`
+	ExportAllMorph   bool                        `json:"exportAllMorph"`
 
 	AnimationBoneGroups []*struct {
 		vrm.SecondaryAnimationBoneGroup
@@ -44,7 +44,7 @@ type MaterialSetting struct {
 	AlphaMode  string `json:"alphaMode"`
 }
 
-func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]bool, nodeMap map[string]int) {
+func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]bool, nodeMap map[string]int, blendShapeMap map[uint32]string) {
 	ext := doc.VRM()
 	for _, mapping := range conf.BoneMappings {
 		if foundBones[mapping.Bone.Bone] {
@@ -120,6 +120,7 @@ func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]
 	for _, mapping := range conf.MorphMappings {
 		if mapping.TargetName != "" {
 			if t, ok := targets[mapping.TargetName]; ok {
+				blendShapeMap[uint32(t[0])] = mapping.Name
 				m := &vrm.BlendShapeGroup{
 					Name:       mapping.Name,
 					PresetName: mapping.Name,
@@ -137,6 +138,7 @@ func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]
 		}
 
 		if id, ok := nodeMap[mapping.NodeName]; ok {
+			blendShapeMap[*doc.Nodes[id].Mesh] = mapping.Name
 			m := &vrm.BlendShapeGroup{
 				Name:       mapping.Name,
 				PresetName: mapping.Name,
@@ -185,6 +187,8 @@ func ApplyConfig(doc *vrm.Document, conf *Config) {
 	foundBones := map[string]bool{}
 	ext.Humanoid.Bones = []*vrm.Bone{}
 
+	blendShapeMap := map[uint32]string{}
+
 	if conf.Preset != "" {
 		execPath, err := os.Executable()
 		if err != nil {
@@ -200,10 +204,35 @@ func ApplyConfig(doc *vrm.Document, conf *Config) {
 		if err != nil {
 			log.Fatal("preset error:", conf.Preset, err)
 		}
-		applyConfigInternal(doc, &presetConf, foundBones, nodeMap)
+		applyConfigInternal(doc, &presetConf, foundBones, nodeMap, blendShapeMap)
 	}
 
-	applyConfigInternal(doc, conf, foundBones, nodeMap)
+	applyConfigInternal(doc, conf, foundBones, nodeMap, blendShapeMap)
+
+	if conf.ExportAllMorph {
+		for mi, mesh := range doc.Meshes {
+			if _, used := blendShapeMap[uint32(mi)]; used {
+				continue
+			}
+			if extras, ok := mesh.Extras.(map[string]interface{}); ok {
+				if names, ok := extras["targetNames"].([]string); ok {
+					for i, name := range names {
+						m := &vrm.BlendShapeGroup{
+							Name: name,
+							Binds: []interface{}{
+								map[string]interface{}{
+									"mesh":   mi,
+									"index":  i,
+									"weight": 100,
+								},
+							},
+						}
+						ext.BlendShapeMaster.BlendShapeGroups = append(ext.BlendShapeMaster.BlendShapeGroups, m)
+					}
+				}
+			}
+		}
+	}
 
 	for _, name := range vrm.RequiredBones {
 		if id, ok := nodeMap[name]; ok && !foundBones[name] {
