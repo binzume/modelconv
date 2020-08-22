@@ -98,7 +98,7 @@ func (m *mqoToGltf) getNormal(obj *mqo.Object) [][3]float32 {
 	normals := obj.GetSmoothNormals()
 	normalArray := make([][3]float32, len(obj.Vertexes))
 	for i, n := range normals {
-		n.ToArray(normalArray[i])
+		n.ToArray(normalArray[i][:])
 	}
 	return normalArray
 }

@@ -1,10 +1,11 @@
 
-3Dモデルファイルを変換するプログラムです．
-使い方はQiitaの記事を参考にしてください．
-https://qiita.com/binzume/items/d29cd21b9860809f72cf
+3Dモデルファイルを変換するコマンドラインツールです．
 
 最新版はGitHubにあります．Windows(x64) 以外のバイナリが必要な場合はお手数ですがご自身でビルドしてください．
 https://github.com/binzume/modelconv
+
+利用方法はQiitaの記事も参考にしてください．
+https://qiita.com/binzume/items/d29cd21b9860809f72cf
 
 # Usage
 
@@ -29,7 +30,7 @@ jsonファイルの内容はQiitaに書いた説明を参考にしてくださ�
 
 -rot180 : Y軸回りに100°回転します
 -scale : 変換時にスケールをかけます
--autotpose : 指定した腕のボーンがX軸に沿うように調整します
+-autotpose : 指定した腕のボーンがX軸に沿うように調整します(暫定実装)
 
 入力ファイル以外は省略可能なので，ファイルを実行ファイルにドラッグ＆ドロップすれば変換されます．
 

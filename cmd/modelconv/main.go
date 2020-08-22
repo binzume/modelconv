@@ -104,6 +104,9 @@ func main() {
 			execPath, _ := os.Executable()
 			confFile = filepath.Join(filepath.Dir(execPath), "vrmconfig_presets/mmd_ja.json")
 		}
+		if *autoTpose == "" {
+			*autoTpose = "右腕,左腕"
+		}
 	}
 
 	doc, err := loadDocument(input)

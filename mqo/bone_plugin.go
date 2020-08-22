@@ -215,27 +215,12 @@ func (p *BonePlugin) Transform(transform func(v *Vector3)) {
 	}
 }
 
-// for T-Pose adjustment
-// TODO: more generic function.
-func (doc *Document) BoneAdjustX(baseBone *Bone) {
+func (doc *Document) TransformBone(baseBone *Bone, transform func(v *Vector3)) {
 	bones := GetBonePlugin(doc).Bones()
 	targetBones := map[*Bone]bool{baseBone: true}
 	boneByID := map[int]*Bone{}
-	var boneVec Vector3
 	for _, b := range bones {
 		boneByID[b.ID] = b
-		if b.Parent == baseBone.ID {
-			boneVec = Vector3{X: b.Pos.X - baseBone.Pos.X, Y: b.Pos.Y - baseBone.Pos.Y, Z: b.Pos.Z - baseBone.Pos.Z}
-		}
-	}
-
-	bd := math.Atan2(float64(boneVec.Y), float64(boneVec.X))
-	log.Println(baseBone.Name, boneVec, bd/math.Pi*180)
-	var rot float64
-	if math.Abs(bd) < math.Pi/2 {
-		rot = -bd
-	} else {
-		rot = math.Pi - bd
 	}
 
 	// broken if bone.Parent > bone.ID ...
@@ -263,10 +248,39 @@ func (doc *Document) BoneAdjustX(baseBone *Bone) {
 
 	pos := baseBone.Pos
 	for v, w := range verts {
-		dv := &Vector3{X: v.X - pos.X, Y: v.Y - pos.Y, Z: v.Z - pos.Z}
-		x := dv.X*float32(math.Cos(rot)) - dv.Y*float32(math.Sin(rot))
-		y := dv.X*float32(math.Sin(rot)) + dv.Y*float32(math.Cos(rot))
-		v.X = (x+pos.X)*w + v.X*(1-w)
-		v.Y = (y+pos.Y)*w + v.Y*(1-w)
+		dv := v.Sub(&pos)
+		transform(dv)
+		v.X = (dv.X+pos.X)*w + v.X*(1-w)
+		v.Y = (dv.Y+pos.Y)*w + v.Y*(1-w)
+		v.Z = (dv.Z+pos.Z)*w + v.Z*(1-w)
 	}
+}
+
+// for T-Pose adjustment
+// TODO: more generic function.
+func (doc *Document) BoneAdjustX(baseBone *Bone) {
+	var boneVec *Vector3
+	for _, b := range GetBonePlugin(doc).Bones() {
+		if b.Parent == baseBone.ID {
+			boneVec = b.Pos.Sub(&baseBone.Pos)
+			break
+		}
+	}
+	if boneVec == nil {
+		return
+	}
+
+	bd := math.Atan2(float64(boneVec.Y), float64(boneVec.X))
+	log.Println("T-Pose:", baseBone.Name, boneVec, bd/math.Pi*180)
+	var rot float64
+	if math.Abs(bd) < math.Pi/2 {
+		rot = -bd
+	} else {
+		rot = math.Pi - bd
+	}
+	doc.TransformBone(baseBone, func(v *Vector3) {
+		dv := *v
+		v.X = dv.X*float32(math.Cos(rot)) - dv.Y*float32(math.Sin(rot))
+		v.Y = dv.X*float32(math.Sin(rot)) + dv.Y*float32(math.Cos(rot))
+	})
 }
