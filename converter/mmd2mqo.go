@@ -285,19 +285,21 @@ func (c *mmdToMQO) Convert(pmx *mmd.Document) *mqo.Document {
 				v.Y += mv.Offset.Y
 				v.Z += mv.Offset.Z * -1
 			}
+			vertToFV := map[int][][2]int{}
+			for fi, f := range o.Faces {
+				for fv, v := range f.Verts {
+					vertToFV[v] = append(vertToFV[v], [2]int{fi, fv})
+				}
+			}
+
 			for _, mu := range morph.UV {
 				if mu.Target < 0 {
 					continue
 				}
-				v := vmap[mu.Target]
-				// TODO vert to faces
-				for _, f := range o.Faces {
-					for i, fv := range f.Verts {
-						if fv == v {
-							f.UVs[i].X += mu.Value.X
-							f.UVs[i].Y += mu.Value.Y
-						}
-					}
+				for _, fv := range vertToFV[vmap[mu.Target]] {
+					uv := &o.Faces[fv[0]].UVs[fv[1]]
+					uv.X += mu.Value.X
+					uv.Y += mu.Value.Y
 				}
 			}
 			mq.Objects = append(mq.Objects, o)

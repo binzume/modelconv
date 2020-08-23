@@ -79,7 +79,6 @@ func WriteMQO(mqo *Document, ww io.Writer, path string) error {
 			w.WriteString("\t}\n")
 		}
 		w.WriteString("}\n")
-		w.Flush()
 	}
 
 	for _, obj := range mqo.Objects {
@@ -146,7 +145,6 @@ func WriteMQO(mqo *Document, ww io.Writer, path string) error {
 		w.WriteString("\t}\n")
 
 		w.WriteString("}\n")
-		w.Flush()
 	}
 
 	w.WriteString("Eof\n")
