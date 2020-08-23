@@ -215,7 +215,7 @@ func (p *BonePlugin) Transform(transform func(v *Vector3)) {
 	}
 }
 
-func (doc *Document) TransformBone(baseBone *Bone, transform func(v *Vector3)) {
+func (doc *Document) BoneTransform(baseBone *Bone, transform func(v *Vector3)) {
 	bones := GetBonePlugin(doc).Bones()
 	targetBones := map[*Bone]bool{baseBone: true}
 	boneByID := map[int]*Bone{}
@@ -230,18 +230,35 @@ func (doc *Document) TransformBone(baseBone *Bone, transform func(v *Vector3)) {
 		}
 	}
 
+	// Morph target
+	objectByName := map[string]int{}
+	for _, obj := range doc.Objects {
+		objectByName[obj.Name] = obj.UID
+	}
+	morphObjs := map[int][]int{} // UID => []index
+	for _, m := range GetMorphPlugin(doc).Morphs() {
+		if oi, ok := objectByName[m.Base]; ok {
+			for _, t := range m.Target {
+				morphObjs[oi] = append(morphObjs[oi], objectByName[t.Name])
+			}
+		}
+	}
+
 	verts := map[*Vector3]float32{}
 	for b := range targetBones {
 		verts[&b.Pos] = 1
 		for _, bw := range b.Weights {
-			obj := doc.GetObjectByID(bw.ObjectID)
-			if obj == nil {
-				continue
-			}
-			for _, vw := range bw.Vertexes {
-				w := vw.Weight / 100
-				v := obj.Vertexes[obj.GetVertexIndexByID(vw.VertexID)]
-				verts[v] += w
+			objectIDs := append(morphObjs[bw.ObjectID], bw.ObjectID)
+			for _, objID := range objectIDs {
+				obj := doc.GetObjectByID(objID)
+				if obj == nil {
+					continue
+				}
+				for _, vw := range bw.Vertexes {
+					w := vw.Weight / 100
+					v := obj.Vertexes[obj.GetVertexIndexByID(vw.VertexID)]
+					verts[v] += w
+				}
 			}
 		}
 	}
@@ -278,7 +295,7 @@ func (doc *Document) BoneAdjustX(baseBone *Bone) {
 	} else {
 		rot = math.Pi - bd
 	}
-	doc.TransformBone(baseBone, func(v *Vector3) {
+	doc.BoneTransform(baseBone, func(v *Vector3) {
 		dv := *v
 		v.X = dv.X*float32(math.Cos(rot)) - dv.Y*float32(math.Sin(rot))
 		v.Y = dv.X*float32(math.Sin(rot)) + dv.Y*float32(math.Cos(rot))

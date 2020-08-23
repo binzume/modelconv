@@ -44,7 +44,7 @@ type MaterialSetting struct {
 	AlphaMode  string `json:"alphaMode"`
 }
 
-func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]bool, nodeMap map[string]int, blendShapeMap map[uint32]string) {
+func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]bool, nodeMap map[string]int, blendShapeMap map[[2]int]string) {
 	ext := doc.VRM()
 	for _, mapping := range conf.BoneMappings {
 		if foundBones[mapping.Bone.Bone] {
@@ -120,7 +120,7 @@ func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]
 	for _, mapping := range conf.MorphMappings {
 		if mapping.TargetName != "" {
 			if t, ok := targets[mapping.TargetName]; ok {
-				blendShapeMap[uint32(t[0])] = mapping.Name
+				blendShapeMap[t] = mapping.Name
 				m := &vrm.BlendShapeGroup{
 					Name:       mapping.Name,
 					PresetName: mapping.Name,
@@ -138,7 +138,7 @@ func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]
 		}
 
 		if id, ok := nodeMap[mapping.NodeName]; ok {
-			blendShapeMap[*doc.Nodes[id].Mesh] = mapping.Name
+			blendShapeMap[[2]int{int(*doc.Nodes[id].Mesh), mapping.TargetIndex}] = mapping.Name
 			m := &vrm.BlendShapeGroup{
 				Name:       mapping.Name,
 				PresetName: mapping.Name,
@@ -187,7 +187,7 @@ func ApplyConfig(doc *vrm.Document, conf *Config) {
 	foundBones := map[string]bool{}
 	ext.Humanoid.Bones = []*vrm.Bone{}
 
-	blendShapeMap := map[uint32]string{}
+	blendShapeMap := map[[2]int]string{}
 
 	if conf.Preset != "" {
 		execPath, err := os.Executable()
@@ -211,12 +211,12 @@ func ApplyConfig(doc *vrm.Document, conf *Config) {
 
 	if conf.ExportAllMorph {
 		for mi, mesh := range doc.Meshes {
-			if _, used := blendShapeMap[uint32(mi)]; used {
-				continue
-			}
 			if extras, ok := mesh.Extras.(map[string]interface{}); ok {
 				if names, ok := extras["targetNames"].([]string); ok {
 					for i, name := range names {
+						if _, used := blendShapeMap[[2]int{mi, i}]; used {
+							continue
+						}
 						m := &vrm.BlendShapeGroup{
 							Name: name,
 							Binds: []interface{}{
