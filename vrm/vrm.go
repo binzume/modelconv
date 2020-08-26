@@ -19,8 +19,8 @@ type VRM struct {
 	Meta     Metadata `json:"meta"`
 	Humanoid Humanoid `json:"humanoid"`
 
-	FirstPerson        FirstPerson         `json:"firstPerson"`
-	BlendShapeMaster   BlendShapeMaster    `json:"blendShapeMaster"`
+	FirstPerson        *FirstPerson        `json:"firstPerson,omitempty"`
+	BlendShapeMaster   BlendShapeMaster    `json:"blendShapeMaster,omitempty"`
 	SecondaryAnimation *SecondaryAnimation `json:"secondaryAnimation,omitempty"`
 	MaterialProperties []*MaterialProperty `json:"materialProperties"`
 
@@ -81,7 +81,11 @@ type Bone struct {
 	AxisLength float32     `json:"axisLength,omitempty"`
 }
 
-type FirstPerson interface{} // TODO
+type FirstPerson struct {
+	FirstPersonBone       int                `json:"firstPersonBone,omitempty"`
+	FirstPersonBoneOffset map[string]float64 `json:"firstPersonBoneOffset,omitempty"`
+	// TODO
+}
 
 type BlendShapeMaster struct {
 	BlendShapeGroups []*BlendShapeGroup `json:"blendShapeGroups"`
@@ -91,24 +95,24 @@ type BlendShapeGroup struct {
 	Name           string        `json:"name"`
 	PresetName     string        `json:"presetName"`
 	Binds          []interface{} `json:"binds"`
-	MaterialValues []interface{} `json:"materialValues"`
+	MaterialValues []interface{} `json:"materialValues,omitempty"`
 }
 
 type SecondaryAnimation struct {
-	BoneGroups     []*SecondaryAnimationBoneGroup `json:"boneGroups"`
-	ColliderGroups []interface{}                  `json:"colliderGroups"`
+	BoneGroups     []*SecondaryAnimationBoneGroup `json:"boneGroups,omitempty"`
+	ColliderGroups []interface{}                  `json:"colliderGroups,omitempty"`
 }
 
 type SecondaryAnimationBoneGroup struct {
 	Comment        string             `json:"comment"`
 	Stiffiness     float64            `json:"stiffiness"`
 	GravityPower   float64            `json:"gravityPower"`
-	GravityDir     map[string]float64 `json:"gravityDir"`
+	GravityDir     map[string]float64 `json:"gravityDir,omitempty"`
 	DragForce      float64            `json:"dragForce"`
 	HitRadius      float64            `json:"hitRadius"`
 	Center         int                `json:"center"`
 	Bones          []int              `json:"bones"`
-	ColliderGroups []int              `json:"colliderGroups"`
+	ColliderGroups []int              `json:"colliderGroups,omitempty"`
 }
 
 type MaterialProperty struct {

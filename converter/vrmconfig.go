@@ -44,20 +44,20 @@ type MaterialSetting struct {
 	AlphaMode  string `json:"alphaMode"`
 }
 
-func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]bool, nodeMap map[string]int, blendShapeMap map[[2]int]string) {
+func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]int, nodeMap map[string]int, blendShapeMap map[[2]int]string) {
 	ext := doc.VRM()
 	for _, mapping := range conf.BoneMappings {
-		if foundBones[mapping.Bone.Bone] {
+		if _, ok := foundBones[mapping.Bone.Bone]; ok {
 			continue
 		}
 		if mapping.NodeName == "" {
 			// ignore
-			foundBones[mapping.Bone.Bone] = true
+			foundBones[mapping.Bone.Bone] = -1
 			continue
 		}
 		if id, ok := nodeMap[mapping.NodeName]; ok {
 			var b = mapping.Bone
-			foundBones[mapping.Bone.Bone] = true
+			foundBones[mapping.Bone.Bone] = id
 			b.Node = id
 			b.UseDefaultValues = b.UseDefaultValues || b.Min == nil && b.Max == nil && b.Center == nil
 			ext.Humanoid.Bones = append(ext.Humanoid.Bones, &b)
@@ -184,7 +184,7 @@ func ApplyConfig(doc *vrm.Document, conf *Config) {
 	for id, node := range doc.Nodes {
 		nodeMap[node.Name] = id
 	}
-	foundBones := map[string]bool{}
+	foundBones := map[string]int{}
 	ext.Humanoid.Bones = []*vrm.Bone{}
 
 	blendShapeMap := map[[2]int]string{}
@@ -234,8 +234,19 @@ func ApplyConfig(doc *vrm.Document, conf *Config) {
 		}
 	}
 
+	if ext.FirstPerson == nil {
+		if node, ok := foundBones["head"]; ok {
+			ext.FirstPerson = &vrm.FirstPerson{
+				FirstPersonBone: node,
+			}
+		}
+	}
+
 	for _, name := range vrm.RequiredBones {
-		if id, ok := nodeMap[name]; ok && !foundBones[name] {
+		if _, ok := foundBones[name]; ok {
+			continue
+		}
+		if id, ok := nodeMap[name]; ok {
 			ext.Humanoid.Bones = append(ext.Humanoid.Bones, &vrm.Bone{Bone: name, Node: id, UseDefaultValues: true})
 		}
 	}
