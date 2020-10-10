@@ -60,6 +60,7 @@ func main() {
 	forceUnlit := flag.Bool("gltfunlit", false, "unlit all materials")
 	scale := flag.Float64("scale", 0, "0:auto")
 	vrmconf := flag.String("vrmconfig", "", "config file for VRM")
+	hides := flag.String("hide", "", "hide objects")
 	flag.Parse()
 
 	if flag.NArg() == 0 {
@@ -135,6 +136,24 @@ func main() {
 			for _, b := range mqo.GetBonePlugin(doc).Bones() {
 				if b.Name == boneName {
 					doc.BoneAdjustX(b)
+				}
+			}
+		}
+	}
+
+	if *hides != "" {
+		objectByName := map[string]int{}
+		for idx, obj := range doc.Objects {
+			objectByName[obj.Name] = idx
+		}
+		for _, n := range strings.Split(*hides, ",") {
+			if idx, ok := objectByName[n]; ok {
+				d := doc.Objects[idx].Depth
+				doc.Objects[idx].Visible = false
+				idx++
+				for idx < len(doc.Objects) && doc.Objects[idx].Depth > d {
+					doc.Objects[idx].Visible = false
+					idx++
 				}
 			}
 		}
