@@ -15,7 +15,7 @@ type Config struct {
 	Metadata vrm.Metadata `json:"meta"`
 
 	BoneMappings     []*BoneMapping              `json:"boneMappings"`
-	MorphMappings    []*MorphMapping             `json:"morphMappings"` // EXPERIMENTAL
+	MorphMappings    []*MorphMapping             `json:"morphMappings"`
 	MaterialSettings map[string]*MaterialSetting `json:"materialSettings"`
 	ExportAllMorph   bool                        `json:"exportAllMorph"`
 
@@ -23,6 +23,10 @@ type Config struct {
 		vrm.SecondaryAnimationBoneGroup
 		NodeNames []string `json:"nodeNames"`
 	} `json:"animationBoneGroups"`
+	ColliderGroups []*struct {
+		vrm.SecondaryAnimationColliderGroup
+		NodeName string `json:"nodeName"`
+	} `json:"colliderGroups"`
 
 	Preset string `json:"preset"`
 }
@@ -37,6 +41,8 @@ type MorphMapping struct {
 	NodeName    string `json:"nodeName"`
 	TargetName  string `json:"targetName"`
 	TargetIndex int    `json:"targetIndex"`
+
+	MaterialValues []*vrm.BlendShapeMaterialValue `json:"materialValues,omitempty"`
 }
 
 type MaterialSetting struct {
@@ -107,6 +113,20 @@ func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]
 		}
 	}
 
+	for _, colliderGroup := range conf.ColliderGroups {
+		var b = colliderGroup.SecondaryAnimationColliderGroup
+		if id, ok := nodeMap[colliderGroup.NodeName]; ok {
+			b.Node = uint32(id)
+		} else {
+			log.Println("Node not found:", colliderGroup.NodeName)
+			continue
+		}
+		if ext.SecondaryAnimation == nil {
+			ext.SecondaryAnimation = &vrm.SecondaryAnimation{}
+		}
+		ext.SecondaryAnimation.ColliderGroups = append(ext.SecondaryAnimation.ColliderGroups, &b)
+	}
+
 	targets := map[string][2]int{}
 	for mi, mesh := range doc.Meshes {
 		if extras, ok := mesh.Extras.(map[string]interface{}); ok {
@@ -119,19 +139,20 @@ func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]
 	}
 	for _, mapping := range conf.MorphMappings {
 		if mapping.TargetName != "" {
+			m := &vrm.BlendShapeGroup{
+				Name:           mapping.Name,
+				PresetName:     mapping.Name,
+				MaterialValues: mapping.MaterialValues,
+			}
 			if t, ok := targets[mapping.TargetName]; ok {
 				blendShapeMap[t] = mapping.Name
-				m := &vrm.BlendShapeGroup{
-					Name:       mapping.Name,
-					PresetName: mapping.Name,
-					Binds: []interface{}{
-						map[string]interface{}{
-							"mesh":   t[0],
-							"index":  t[1],
-							"weight": 100,
-						},
+				m.Binds = []*vrm.BlendShapeBind{
+					&vrm.BlendShapeBind{
+						Mesh: uint32(t[0]), Index: t[1], Weight: 100,
 					},
 				}
+			}
+			if len(m.Binds) > 0 || len(m.MaterialValues) > 0 {
 				ext.BlendShapeMaster.BlendShapeGroups = append(ext.BlendShapeMaster.BlendShapeGroups, m)
 			}
 			continue
@@ -142,11 +163,9 @@ func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]
 			m := &vrm.BlendShapeGroup{
 				Name:       mapping.Name,
 				PresetName: mapping.Name,
-				Binds: []interface{}{
-					map[string]interface{}{
-						"mesh":   doc.Nodes[id].Mesh,
-						"index":  mapping.TargetIndex,
-						"weight": 100,
+				Binds: []*vrm.BlendShapeBind{
+					&vrm.BlendShapeBind{
+						Mesh: *doc.Nodes[id].Mesh, Index: mapping.TargetIndex, Weight: 100,
 					},
 				},
 			}
@@ -165,18 +184,9 @@ func ApplyConfig(doc *vrm.Document, conf *Config) {
 	if len(ext.MaterialProperties) != len(doc.Materials) {
 		ext.MaterialProperties = []*vrm.MaterialProperty{}
 		for _, mat := range doc.Materials {
-			var mp vrm.MaterialProperty
-			mp.Name = mat.Name
+			mp := vrm.NewMaterialProperty(mat.Name)
 			mp.Shader = "VRM_USE_GLTFSHADER"
-			mp.RenderQueue = 2000
-
-			mp.FloatProperties = map[string]float64{}
-			mp.VectorProperties = map[string]interface{}{}
-			mp.TextureProperties = map[string]interface{}{}
-			mp.KeywordMap = map[string]interface{}{}
-			mp.TagMap = map[string]interface{}{}
-
-			ext.MaterialProperties = append(ext.MaterialProperties, &mp)
+			ext.MaterialProperties = append(ext.MaterialProperties, mp)
 		}
 	}
 
@@ -219,11 +229,9 @@ func ApplyConfig(doc *vrm.Document, conf *Config) {
 						}
 						m := &vrm.BlendShapeGroup{
 							Name: name,
-							Binds: []interface{}{
-								map[string]interface{}{
-									"mesh":   mi,
-									"index":  i,
-									"weight": 100,
+							Binds: []*vrm.BlendShapeBind{
+								&vrm.BlendShapeBind{
+									Mesh: uint32(mi), Index: i, Weight: 100,
 								},
 							},
 						}

@@ -60,7 +60,12 @@ type Metadata struct {
 	Contact string `json:"contactInformation"`
 	Texture *int   `json:"texture,omitempty"`
 
-	// TODO
+	AllowedUserName      string `json:"allowedUserName,omitempty"`
+	ViolentUssageName    string `json:"violentUssageName,omitempty"`
+	SexualUssageName     string `json:"sexualUssageName,omitempty"`
+	CommercialUssageName string `json:"commercialUssageName,omitempty"`
+
+	OtherPermissionURL string `json:"otherPermissionUrl,omitempty"`
 
 	LicenseName     string `json:"licenseName"`
 	OtherLicenseURL string `json:"otherLicenseUrl"`
@@ -84,7 +89,14 @@ type Bone struct {
 type FirstPerson struct {
 	FirstPersonBone       int                `json:"firstPersonBone,omitempty"`
 	FirstPersonBoneOffset map[string]float64 `json:"firstPersonBoneOffset,omitempty"`
-	// TODO
+
+	MeshAnnotations []interface{} `json:"meshAnnotations,omitempty"`
+
+	LookAtTypeName        string                 `json:"lookAtTypeName,omitempty"`
+	LookAtHorizontalInner map[string]interface{} `json:"lookAtHorizontalInner,omitempty"`
+	LookAtHorizontalOuter map[string]interface{} `json:"lookAtHorizontalOuter,omitempty"`
+	LookAtVerticalDown    map[string]interface{} `json:"lookAtVerticalDown,omitempty"`
+	LookAtVerticalUp      map[string]interface{} `json:"lookAtVerticalUp,omitempty"`
 }
 
 type BlendShapeMaster struct {
@@ -92,15 +104,27 @@ type BlendShapeMaster struct {
 }
 
 type BlendShapeGroup struct {
-	Name           string        `json:"name"`
-	PresetName     string        `json:"presetName"`
-	Binds          []interface{} `json:"binds"`
-	MaterialValues []interface{} `json:"materialValues,omitempty"`
+	Name           string                     `json:"name"`
+	PresetName     string                     `json:"presetName"`
+	Binds          []*BlendShapeBind          `json:"binds"`
+	MaterialValues []*BlendShapeMaterialValue `json:"materialValues,omitempty"`
+}
+
+type BlendShapeBind struct {
+	Mesh   uint32  `json:"mesh"`
+	Index  int     `json:"index"`
+	Weight float64 `json:"weight"`
+}
+
+type BlendShapeMaterialValue struct {
+	MaterialName string    `json:"materialName"`
+	PropertyName string    `json:"propertyName"`
+	TargetValue  []float64 `json:"targetValue"`
 }
 
 type SecondaryAnimation struct {
-	BoneGroups     []*SecondaryAnimationBoneGroup `json:"boneGroups,omitempty"`
-	ColliderGroups []interface{}                  `json:"colliderGroups,omitempty"`
+	BoneGroups     []*SecondaryAnimationBoneGroup     `json:"boneGroups,omitempty"`
+	ColliderGroups []*SecondaryAnimationColliderGroup `json:"colliderGroups,omitempty"`
 }
 
 type SecondaryAnimationBoneGroup struct {
@@ -115,13 +139,35 @@ type SecondaryAnimationBoneGroup struct {
 	ColliderGroups []int              `json:"colliderGroups,omitempty"`
 }
 
+type SecondaryAnimationColliderGroup struct {
+	Node      uint32                        `json:"node"`
+	Colliders []*SecondaryAnimationCollider `json:"colliders"`
+}
+
+type SecondaryAnimationCollider struct {
+	Radius float64            `json:"radius"`
+	Offset map[string]float64 `json:"offset"`
+}
+
 type MaterialProperty struct {
-	Name              string                 `json:"name"`
-	Shader            string                 `json:"shader"`
-	RenderQueue       int                    `json:"renderQueue"`
-	FloatProperties   map[string]float64     `json:"floatProperties"`
-	VectorProperties  map[string]interface{} `json:"vectorProperties"`
-	TextureProperties map[string]interface{} `json:"textureProperties"`
-	KeywordMap        map[string]interface{} `json:"keywordMap"`
-	TagMap            map[string]interface{} `json:"tagMap"`
+	Name              string               `json:"name"`
+	Shader            string               `json:"shader"`
+	RenderQueue       int                  `json:"renderQueue"`
+	FloatProperties   map[string]float64   `json:"floatProperties"`
+	VectorProperties  map[string][]float64 `json:"vectorProperties"`
+	TextureProperties map[string]uint32    `json:"textureProperties"`
+	KeywordMap        map[string]bool      `json:"keywordMap"`
+	TagMap            map[string]string    `json:"tagMap"`
+}
+
+func NewMaterialProperty(name string) *MaterialProperty {
+	return &MaterialProperty{
+		Name:              name,
+		RenderQueue:       2000,
+		FloatProperties:   map[string]float64{},
+		VectorProperties:  map[string][]float64{},
+		TextureProperties: map[string]uint32{},
+		KeywordMap:        map[string]bool{},
+		TagMap:            map[string]string{},
+	}
 }
