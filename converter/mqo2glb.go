@@ -20,7 +20,7 @@ import (
 	_ "image/jpeg"
 
 	_ "github.com/ftrvxmtrx/tga"
-	_ "golang.org/x/image/bmp"
+	"golang.org/x/image/bmp"
 )
 
 type MQOToGLTFOption struct {
@@ -193,7 +193,14 @@ func (m *mqoToGltf) addTexture(textureDir string, texture string) uint32 {
 		mimeType = "image/png"
 		img, _, err := image.Decode(r)
 		if err != nil {
-			log.Fatal("Texture read error:", err, texture)
+			if ext == ".bmp" {
+				// retry
+				f.Seek(0, io.SeekStart)
+				img, err = bmp.Decode(r)
+			}
+			if err != nil {
+				log.Fatalf("Texture read error: %v texid: %v", err, texture)
+			}
 		}
 		w := new(bytes.Buffer)
 		err = png.Encode(w, img)
@@ -259,7 +266,7 @@ func (m *mqoToGltf) convertMaterial(textureDir string, mat *mqo.Material) *gltf.
 }
 
 func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJoint map[int]uint32,
-	morphObjs []*mqo.Object) (*gltf.Mesh, []uint32) {
+	morphObjs []*mqo.Object, ignoreMats map[int]bool) (*gltf.Mesh, []uint32) {
 	scale := m.scale
 
 	var vertexes [][3]float32
@@ -281,6 +288,9 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 	useTexcood0 := false
 	for _, f := range obj.Faces {
 		if len(f.Verts) < 3 {
+			continue
+		}
+		if _, ok := ignoreMats[f.Material]; ok {
 			continue
 		}
 		verts := make([]int, len(f.Verts))
@@ -386,6 +396,13 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		}
 	}
 
+	ignoreMats := map[int]bool{}
+	for m, mat := range doc.Materials {
+		if mat.Name == "$IGNORE" {
+			ignoreMats[m] = true
+		}
+	}
+
 	m.Nodes = make([]*gltf.Node, len(targetObjects))
 
 	var bones []*mqo.Bone
@@ -405,10 +422,12 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 				}
 			}
 		}
-		mesh, joints := m.ConvertObject(obj, bones, boneIDToJoint, morphTargets)
-		meshIndex := uint32(len(m.Document.Meshes))
-		m.Document.Meshes = append(m.Document.Meshes, mesh)
-		node := &gltf.Node{Name: obj.Name, Mesh: gltf.Index(meshIndex)}
+		mesh, joints := m.ConvertObject(obj, bones, boneIDToJoint, morphTargets, ignoreMats)
+		node := &gltf.Node{Name: obj.Name}
+		if len(mesh.Primitives) > 0 {
+			node.Mesh = gltf.Index(uint32(len(m.Document.Meshes)))
+			m.Document.Meshes = append(m.Document.Meshes, mesh)
+		}
 		if len(joints) > 0 {
 			node.Skin = gltf.Index(m.addSkin(joints, jointToBone))
 		}

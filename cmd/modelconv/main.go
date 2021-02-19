@@ -61,6 +61,7 @@ func main() {
 	scale := flag.Float64("scale", 0, "0:auto")
 	vrmconf := flag.String("vrmconfig", "", "config file for VRM")
 	hides := flag.String("hide", "", "hide objects")
+	hidemats := flag.String("hidemat", "", "hide materials")
 	flag.Parse()
 
 	if flag.NArg() == 0 {
@@ -155,6 +156,18 @@ func main() {
 					doc.Objects[idx].Visible = false
 					idx++
 				}
+			}
+		}
+	}
+
+	if *hidemats != "" {
+		materialsByName := map[string]int{}
+		for idx, mat := range doc.Materials {
+			materialsByName[mat.Name] = idx
+		}
+		for _, n := range strings.Split(*hidemats, ",") {
+			if idx, ok := materialsByName[n]; ok {
+				doc.Materials[idx].Name = "$IGNORE"
 			}
 		}
 	}
