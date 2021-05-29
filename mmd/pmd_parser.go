@@ -18,7 +18,7 @@ type PMDParser struct {
 
 // NewPMDParser returns new parser.
 func NewPMDParser(r io.Reader) *PMDParser {
-	return &PMDParser{baseParser: baseParser{r}}
+	return &PMDParser{baseParser: baseParser{r: r}}
 }
 
 func (p *PMDParser) readString(len int) string {
