@@ -29,10 +29,11 @@ type MQOToGLTFOption struct {
 
 type mqoToGltf struct {
 	*modeler.Modeler
-	options      *MQOToGLTFOption
-	scale        float32
-	convertBone  bool
-	convertMorph bool
+	options         *MQOToGLTFOption
+	scale           float32
+	convertBone     bool
+	convertMorph    bool
+	JointNodeToBone map[uint32]*mqo.Bone
 }
 
 func NewMQOToGLTFConverter(options *MQOToGLTFOption) *mqoToGltf {
@@ -411,6 +412,7 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 	if m.convertBone {
 		bones = mqo.GetBonePlugin(doc).Bones()
 		boneIDToJoint, jointToBone = m.addBoneNodes(bones)
+		m.JointNodeToBone = jointToBone
 	}
 
 	for i, obj := range targetObjects {

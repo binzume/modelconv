@@ -49,6 +49,16 @@ type Vector4 struct {
 	W float32
 }
 
+// Returns Hamilton product
+func MultQQ(a *Vector4, b *Vector4) *Vector4 {
+	return &Vector4{
+		W: a.W*b.W - a.X*b.X - a.Y*b.Y - a.Z*b.Z, // 1
+		X: a.W*b.X + a.X*b.W + a.Y*b.Z - a.Z*b.Y, // i
+		Y: a.W*b.Y - a.X*b.Z + a.Y*b.W + a.Z*b.X, // j
+		Z: a.W*b.Z + a.X*b.Y - a.Y*b.X + a.Z*b.W, // k
+	}
+}
+
 type Document struct {
 	Scene     *Scene
 	Materials []*Material

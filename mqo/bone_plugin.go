@@ -130,6 +130,9 @@ type Bone struct {
 	Weights []*BoneWeight2 `xml:"W"`
 
 	weightMap map[int]*BoneWeight2
+
+	// internal use
+	RotationOffset Vector3 `xml:"-"`
 }
 
 func (v *Vector3) MarshalXMLAttr(name xml.Name) (xml.Attr, error) {
@@ -215,17 +218,19 @@ func (p *BonePlugin) Transform(transform func(v *Vector3)) {
 	}
 }
 
-func (doc *Document) BoneTransform(baseBone *Bone, transform func(v *Vector3)) {
+func (doc *Document) BoneTransform(baseBone *Bone, transform func(v *Vector3), boneFn func(b *Bone)) {
 	bones := GetBonePlugin(doc).Bones()
 	targetBones := map[*Bone]bool{baseBone: true}
 	boneByID := map[int]*Bone{}
 	for _, b := range bones {
 		boneByID[b.ID] = b
 	}
+	boneFn(baseBone)
 
 	// broken if bone.Parent > bone.ID ...
 	for _, b := range bones {
 		if b.Parent > 0 && targetBones[boneByID[b.Parent]] && !targetBones[b] {
+			boneFn(b)
 			targetBones[b] = true
 		}
 	}
@@ -295,9 +300,13 @@ func (doc *Document) BoneAdjustX(baseBone *Bone) {
 	} else {
 		rot = math.Pi - bd
 	}
+	cosRot := float32(math.Cos(rot))
+	sinRot := float32(math.Sin(rot))
 	doc.BoneTransform(baseBone, func(v *Vector3) {
 		dv := *v
-		v.X = dv.X*float32(math.Cos(rot)) - dv.Y*float32(math.Sin(rot))
-		v.Y = dv.X*float32(math.Sin(rot)) + dv.Y*float32(math.Cos(rot))
+		v.X = dv.X*cosRot - dv.Y*sinRot
+		v.Y = dv.X*sinRot + dv.Y*cosRot
+	}, func(b *Bone) {
+		b.RotationOffset.X += float32(rot)
 	})
 }

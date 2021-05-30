@@ -12,6 +12,17 @@ import (
 	"github.com/qmuntal/gltf"
 )
 
+func loadAnimation(input string) (*mmd.Animation, error) {
+	r, err := os.Open(input)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	var p = mmd.NewVMDParser(r)
+	return p.Parse()
+}
+
 func loadDocument(input string) (*mqo.Document, error) {
 	r, err := os.Open(input)
 	if err != nil {

@@ -4,12 +4,14 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/binzume/modelconv/converter"
 	"github.com/binzume/modelconv/mqo"
+	"github.com/qmuntal/gltf"
 )
 
 func defaultOutputFile(input string) string {
@@ -25,17 +27,42 @@ func defaultOutputFile(input string) string {
 	return input + ".mqo"
 }
 
-func saveDocument(doc *mqo.Document, output, srcDir, vrmConf string, forceUnlit bool) error {
+func saveDocument(doc *mqo.Document, output, srcDir, vrmConf string, forceUnlit bool, inputs []string) error {
 	ext := strings.ToLower(filepath.Ext(output))
 	if ext == ".glb" {
-		options := &converter.MQOToGLTFOption{ForceUnlit: forceUnlit}
-		return saveAsGlb(doc, output, srcDir, options)
-	} else if ext == ".vrm" {
-		options := &converter.MQOToGLTFOption{ForceUnlit: forceUnlit}
-		gltfdoc, err := converter.NewMQOToGLTFConverter(options).Convert(doc, srcDir)
+		conv := converter.NewMQOToGLTFConverter(&converter.MQOToGLTFOption{ForceUnlit: forceUnlit})
+		gltfdoc, err := conv.Convert(doc, srcDir)
 		if err != nil {
 			return err
 		}
+
+		for _, f := range inputs[1:] {
+			if strings.ToLower(filepath.Ext(f)) == ".vmd" {
+				ani, err := loadAnimation(f)
+				if err != nil {
+					return err
+				}
+				converter.AddAnimationTpGlb(gltfdoc, ani, conv.JointNodeToBone, true)
+			}
+		}
+
+		return gltf.SaveBinary(gltfdoc, output)
+	} else if ext == ".vrm" {
+		conv := converter.NewMQOToGLTFConverter(&converter.MQOToGLTFOption{ForceUnlit: forceUnlit})
+		gltfdoc, err := conv.Convert(doc, srcDir)
+		if err != nil {
+			return err
+		}
+		for _, f := range inputs[1:] {
+			if strings.ToLower(filepath.Ext(f)) == ".vmd" {
+				ani, err := loadAnimation(f)
+				if err != nil {
+					return err
+				}
+				converter.AddAnimationTpGlb(gltfdoc, ani, conv.JointNodeToBone, true)
+			}
+		}
+
 		return saveAsVRM(gltfdoc, output, vrmConf)
 	} else if ext == ".mqo" {
 		w, err := os.Create(output)
@@ -69,9 +96,13 @@ func main() {
 		return
 	}
 	input := flag.Arg(0)
-	output := flag.Arg(1)
-	if output == "" {
+	output := ""
+	inputN := flag.NArg() - 1
+	if inputN < 1 {
+		inputN = 1
 		output = defaultOutputFile(input)
+	} else {
+		output = flag.Arg(inputN)
 	}
 	confFile := *vrmconf
 	if confFile == "" {
@@ -87,6 +118,17 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		return
+	}
+
+	if inputExt == ".vmd" {
+		// DEBUG
+		anim, err := loadAnimation(input)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Println(anim.Name)
+		log.Println(anim.GetRotationChannels())
 		return
 	}
 
@@ -122,6 +164,9 @@ func main() {
 			v.X *= -1
 			v.Z *= -1
 		})
+		for _, b := range mqo.GetBonePlugin(doc).Bones() {
+			b.RotationOffset.Y = math.Pi
+		}
 	}
 	if *scale != 1.0 {
 		s := float32(*scale)
@@ -173,7 +218,7 @@ func main() {
 	}
 
 	log.Print("out: ", output)
-	if err = saveDocument(doc, output, filepath.Dir(input), confFile, *forceUnlit); err != nil {
+	if err = saveDocument(doc, output, filepath.Dir(input), confFile, *forceUnlit, flag.Args()[0:inputN]); err != nil {
 		log.Fatal(err)
 	}
 }
