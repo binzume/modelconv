@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sort"
 
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
@@ -54,20 +55,45 @@ type AnimationLightSample struct {
 }
 
 type RotationChannel struct {
+	Target  string
 	Frames  []uint32
 	Samples []*Vector4
 }
 
+type MorphChannel struct {
+	Target  string
+	Frames  []uint32
+	Samples []float32
+}
+
 func (a *Animation) GetRotationChannels() map[string]*RotationChannel {
+	sort.Slice(a.Bone, func(i, j int) bool { return a.Bone[i].Frame < a.Bone[j].Frame })
+
 	r := map[string]*RotationChannel{}
 	for _, s := range a.Bone {
 		a, ok := r[s.Target]
 		if !ok {
-			a = &RotationChannel{}
+			a = &RotationChannel{Target: s.Target}
 			r[s.Target] = a
 		}
 		a.Frames = append(a.Frames, uint32(s.Frame))
 		a.Samples = append(a.Samples, &s.Rotation)
+	}
+	return r
+}
+
+func (a *Animation) GetMorphChannels() map[string]*MorphChannel {
+	sort.Slice(a.Morph, func(i, j int) bool { return a.Morph[i].Frame < a.Morph[j].Frame })
+
+	r := map[string]*MorphChannel{}
+	for _, s := range a.Morph {
+		a, ok := r[s.Target]
+		if !ok {
+			a = &MorphChannel{Target: s.Target}
+			r[s.Target] = a
+		}
+		a.Frames = append(a.Frames, uint32(s.Frame))
+		a.Samples = append(a.Samples, s.Value)
 	}
 	return r
 }
