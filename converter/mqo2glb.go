@@ -177,10 +177,10 @@ func (m *mqoToGltf) hasAlpha(textureDir string, texture string) bool {
 	return false
 }
 
-func (m *mqoToGltf) addTexture(textureDir string, texture string) uint32 {
+func (m *mqoToGltf) addTexture(textureDir string, texture string) (uint32, error) {
 	f, err := os.Open(filepath.Join(textureDir, texture))
 	if err != nil {
-		log.Print("Texture file not found:", texture)
+		return 0, err
 	}
 	defer f.Close()
 	var r io.Reader = f
@@ -200,25 +200,25 @@ func (m *mqoToGltf) addTexture(textureDir string, texture string) uint32 {
 				img, err = bmp.Decode(r)
 			}
 			if err != nil {
-				log.Fatalf("Texture read error: %v texid: %v", err, texture)
+				return 0, err
 			}
 		}
 		w := new(bytes.Buffer)
 		err = png.Encode(w, img)
 		if err != nil {
-			log.Fatal("Texture encode error:", err, texture)
+			return 0, err
 		}
 		r = w
 	}
 	img, err := m.AddImage(0, filepath.Base(texture), mimeType, r)
 	if err != nil {
-		log.Fatal("Texture read error:", err, texture)
+		return 0, err
 	}
 	m.Buffers[0].ByteLength = uint32(len(m.Buffers[0].Data)) // avoid AddImage bug
 	m.Textures = append(m.Textures,
 		&gltf.Texture{Sampler: gltf.Index(0), Source: gltf.Index(img)})
 
-	return uint32(len(m.Textures)) - 1
+	return uint32(len(m.Textures)) - 1, nil
 }
 
 func (m *mqoToGltf) convertMaterial(textureDir string, mat *mqo.Material) *gltf.Material {
@@ -420,6 +420,10 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		if m.convertMorph {
 			if morph, ok := morphBases[obj.Name]; ok {
 				for _, t := range morph.Target {
+					if len(objectByName[t.Name].Vertexes) != len(obj.Vertexes) {
+						log.Print("unmached morph target: ", t.Name)
+						continue
+					}
 					morphTargets = append(morphTargets, objectByName[t.Name])
 				}
 			}
@@ -443,10 +447,16 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		mm := m.convertMaterial(textureDir, mat)
 		if mat.Texture != "" {
 			if _, exist := textures[mat.Texture]; !exist {
-				textures[mat.Texture] = m.addTexture(textureDir, mat.Texture)
+				tex, err := m.addTexture(textureDir, mat.Texture)
+				if err != nil {
+					log.Print("Texture read error:", err)
+				}
+				textures[mat.Texture] = tex
 			}
-			mm.PBRMetallicRoughness.BaseColorTexture = &gltf.TextureInfo{
-				Index: textures[mat.Texture],
+			if tex, exist := textures[mat.Texture]; exist {
+				mm.PBRMetallicRoughness.BaseColorTexture = &gltf.TextureInfo{
+					Index: tex,
+				}
 			}
 		}
 		if mm.Extensions["KHR_materials_unlit"] != nil {
