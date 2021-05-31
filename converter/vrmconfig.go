@@ -33,7 +33,8 @@ type Config struct {
 
 type BoneMapping struct {
 	vrm.Bone
-	NodeName string `json:"nodeName"`
+	NodeName  string   `json:"nodeName"` // deprecated
+	NodeNames []string `json:"nodeNames"`
 }
 
 type MorphMapping struct {
@@ -56,19 +57,33 @@ func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]
 		if _, ok := foundBones[mapping.Bone.Bone]; ok {
 			continue
 		}
-		if mapping.NodeName == "" {
+		if mapping.NodeName != "" {
+			mapping.NodeNames = append(mapping.NodeNames, mapping.NodeName)
+			mapping.NodeName = ""
+		}
+		if len(mapping.NodeNames) == 0 {
 			// ignore
 			foundBones[mapping.Bone.Bone] = -1
 			continue
 		}
-		if id, ok := nodeMap[mapping.NodeName]; ok {
-			var b = mapping.Bone
-			foundBones[mapping.Bone.Bone] = id
-			b.Node = id
-			b.UseDefaultValues = b.UseDefaultValues || b.Min == nil && b.Max == nil && b.Center == nil
-			ext.Humanoid.Bones = append(ext.Humanoid.Bones, &b)
-		} else {
-			log.Println("Bone node not found:", mapping.NodeName)
+		found := false
+		for _, nodeName := range mapping.NodeNames {
+			if id, ok := nodeMap[nodeName]; ok {
+				if doc.Nodes[id].Mesh != nil {
+					log.Printf("ERROR: %v is not bone node!", nodeName)
+					continue
+				}
+				var b = mapping.Bone
+				foundBones[mapping.Bone.Bone] = id
+				b.Node = id
+				b.UseDefaultValues = b.UseDefaultValues || b.Min == nil && b.Max == nil && b.Center == nil
+				ext.Humanoid.Bones = append(ext.Humanoid.Bones, &b)
+				found = true
+				break
+			}
+		}
+		if len(mapping.NodeNames) > 0 && !found {
+			log.Println("Bone node not found:", mapping.NodeNames)
 		}
 	}
 
