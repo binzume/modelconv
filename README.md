@@ -9,6 +9,7 @@ Goで3Dモデルファイルを読み書きするライブラリ＆変換ツー�
 | .glb   |  △  |  ○  | https://github.com/qmuntal/gltf を使っています |
 | .pmx   |  ○  |  ○  | Physicsは未対応 |
 | .pmd   |  ○  |      | Read only |
+| .vmd   |  △  |      |  |
 
 データを見ながら雰囲気で実装してるので，おかしな挙動をするかもしれません．
 
@@ -23,6 +24,7 @@ Pure golangなのでGoがあればビルドできると思います．
 go get -u github.com/binzume/modelconv/cmd/modelconv
 go build github.com/binzume/modelconv/cmd/modelconv
 ./modelconv "path_to.pmx"
+./modelconv "path_to.pmx" "animation.vmd" "output.glb"
 ```
 
 # License
