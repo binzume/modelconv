@@ -61,7 +61,15 @@ func (c *mmdToMQO) convertBones(pmx *mmd.Document) []*mqo.Bone {
 
 	for _, pmBone := range pmx.Bones {
 		if len(pmBone.IK.Links) > 0 {
-			bones[pmBone.IK.TargetID].IK = &mqo.BoneIK{ChainCount: len(pmBone.IK.Links) + 1}
+			var tipName string
+			if pmBone.TailID > 0 && pmBone.TailID < len(pmx.Bones) {
+				tipName = pmx.Bones[pmBone.TailID].Name
+			}
+			bones[pmBone.IK.TargetID].IK = &mqo.BoneIK{
+				ChainCount: len(pmBone.IK.Links) + 1,
+				Name:       pmBone.Name,
+				TipName:    tipName,
+			}
 		}
 	}
 	return bones

@@ -28,7 +28,7 @@ type MQOToGLTFOption struct {
 }
 
 type mqoToGltf struct {
-	*modeler.Modeler
+	*gltf.Document
 	options         *MQOToGLTFOption
 	scale           float32
 	convertBone     bool
@@ -41,7 +41,7 @@ func NewMQOToGLTFConverter(options *MQOToGLTFOption) *mqoToGltf {
 		options = &MQOToGLTFOption{}
 	}
 	return &mqoToGltf{
-		Modeler:      modeler.NewModeler(),
+		Document:     gltf.NewDocument(),
 		scale:        0.001,
 		convertBone:  true,
 		convertMorph: true,
@@ -49,7 +49,7 @@ func NewMQOToGLTFConverter(options *MQOToGLTFOption) *mqoToGltf {
 	}
 }
 
-func (m *mqoToGltf) addMatrices(bufferIndex uint32, mat [][4][4]float32) uint32 {
+func (m *mqoToGltf) addMatrices(mat [][4][4]float32) uint32 {
 	a := make([][4]float32, len(mat)*4)
 	for i, m := range mat {
 		a[i*4+0] = m[0]
@@ -57,7 +57,7 @@ func (m *mqoToGltf) addMatrices(bufferIndex uint32, mat [][4][4]float32) uint32 
 		a[i*4+2] = m[2]
 		a[i*4+3] = m[3]
 	}
-	acc := m.AddTangent(bufferIndex, a)
+	acc := modeler.WriteTangent(m.Document, a)
 	m.Accessors[acc].Type = gltf.AccessorMat4
 	m.Accessors[acc].Count /= 4
 	m.BufferViews[*m.Accessors[acc].BufferView].ByteStride *= 4
@@ -73,22 +73,22 @@ func (m *mqoToGltf) addBoneNodes(bones []*mqo.Bone) (map[int]uint32, map[uint32]
 		idmap[b.ID] = uint32(len(m.Nodes))
 		idmapr[uint32(len(m.Nodes))] = b
 		bonemap[b.ID] = b
-		m.Nodes = append(m.Nodes, &gltf.Node{Name: b.Name, Translation: [3]float64{0, 0, 0}, Rotation: [4]float64{0, 0, 0, 1}})
+		m.Nodes = append(m.Nodes, &gltf.Node{Name: b.Name, Translation: [3]float32{0, 0, 0}, Rotation: [4]float32{0, 0, 0, 1}})
 	}
 
 	for _, b := range bones {
 		node := m.Nodes[idmap[b.ID]]
 		if b.Parent > 0 {
 			parent := bonemap[b.Parent]
-			node.Translation[0] = float64((b.Pos.X - parent.Pos.X) * scale)
-			node.Translation[1] = float64((b.Pos.Y - parent.Pos.Y) * scale)
-			node.Translation[2] = float64((b.Pos.Z - parent.Pos.Z) * scale)
+			node.Translation[0] = ((b.Pos.X - parent.Pos.X) * scale)
+			node.Translation[1] = ((b.Pos.Y - parent.Pos.Y) * scale)
+			node.Translation[2] = ((b.Pos.Z - parent.Pos.Z) * scale)
 			parentNode := m.Nodes[idmap[parent.ID]]
 			parentNode.Children = append(parentNode.Children, idmap[b.ID])
 		} else {
-			node.Translation[0] = float64((b.Pos.X) * scale)
-			node.Translation[1] = float64((b.Pos.Y) * scale)
-			node.Translation[2] = float64((b.Pos.Z) * scale)
+			node.Translation[0] = ((b.Pos.X) * scale)
+			node.Translation[1] = ((b.Pos.Y) * scale)
+			node.Translation[2] = ((b.Pos.Z) * scale)
 			m.Scenes[0].Nodes = append(m.Scenes[0].Nodes, idmap[b.ID])
 		}
 	}
@@ -150,7 +150,7 @@ func (m *mqoToGltf) addSkin(joints []uint32, jointToBone map[uint32]*mqo.Bone) u
 	}
 	m.Skins = append(m.Skins, &gltf.Skin{
 		Joints:              joints,
-		InverseBindMatrices: gltf.Index(m.addMatrices(0, invmats)),
+		InverseBindMatrices: gltf.Index(m.addMatrices(invmats)),
 	})
 	return uint32(len(m.Skins) - 1)
 }
@@ -210,7 +210,7 @@ func (m *mqoToGltf) addTexture(textureDir string, texture string) (uint32, error
 		}
 		r = w
 	}
-	img, err := m.AddImage(0, filepath.Base(texture), mimeType, r)
+	img, err := modeler.WriteImage(m.Document, filepath.Base(texture), mimeType, r)
 	if err != nil {
 		return 0, err
 	}
@@ -223,33 +223,33 @@ func (m *mqoToGltf) addTexture(textureDir string, texture string) (uint32, error
 
 func (m *mqoToGltf) convertMaterial(textureDir string, mat *mqo.Material) *gltf.Material {
 	var unlitMaterialExt = "KHR_materials_unlit"
-	var rf = 0.4
-	var mf = float64(mat.Specular)
+	var rf float32 = 0.4
+	var mf = mat.Specular
 	mm := &gltf.Material{
 		Name: mat.Name,
 		PBRMetallicRoughness: &gltf.PBRMetallicRoughness{
-			BaseColorFactor: &gltf.RGBA{R: float64(mat.Color.X), G: float64(mat.Color.Y), B: float64(mat.Color.Z), A: float64(mat.Color.W)},
+			BaseColorFactor: &[4]float32{mat.Color.X, mat.Color.Y, mat.Color.Z, mat.Color.W},
 			RoughnessFactor: &rf,
 			MetallicFactor:  &mf,
 		},
 		DoubleSided: mat.DoubleSided,
 	}
 	if mat.EmissionColor != nil {
-		mm.EmissiveFactor = [3]float64{float64(mat.EmissionColor.X), float64(mat.EmissionColor.Y), float64(mat.EmissionColor.Z)}
+		mm.EmissiveFactor = [3]float32{(mat.EmissionColor.X), (mat.EmissionColor.Y), (mat.EmissionColor.Z)}
 	} else if mat.Emission > 0 {
-		mm.EmissiveFactor = [3]float64{float64(mat.Emission), float64(mat.Emission), float64(mat.Emission)}
+		mm.EmissiveFactor = [3]float32{(mat.Emission), (mat.Emission), (mat.Emission)}
 	}
 	if mat.Ex2 != nil && mat.Ex2.ShaderName == "glTF" {
-		metallicFactor := mat.Ex2.FloatParam("Metallic")
+		metallicFactor := float32(mat.Ex2.FloatParam("Metallic"))
 		mm.PBRMetallicRoughness.MetallicFactor = &metallicFactor
-		roughnessFactor := mat.Ex2.FloatParam("Roughness")
+		roughnessFactor := float32(mat.Ex2.FloatParam("Roughness"))
 		mm.PBRMetallicRoughness.RoughnessFactor = &roughnessFactor
 		switch mat.Ex2.IntParam("AlphaMode") {
 		case 1:
 			mm.AlphaMode = gltf.AlphaOpaque
 		case 2:
 			mm.AlphaMode = gltf.AlphaMask
-			cutoff := mat.Ex2.FloatParam("AlphaCutOff")
+			cutoff := float32(mat.Ex2.FloatParam("AlphaCutOff"))
 			mm.AlphaCutoff = &cutoff
 		case 3:
 			mm.AlphaMode = gltf.AlphaBlend
@@ -326,17 +326,17 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 	}
 
 	attributes := map[string]uint32{
-		"POSITION": m.AddPosition(0, vertexes),
+		"POSITION": modeler.WritePosition(m.Document, vertexes),
 	}
 	if useTexcood0 {
-		attributes["TEXCOORD_0"] = m.AddTextureCoord(0, texcood0)
+		attributes["TEXCOORD_0"] = modeler.WriteTextureCoord(m.Document, texcood0)
 	}
 	if obj.Shading > 0 && !m.options.ForceUnlit {
-		attributes["NORMAL"] = m.AddNormal(0, normal)
+		attributes["NORMAL"] = modeler.WriteNormal(m.Document, normal)
 	}
 	if len(joints) > 0 {
-		attributes["JOINTS_0"] = m.AddJoints(0, joints0)
-		attributes["WEIGHTS_0"] = m.AddWeights(0, weights0)
+		attributes["JOINTS_0"] = modeler.WriteJoints(m.Document, joints0)
+		attributes["WEIGHTS_0"] = modeler.WriteWeights(m.Document, weights0)
 	}
 
 	// morph
@@ -349,7 +349,7 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 			mv = append(mv, [3]float32{v.X*scale - vertexes[i][0], v.Y*scale - vertexes[i][1], v.Z*scale - vertexes[i][2]})
 		}
 		targets = append(targets, map[string]uint32{
-			"POSITION": m.AddPosition(0, mv),
+			"POSITION": modeler.WritePosition(m.Document, mv),
 			"NORMAL":   attributes["NORMAL"], // for UniVRM. TODO
 		})
 		targetNames = append(targetNames, morphObj.Name)
@@ -358,7 +358,7 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 	// make primitive for each materials
 	var primitives []*gltf.Primitive
 	for mat, ind := range indices {
-		indicesAccessor := m.AddIndices(0, ind)
+		indicesAccessor := modeler.WriteIndices(m.Document, ind)
 		primitives = append(primitives, &gltf.Primitive{
 			Indices:    gltf.Index(indicesAccessor),
 			Attributes: attributes,

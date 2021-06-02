@@ -55,15 +55,16 @@ type AnimationLightSample struct {
 }
 
 type RotationChannel struct {
-	Target  string
-	Frames  []uint32
-	Samples []*Vector4
+	Target    string
+	Frames    []uint32
+	Rotations []*Vector4
+	Positions []*Vector3
 }
 
 type MorphChannel struct {
 	Target  string
 	Frames  []uint32
-	Samples []float32
+	Weights []float32
 }
 
 func (a *Animation) GetRotationChannels() map[string]*RotationChannel {
@@ -77,7 +78,8 @@ func (a *Animation) GetRotationChannels() map[string]*RotationChannel {
 			r[s.Target] = a
 		}
 		a.Frames = append(a.Frames, uint32(s.Frame))
-		a.Samples = append(a.Samples, &s.Rotation)
+		a.Rotations = append(a.Rotations, &s.Rotation)
+		a.Positions = append(a.Positions, &s.Position)
 	}
 	return r
 }
@@ -93,7 +95,7 @@ func (a *Animation) GetMorphChannels() map[string]*MorphChannel {
 			r[s.Target] = a
 		}
 		a.Frames = append(a.Frames, uint32(s.Frame))
-		a.Samples = append(a.Samples, s.Value)
+		a.Weights = append(a.Weights, s.Value)
 	}
 	return r
 }

@@ -13,11 +13,23 @@ type Vector3 struct {
 	Z float32
 }
 
+func (v *Vector3) Dot(v2 *Vector3) float32 {
+	return v.X*v2.X + v.Y*v2.Y + v.Z*v2.Z
+}
+
+func (v *Vector3) Cross(v2 *Vector3) *Vector3 {
+	return &Vector3{
+		X: v.Y*v2.Z - v.Z*v2.Y,
+		Y: v.Z*v2.X - v.X*v2.Z,
+		Z: v.X*v2.Y - v.Y*v2.X,
+	}
+}
+
 func (v *Vector3) Len() float32 {
 	return float32(math.Sqrt(float64(v.X*v.X + v.Y*v.Y + v.Z*v.Z)))
 }
 
-func (v *Vector3) Normalize() {
+func (v *Vector3) Normalize() *Vector3 {
 	l := v.Len()
 	if l > 0 {
 		v.X /= l
@@ -26,6 +38,7 @@ func (v *Vector3) Normalize() {
 	} else {
 		v.Z = 1
 	}
+	return v
 }
 
 func (v *Vector3) Add(v2 *Vector3) *Vector3 {
@@ -47,6 +60,26 @@ type Vector4 struct {
 	Y float32
 	Z float32
 	W float32
+}
+
+func (v *Vector4) Dot(v2 *Vector4) float32 {
+	return v.X*v2.X + v.Y*v2.Y + v.Z*v2.Z + v.W*v2.W
+}
+
+func (v *Vector4) Len() float32 {
+	return float32(math.Sqrt(float64(v.X*v.X + v.Y*v.Y + v.Z*v.Z + v.W*v.W)))
+}
+
+func (v *Vector4) Normalize() *Vector4 {
+	l := v.Len()
+	if l > 0 {
+		v.X /= l
+		v.Y /= l
+		v.Z /= l
+	} else {
+		v.W = 1
+	}
+	return v
 }
 
 // Returns Hamilton product

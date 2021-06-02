@@ -172,6 +172,10 @@ type VertexWeight struct {
 
 type BoneIK struct {
 	ChainCount int `xml:"chain,attr"`
+
+	// MMD
+	Name    string `xml:"name,attr"`
+	TipName string `xml:"tipName,attr"`
 }
 
 type PoseSet struct {
