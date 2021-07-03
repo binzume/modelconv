@@ -54,27 +54,29 @@ type AnimationLightSample struct {
 	Position Vector3
 }
 
-type RotationChannel struct {
+type BoneChannel struct {
 	Target    string
+	Keyframes []*AnimationBoneSample
 	Frames    []uint32
 	Rotations []*Vector4
 	Positions []*Vector3
 }
 
 type MorphChannel struct {
-	Target  string
-	Frames  []uint32
-	Weights []float32
+	Target    string
+	Keyframes []*AnimationMorphSample
+	Frames    []uint32
+	Weights   []float32
 }
 
-func (a *Animation) GetRotationChannels() map[string]*RotationChannel {
+func (a *Animation) GetBoneChannels() map[string]*BoneChannel {
 	sort.Slice(a.Bone, func(i, j int) bool { return a.Bone[i].Frame < a.Bone[j].Frame })
 
-	r := map[string]*RotationChannel{}
+	r := map[string]*BoneChannel{}
 	for _, s := range a.Bone {
 		a, ok := r[s.Target]
 		if !ok {
-			a = &RotationChannel{Target: s.Target}
+			a = &BoneChannel{Target: s.Target}
 			r[s.Target] = a
 		}
 		a.Frames = append(a.Frames, uint32(s.Frame))

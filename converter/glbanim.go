@@ -32,7 +32,7 @@ func isDefaultRotations(samples []*mmd.Vector4) bool {
 	return true
 }
 
-func addBoneChannels(doc *gltf.Document, a *gltf.Animation, bones map[uint32]*mqo.Bone, bb map[string]*mmd.RotationChannel) {
+func addBoneChannels(doc *gltf.Document, a *gltf.Animation, bones map[uint32]*mqo.Bone, bb map[string]*mmd.BoneChannel) {
 	var scale float32 = 80 * 0.001
 
 	boneToNode := map[string]int{}
@@ -52,13 +52,13 @@ func addBoneChannels(doc *gltf.Document, a *gltf.Animation, bones map[uint32]*mq
 		}
 	}
 
-	var prevCh *mmd.RotationChannel
-	var prevKeyAcc uint32
+	var prevCh *mmd.BoneChannel
+	var prevKeysAcc uint32
 	for _, channel := range bb {
 		if n, ok := boneToNode[channel.Target]; ok {
 			var keysAcc uint32
 			if prevCh != nil && keysEquals(channel.Frames, prevCh.Frames) {
-				keysAcc = prevKeyAcc
+				keysAcc = prevKeysAcc
 			} else {
 				var keys []float32
 				for _, k := range channel.Frames {
@@ -148,7 +148,7 @@ func addBoneChannels(doc *gltf.Document, a *gltf.Animation, bones map[uint32]*mq
 					r[0]*sinRotX + r[1]*cosRotX,
 					r[2],
 				}
-				if r != [3]float32{0, 0, 0} {
+				if *s != (mmd.Vector3{X: 0, Y: 0, Z: 0}) {
 					translate = true
 				}
 				translations = append(translations, [3]float32{pos.X*0.001 + r[0], pos.Y*0.001 + r[1], pos.Z*0.001 + r[2]})
@@ -176,7 +176,7 @@ func addBoneChannels(doc *gltf.Document, a *gltf.Animation, bones map[uint32]*mq
 			}
 
 			prevCh = channel
-			prevKeyAcc = keysAcc
+			prevKeysAcc = keysAcc
 		}
 	}
 }
@@ -253,7 +253,7 @@ func addMorphChannels(doc *gltf.Document, a *gltf.Animation, morphs map[string]*
 func AddAnimationTpGlb(doc *gltf.Document, anim *mmd.Animation, bones map[uint32]*mqo.Bone, compact bool) {
 	a := gltf.Animation{Name: anim.Name}
 
-	addBoneChannels(doc, &a, bones, anim.GetRotationChannels())
+	addBoneChannels(doc, &a, bones, anim.GetBoneChannels())
 	addMorphChannels(doc, &a, anim.GetMorphChannels())
 
 	if len(a.Channels) > 0 {

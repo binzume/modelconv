@@ -128,7 +128,7 @@ func main() {
 			log.Fatal(err)
 		}
 		log.Println(anim.Name)
-		log.Println(anim.GetRotationChannels())
+		log.Println(anim.GetBoneChannels())
 		return
 	}
 
