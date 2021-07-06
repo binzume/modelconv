@@ -87,8 +87,9 @@ func main() {
 	forceUnlit := flag.Bool("gltfunlit", false, "unlit all materials")
 	scale := flag.Float64("scale", 0, "0:auto")
 	vrmconf := flag.String("vrmconfig", "", "config file for VRM")
-	hides := flag.String("hide", "", "hide objects")
-	hidemats := flag.String("hidemat", "", "hide materials")
+	hides := flag.String("hide", "", "hide objects (OBJ1,OBJ2,...)")
+	hidemats := flag.String("hidemat", "", "hide materials (MAT1,MAT2,...)")
+	chparent := flag.String("chparent", "", "ch bone parent (BONE1:PARENT1,BONE2:PARENT2,...)")
 	flag.Parse()
 
 	if flag.NArg() == 0 {
@@ -201,6 +202,23 @@ func main() {
 					doc.Objects[idx].Visible = false
 					idx++
 				}
+			}
+		}
+	}
+
+	if *chparent != "" {
+		boneByName := map[string]*mqo.Bone{}
+		for _, b := range mqo.GetBonePlugin(doc).Bones() {
+			boneByName[b.Name] = b
+		}
+		for _, n := range strings.Split(*chparent, ",") {
+			boneAndParent := strings.Split(n, ":")
+			if len(boneAndParent) != 2 {
+				log.Fatal("invalid bone setting (BONE_NAME:PARENT_NAME)", n)
+				continue
+			}
+			if b, ok := boneByName[boneAndParent[0]]; ok {
+				b.Parent = boneByName[boneAndParent[1]].ID
 			}
 		}
 	}
