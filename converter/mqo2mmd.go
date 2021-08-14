@@ -146,7 +146,7 @@ func (c *mqoToMMD) setWeights(dst *mmd.Document, obj *mqo.Object, vmap map[int][
 func (c *mqoToMMD) convertBone(bone *mqo.Bone) *mmd.Bone {
 	return &mmd.Bone{
 		Name:     bone.Name,
-		Pos:      *c.convertVec3(&bone.Pos),
+		Pos:      *c.convertVec3(&bone.Pos.Vector3),
 		ParentID: -1,
 		TailID:   -1,
 		Flags:    mmd.BoneFlagVisible | mmd.BoneFlagEnabled | mmd.BoneFlagRotatable,

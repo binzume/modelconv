@@ -1,22 +1,11 @@
 package mmd
 
-type Vector2 struct {
-	X float32
-	Y float32
-}
+import "github.com/binzume/modelconv/geom"
 
-type Vector3 struct {
-	X float32
-	Y float32
-	Z float32
-}
-
-type Vector4 struct {
-	X float32
-	Y float32
-	Z float32
-	W float32
-}
+type Vector2 = geom.Vector2
+type Vector3 = geom.Vector3
+type Vector4 = geom.Vector4
+type Quaternion = geom.Vector4
 
 type Document struct {
 	Header    *Header

@@ -50,7 +50,7 @@ func (c *mmdToMQO) convertBones(pmx *mmd.Document) []*mqo.Bone {
 			ID:     boneIdx + 1,
 			Name:   pmBone.Name,
 			Group:  pmBone.Layer,
-			Pos:    *c.convertVec3(&pmBone.Pos),
+			Pos:    mqo.Vector3Attr{Vector3: *c.convertVec3(&pmBone.Pos)},
 			Parent: pmBone.ParentID + 1,
 		}
 		if pmBone.Flags&mmd.BoneFlagTranslatable != 0 {
@@ -148,7 +148,7 @@ func (c *mmdToMQO) genMorphGroup(pmx *mmd.Document) ([][]int, [][]int) {
 		}
 	}
 	f2fg := make([]int, len(pmx.Faces))
-	fgs := [][]int{[]int{}}
+	fgs := [][]int{{}}
 	for fid := range pmx.Faces {
 		if f2fg[fid] == 0 {
 			fgs = append(fgs, c.newFg(pmx, f2fg, v2f, fid, len(fgs), []int{}))
@@ -188,7 +188,7 @@ func (c *mmdToMQO) genMorphGroup(pmx *mmd.Document) ([][]int, [][]int) {
 	}
 
 	m2mg := make([]int, len(m2fg))
-	mg2m := [][]int{[]int{}}
+	mg2m := [][]int{{}}
 	for mi, fg := range m2fg {
 		if len(fg) > 0 && m2mg[mi] == 0 {
 			mg2m = append(mg2m, c.newMg(pmx, m2mg, m2fg, fg2m, mi, len(mg2m), []int{}))

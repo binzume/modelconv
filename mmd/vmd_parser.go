@@ -28,7 +28,7 @@ type AnimationBoneSample struct {
 	Target   string
 	Frame    int
 	Position Vector3
-	Rotation Vector4
+	Rotation Quaternion
 	Params   [64]byte
 }
 
@@ -58,7 +58,7 @@ type BoneChannel struct {
 	Target    string
 	Keyframes []*AnimationBoneSample
 	Frames    []uint32
-	Rotations []*Vector4
+	Rotations []*Quaternion
 	Positions []*Vector3
 }
 

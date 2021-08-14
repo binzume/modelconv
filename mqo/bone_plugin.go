@@ -113,17 +113,17 @@ type BoneSet2 struct {
 }
 
 type Bone struct {
-	ID       int      `xml:"id,attr"`
-	Name     string   `xml:"name,attr"`
-	Group    int      `xml:"group,attr,omitempty"`
-	Parent   int      `xml:"parent,attr,omitempty"`
-	Pos      Vector3  `xml:"pos,attr,omitempty"`
-	Movable  int      `xml:"movable,attr,omitempty"`
-	Hide     int      `xml:"hide,attr,omitempty"`
-	Dummy    int      `xml:"dummy,attr,omitempty"`
-	Color    string   `xml:"color,attr,omitempty"`
-	UpVector *Vector3 `xml:"upVector,attr,omitempty"`
-	Rotate   *Vector3 `xml:"rotate,attr,omitempty"`
+	ID       int          `xml:"id,attr"`
+	Name     string       `xml:"name,attr"`
+	Group    int          `xml:"group,attr,omitempty"`
+	Parent   int          `xml:"parent,attr,omitempty"`
+	Pos      Vector3Attr  `xml:"pos,attr,omitempty"`
+	Movable  int          `xml:"movable,attr,omitempty"`
+	Hide     int          `xml:"hide,attr,omitempty"`
+	Dummy    int          `xml:"dummy,attr,omitempty"`
+	Color    string       `xml:"color,attr,omitempty"`
+	UpVector *Vector3Attr `xml:"upVector,attr,omitempty"`
+	Rotate   *Vector3Attr `xml:"rotate,attr,omitempty"`
 
 	IK *BoneIK `xml:"IK,omitempty"`
 
@@ -135,12 +135,14 @@ type Bone struct {
 	RotationOffset Vector3 `xml:"-"`
 }
 
-func (v *Vector3) MarshalXMLAttr(name xml.Name) (xml.Attr, error) {
+type Vector3Attr struct{ Vector3 }
+
+func (v *Vector3Attr) MarshalXMLAttr(name xml.Name) (xml.Attr, error) {
 	value := fmt.Sprintf("%v,%v,%v", v.X, v.Y, v.Z)
 	return xml.Attr{Name: name, Value: value}, nil
 }
 
-func (v *Vector3) UnmarshalXMLAttr(attr xml.Attr) error {
+func (v *Vector3Attr) UnmarshalXMLAttr(attr xml.Attr) error {
 	fmt.Sscanf(attr.Value, "%f,%f,%f", &v.X, &v.Y, &v.Z)
 	return nil
 }
@@ -218,7 +220,7 @@ func (p *BonePlugin) PostDeserialize(mqo *Document) {
 
 func (p *BonePlugin) Transform(transform func(v *Vector3)) {
 	for _, b := range p.BoneSet2.Bones {
-		transform(&b.Pos)
+		transform(&b.Pos.Vector3)
 	}
 }
 
@@ -255,7 +257,7 @@ func (doc *Document) BoneTransform(baseBone *Bone, transform func(v *Vector3), b
 
 	verts := map[*Vector3]float32{}
 	for b := range targetBones {
-		verts[&b.Pos] = 1
+		verts[&b.Pos.Vector3] = 1
 		for _, bw := range b.Weights {
 			objectIDs := append(morphObjs[bw.ObjectID], bw.ObjectID)
 			for _, objID := range objectIDs {
@@ -274,7 +276,7 @@ func (doc *Document) BoneTransform(baseBone *Bone, transform func(v *Vector3), b
 
 	pos := baseBone.Pos
 	for v, w := range verts {
-		dv := v.Sub(&pos)
+		dv := v.Sub(&pos.Vector3)
 		transform(dv)
 		v.X = (dv.X+pos.X)*w + v.X*(1-w)
 		v.Y = (dv.Y+pos.Y)*w + v.Y*(1-w)
@@ -288,7 +290,7 @@ func (doc *Document) BoneAdjustX(baseBone *Bone) {
 	var boneVec *Vector3
 	for _, b := range GetBonePlugin(doc).Bones() {
 		if b.Parent == baseBone.ID {
-			boneVec = b.Pos.Sub(&baseBone.Pos)
+			boneVec = b.Pos.Sub(&baseBone.Pos.Vector3)
 			break
 		}
 	}

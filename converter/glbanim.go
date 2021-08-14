@@ -72,7 +72,7 @@ func addBoneChannels(doc *gltf.Document, a *gltf.Animation, bones map[uint32]*mq
 			qOffset := mqo.Vector4{X: 0, Y: 0, Z: 0, W: 1}
 			if b, ok := bones[uint32(n)]; ok {
 				rot = b.RotationOffset
-				pos = b.Pos
+				pos = b.Pos.Vector3
 
 				if boneByID[b.Parent] != nil && b.RotationOffset.X != boneByID[b.Parent].RotationOffset.X {
 					// TODO rotation matrix
@@ -91,7 +91,7 @@ func addBoneChannels(doc *gltf.Document, a *gltf.Animation, bones map[uint32]*mq
 			rotate := false
 			var rotations [][4]float32
 			for _, ms := range channel.Rotations {
-				s := mqo.MultQQ(&mqo.Vector4{X: ms.X, Y: ms.Y, Z: ms.Z, W: ms.W}, &qOffset)
+				s := (&mqo.Vector4{X: ms.X, Y: ms.Y, Z: ms.Z, W: ms.W}).Mul(&qOffset)
 				r := [4]float32{-s.X, -s.Y, s.Z, s.W}
 
 				r = [4]float32{
