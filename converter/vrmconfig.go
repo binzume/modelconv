@@ -51,6 +51,18 @@ type MaterialSetting struct {
 	AlphaMode  string `json:"alphaMode"`
 }
 
+func (c *Config) MergePreset(preset *Config) {
+	for name, m := range preset.MaterialSettings {
+		if _, exist := c.MaterialSettings[name]; !exist {
+			c.MaterialSettings[name] = m
+		}
+	}
+	c.BoneMappings = append(c.BoneMappings, preset.BoneMappings...)
+	c.MorphMappings = append(c.MorphMappings, preset.MorphMappings...)
+	c.AnimationBoneGroups = append(c.AnimationBoneGroups, preset.AnimationBoneGroups...)
+	c.ColliderGroups = append(c.ColliderGroups, preset.ColliderGroups...)
+}
+
 func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]int, nodeMap map[string]int, blendShapeMap map[[2]int]string) {
 	ext := doc.VRM()
 	for _, mapping := range conf.BoneMappings {
@@ -162,7 +174,7 @@ func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]
 			if t, ok := targets[mapping.TargetName]; ok {
 				blendShapeMap[t] = mapping.Name
 				m.Binds = []*vrm.BlendShapeBind{
-					&vrm.BlendShapeBind{
+					{
 						Mesh: uint32(t[0]), Index: t[1], Weight: 100,
 					},
 				}
@@ -179,7 +191,7 @@ func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]
 				Name:       mapping.Name,
 				PresetName: mapping.Name,
 				Binds: []*vrm.BlendShapeBind{
-					&vrm.BlendShapeBind{
+					{
 						Mesh: *doc.Nodes[id].Mesh, Index: mapping.TargetIndex, Weight: 100,
 					},
 				},
@@ -229,7 +241,7 @@ func ApplyConfig(doc *vrm.Document, conf *Config) {
 		if err != nil {
 			log.Fatal("preset error:", conf.Preset, err)
 		}
-		applyConfigInternal(doc, &presetConf, foundBones, nodeMap, blendShapeMap)
+		conf.MergePreset(&presetConf)
 	}
 
 	applyConfigInternal(doc, conf, foundBones, nodeMap, blendShapeMap)
@@ -245,7 +257,7 @@ func ApplyConfig(doc *vrm.Document, conf *Config) {
 						m := &vrm.BlendShapeGroup{
 							Name: name,
 							Binds: []*vrm.BlendShapeBind{
-								&vrm.BlendShapeBind{
+								{
 									Mesh: uint32(mi), Index: i, Weight: 100,
 								},
 							},
