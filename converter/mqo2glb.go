@@ -239,7 +239,7 @@ func (m *mqoToGltf) convertMaterial(textureDir string, mat *mqo.Material) *gltf.
 	} else if mat.Emission > 0 {
 		mm.EmissiveFactor = [3]float32{(mat.Emission), (mat.Emission), (mat.Emission)}
 	}
-	if mat.Ex2 != nil && mat.Ex2.ShaderName == "glTF" {
+	if mat.GetShaderName() == "glTF" {
 		metallicFactor := float32(mat.Ex2.FloatParam("Metallic"))
 		mm.PBRMetallicRoughness.MetallicFactor = &metallicFactor
 		roughnessFactor := float32(mat.Ex2.FloatParam("Roughness"))
@@ -260,7 +260,7 @@ func (m *mqoToGltf) convertMaterial(textureDir string, mat *mqo.Material) *gltf.
 	} else if mat.Color.W < 0.99 || m.hasAlpha(textureDir, mat.Texture) {
 		mm.AlphaMode = gltf.AlphaBlend
 	}
-	if m.options.ForceUnlit {
+	if m.options.ForceUnlit || mat.GetShaderName() == "Constant" {
 		mm.Extensions = map[string]interface{}{unlitMaterialExt: map[string]string{}}
 	}
 	return mm

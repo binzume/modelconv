@@ -65,6 +65,23 @@ type Material struct {
 	Ex2    *MaterialEx2
 }
 
+func (m *Material) GetShaderName() string {
+	if m.Ex2 != nil {
+		return m.Ex2.ShaderName
+	}
+	switch m.Shader {
+	case 0:
+		return "Classic"
+	case 1:
+		return "Constant"
+	case 3:
+		return "Lambert"
+	case 4:
+		return "Phong"
+	}
+	return ""
+}
+
 type MaterialEx2 struct {
 	ShaderType   string
 	ShaderName   string
