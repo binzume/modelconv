@@ -11,8 +11,8 @@ https://qiita.com/binzume/items/d29cd21b9860809f72cf
 
 以下の組み合わせの変換ができます．
 
-- (.pmd | .pmx | .mqo) → (.mqo | .pmx | .glb | .vrm)
-- .glb → .vrm
+- (.pmd | .pmx | .mqo) → (.mqo | .pmx | .glb | .gltf | .vrm)
+- (.glb | .gltf | .vrm) → (.glb | .gltf | .vrm)
 
 座標の単位については以下のように扱っています(異なる場合は変換時の-scaleオプションで調整してください)
 
@@ -38,8 +38,6 @@ MMDから変換する場合，scaleを省略すると単位をmmにするため�
 
 ### .glb+vrmconfig.json → .vrm
 ./modelconv -vrmconfig input.vrmconfig.json input.glb output.vrm
-
-glbからvrmへの変換は特別扱いしているので，スケールや回転は指定できません．
 
 # License
 

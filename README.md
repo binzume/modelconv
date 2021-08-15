@@ -17,14 +17,13 @@ Goで3Dモデルファイルを読み書きするライブラリ＆変換ツー�
 
 [cmd/modelconv](cmd/modelconv) : モデルデータを相互変換するサンプルプログラム．
 
-Pure golangなのでGoがあればビルドできると思います．
+新し目のGoがあればビルドできると思います．
 [Releases](https://github.com/binzume/modelconv/releases/latest)からビルド済みのWindows用のバイナリがダウンロードできます．
 
 ```bash
-go get -u github.com/binzume/modelconv/cmd/modelconv
-go build github.com/binzume/modelconv/cmd/modelconv
-./modelconv "path_to.pmx"
-./modelconv "path_to.pmx" "animation.vmd" "output.glb"
+go install github.com/binzume/modelconv/cmd/modelconv@latest
+modelconv "path_to.pmx"
+modelconv "path_to.pmx" "animation.vmd" "output.glb"
 ```
 
 # License
