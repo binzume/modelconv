@@ -20,23 +20,6 @@ func writeMatrix(data []byte, mat [16]float32) {
 	}
 }
 
-type Q struct {
-	x, y, z, w float32
-}
-
-func (q *Q) c() *Q {
-	return &Q{-q.x, -q.y, -q.z, q.w}
-}
-
-func mul(a, b *Q) *Q {
-	var r Q
-	r.w = a.w*b.w - a.x*b.x - a.y*b.y - a.z*b.z // w
-	r.x = a.w*b.x + a.x*b.w + a.y*b.z - a.z*b.y // i
-	r.y = a.w*b.y - a.x*b.z + a.y*b.w + a.z*b.x // j
-	r.z = a.w*b.z + a.x*b.y - a.y*b.x + a.z*b.w // k
-	return &r
-}
-
 func (doc *Document) FixJointMatrix() {
 	for _, skin := range doc.Skins {
 		if skin.InverseBindMatrices != nil {
@@ -75,26 +58,26 @@ func (doc *Document) FixJointMatrix() {
 				continue
 			}
 			fixed++
-			a := Q{node.Rotation[0], node.Rotation[1], node.Rotation[2], node.Rotation[3]}
+			a := Quaternion{X: node.Rotation[0], Y: node.Rotation[1], Z: node.Rotation[2], W: node.Rotation[3]}
 			node.Rotation = [4]float32{0, 0, 0, 1}
 			for _, c := range node.Children {
 				child := doc.Nodes[c]
 				rb := child.Rotation
-				b := Q{rb[0], rb[1], rb[2], rb[3]}
+				b := Quaternion{X: rb[0], Y: rb[1], Z: rb[2], W: rb[3]}
 
 				pos := child.Translation
-				p := Q{pos[0], pos[1], pos[2], 1}
-				p2 := mul(&a, mul(&p, a.c()))
+				p := Quaternion{X: pos[0], Y: pos[1], Z: pos[2], W: 1}
+				p2 := a.Mul(p.Mul(a.Inverse()))
 
-				child.Translation[0] = p2.x
-				child.Translation[1] = p2.y
-				child.Translation[2] = p2.z
+				child.Translation[0] = p2.X
+				child.Translation[1] = p2.Y
+				child.Translation[2] = p2.Z
 
-				q := mul(&a, &b)
-				child.Rotation[0] = q.x
-				child.Rotation[1] = q.y
-				child.Rotation[2] = q.z
-				child.Rotation[3] = q.w
+				q := a.Mul(&b)
+				child.Rotation[0] = q.X
+				child.Rotation[1] = q.Y
+				child.Rotation[2] = q.Z
+				child.Rotation[3] = q.W
 			}
 		}
 		if fixed == 0 {

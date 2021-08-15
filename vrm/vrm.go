@@ -1,5 +1,9 @@
 package vrm
 
+import "github.com/binzume/modelconv/geom"
+
+type Quaternion = geom.Vector4
+
 // https://vrm.dev/
 // https://github.com/vrm-c/vrm-specification/blob/master/specification/0.0/README.ja.md
 
