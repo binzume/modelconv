@@ -3,6 +3,8 @@ package vrm
 import (
 	"encoding/binary"
 	"math"
+
+	"github.com/qmuntal/gltf"
 )
 
 func readMatrix(data []byte) [16]float32 {
@@ -20,7 +22,7 @@ func writeMatrix(data []byte, mat [16]float32) {
 	}
 }
 
-func (doc *Document) FixJointMatrix() {
+func FixJointMatrix(doc *gltf.Document) {
 	for _, skin := range doc.Skins {
 		if skin.InverseBindMatrices != nil {
 			accessor := doc.Accessors[*skin.InverseBindMatrices]
@@ -86,7 +88,7 @@ func (doc *Document) FixJointMatrix() {
 	}
 }
 
-func (doc *Document) FixJointComponentType() {
+func FixJointComponentType(doc *gltf.Document) {
 	fixedbuffer := map[uint32]bool{}
 	for _, mesh := range doc.Meshes {
 		for _, primitiv := range mesh.Primitives {

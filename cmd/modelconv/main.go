@@ -10,14 +10,16 @@ import (
 	"strings"
 
 	"github.com/binzume/modelconv/converter"
+	"github.com/binzume/modelconv/geom"
 	"github.com/binzume/modelconv/mqo"
+	"github.com/binzume/modelconv/vrm"
 	"github.com/qmuntal/gltf"
 )
 
 func defaultOutputFile(input string) string {
 	ext := strings.ToLower(filepath.Ext(input))
 	base := input[0 : len(input)-len(ext)]
-	if ext == ".glb" {
+	if ext == ".glb" || ext == ".gltf" {
 		return base + ".vrm"
 	} else if ext == ".mqo" {
 		return base + ".glb"
@@ -86,6 +88,9 @@ func main() {
 	autoTpose := flag.String("autotpose", "", "Arm bone names(.mqo)")
 	forceUnlit := flag.Bool("gltfunlit", false, "unlit all materials")
 	scale := flag.Float64("scale", 0, "0:auto")
+	scaleX := flag.Float64("scaleX", 1, "scale-x")
+	scaleY := flag.Float64("scaleY", 1, "scale-y")
+	scaleZ := flag.Float64("scaleZ", 1, "scale-z")
 	vrmconf := flag.String("vrmconfig", "", "config file for VRM")
 	hides := flag.String("hide", "", "hide objects (OBJ1,OBJ2,...)")
 	hidemats := flag.String("hidemat", "", "hide materials (MAT1,MAT2,...)")
@@ -112,10 +117,67 @@ func main() {
 			confFile = ""
 		}
 	}
-
 	inputExt := strings.ToLower(filepath.Ext(input))
-	if inputExt == ".glb" {
-		err := glb2vrm(input, output, confFile)
+	outputExt := strings.ToLower(filepath.Ext(output))
+
+	// mmd to vrm
+	if (inputExt == ".pmx" || inputExt == ".pmd") && outputExt == ".vrm" {
+		*rot180 = true
+		if confFile == "" {
+			execPath, _ := os.Executable()
+			confFile = filepath.Join(filepath.Dir(execPath), "vrmconfig_presets/mmd_ja.json")
+		}
+		if *autoTpose == "" {
+			*autoTpose = "右腕,左腕"
+		}
+	}
+
+	if *scale == 0 {
+		if inputExt == ".pmx" || inputExt == ".pmd" {
+			*scale = 80
+		} else {
+			*scale = 1
+		}
+	}
+	var scaleVec = &geom.Vector3{
+		X: float32(*scale * *scaleX),
+		Y: float32(*scale * *scaleY),
+		Z: float32(*scale * *scaleZ),
+	}
+	if *rot180 {
+		scaleVec.X *= -1
+		scaleVec.Z *= -1
+	}
+	if scaleVec.X == 1 && scaleVec.Y == 1 && scaleVec.Z == 1 {
+		scaleVec = nil
+	}
+
+	if inputExt == ".glb" || inputExt == ".gltf" || inputExt == ".vrm" {
+		doc, err := gltf.Open(input)
+		if err != nil {
+			log.Fatal(err)
+		}
+		vrm.Transform(doc, scaleVec, nil)
+		if outputExt == ".glb" {
+			err = vrm.ToSingleFile(doc, input)
+			if err == nil {
+				err = gltf.SaveBinary(doc, output)
+			}
+		} else if outputExt == ".gltf" {
+			for i, b := range doc.Buffers {
+				if b.URI == "" {
+					b.URI = fmt.Sprintf("%s%d.bin", strings.TrimSuffix(filepath.Base(output), filepath.Ext(output)), i)
+				}
+			}
+			err = gltf.Save(doc, output)
+		} else if outputExt == ".vrm" {
+			err = vrm.ToSingleFile(doc, input)
+			if err == nil {
+				err = saveAsVRM(doc, output, confFile)
+			}
+		} else {
+			log.Fatalf("Not supported: %s to %s", inputExt, outputExt)
+		}
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -133,49 +195,23 @@ func main() {
 		return
 	}
 
-	if *scale == 0 {
-		if inputExt == ".pmx" || inputExt == ".pmd" {
-			*scale = 80
-		} else {
-			*scale = 1
-		}
-	}
-
-	// mmd to vrm
-	outputExt := strings.ToLower(filepath.Ext(output))
-	if (inputExt == ".pmx" || inputExt == ".pmd") && outputExt == ".vrm" {
-		*rot180 = true
-		if confFile == "" {
-			execPath, _ := os.Executable()
-			confFile = filepath.Join(filepath.Dir(execPath), "vrmconfig_presets/mmd_ja.json")
-		}
-		if *autoTpose == "" {
-			*autoTpose = "右腕,左腕"
-		}
-	}
-
 	doc, err := loadDocument(input)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// transform
-	if *rot180 {
+	if scaleVec != nil {
 		doc.Transform(func(v *mqo.Vector3) {
-			v.X *= -1
-			v.Z *= -1
+			v.X *= scaleVec.X
+			v.Y *= scaleVec.Y
+			v.Z *= scaleVec.Z
 		})
+	}
+	if *rot180 {
 		for _, b := range mqo.GetBonePlugin(doc).Bones() {
 			b.RotationOffset.Y = math.Pi
 		}
-	}
-	if *scale != 1.0 {
-		s := float32(*scale)
-		doc.Transform(func(v *mqo.Vector3) {
-			v.X *= s
-			v.Y *= s
-			v.Z *= s
-		})
 	}
 
 	if *autoTpose != "" {
