@@ -29,9 +29,29 @@ func defaultOutputFile(input string) string {
 	return input + ".mqo"
 }
 
+func saveGltfDocument(doc *gltf.Document, output, ext, srcDir, vrmConf string) error {
+	if ext == ".glb" {
+		err := vrm.ToSingleFile(doc, srcDir)
+		if err != nil {
+			return err
+		}
+		return gltf.SaveBinary(doc, output)
+	} else if ext == ".gltf" {
+		for i, b := range doc.Buffers {
+			if b.URI == "" {
+				b.URI = fmt.Sprintf("%s%d.bin", strings.TrimSuffix(filepath.Base(output), filepath.Ext(output)), i)
+			}
+		}
+		return gltf.Save(doc, output)
+	} else if ext == ".vrm" {
+		return saveAsVRM(doc, output, srcDir, vrmConf)
+	}
+	return fmt.Errorf("Unsuppored output type: %v", ext)
+}
+
 func saveDocument(doc *mqo.Document, output, srcDir, vrmConf string, forceUnlit bool, inputs []string) error {
 	ext := strings.ToLower(filepath.Ext(output))
-	if ext == ".glb" {
+	if ext == ".glb" || ext == ".gltf" || ext == ".vrm" {
 		conv := converter.NewMQOToGLTFConverter(&converter.MQOToGLTFOption{ForceUnlit: forceUnlit})
 		gltfdoc, err := conv.Convert(doc, srcDir)
 		if err != nil {
@@ -47,25 +67,7 @@ func saveDocument(doc *mqo.Document, output, srcDir, vrmConf string, forceUnlit 
 				converter.AddAnimationTpGlb(gltfdoc, ani, conv.JointNodeToBone, true)
 			}
 		}
-
-		return gltf.SaveBinary(gltfdoc, output)
-	} else if ext == ".vrm" {
-		conv := converter.NewMQOToGLTFConverter(&converter.MQOToGLTFOption{ForceUnlit: forceUnlit})
-		gltfdoc, err := conv.Convert(doc, srcDir)
-		if err != nil {
-			return err
-		}
-		for _, f := range inputs[1:] {
-			if strings.ToLower(filepath.Ext(f)) == ".vmd" {
-				ani, err := loadAnimation(f)
-				if err != nil {
-					return err
-				}
-				converter.AddAnimationTpGlb(gltfdoc, ani, conv.JointNodeToBone, true)
-			}
-		}
-
-		return saveAsVRM(gltfdoc, output, vrmConf)
+		return saveGltfDocument(gltfdoc, output, ext, srcDir, vrmConf)
 	} else if ext == ".mqo" {
 		w, err := os.Create(output)
 		if err != nil {
@@ -158,26 +160,8 @@ func main() {
 			log.Fatal(err)
 		}
 		vrm.Transform(doc, scaleVec, nil)
-		if outputExt == ".glb" {
-			err = vrm.ToSingleFile(doc, input)
-			if err == nil {
-				err = gltf.SaveBinary(doc, output)
-			}
-		} else if outputExt == ".gltf" {
-			for i, b := range doc.Buffers {
-				if b.URI == "" {
-					b.URI = fmt.Sprintf("%s%d.bin", strings.TrimSuffix(filepath.Base(output), filepath.Ext(output)), i)
-				}
-			}
-			err = gltf.Save(doc, output)
-		} else if outputExt == ".vrm" {
-			err = vrm.ToSingleFile(doc, input)
-			if err == nil {
-				err = saveAsVRM(doc, output, confFile)
-			}
-		} else {
-			log.Fatalf("Not supported: %s to %s", inputExt, outputExt)
-		}
+		// vrm.ResetJointMatrix(doc)
+		err = saveGltfDocument(doc, output, outputExt, filepath.Dir(input), confFile)
 		if err != nil {
 			log.Fatal(err)
 		}

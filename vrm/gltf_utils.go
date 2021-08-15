@@ -14,13 +14,13 @@ import (
 	"github.com/qmuntal/gltf/modeler"
 )
 
-func ToSingleFile(doc *gltf.Document, input string) error {
+func ToSingleFile(doc *gltf.Document, srcDir string) error {
 	for _, b := range doc.Buffers {
 		b.URI = ""
 	}
 	for _, m := range doc.Images {
 		if m.BufferView == nil && m.URI != "" {
-			path, _ := filepath.Rel(filepath.Dir(input), m.URI)
+			path, _ := filepath.Rel(srcDir, m.URI)
 			f, err := os.Open(path)
 			if err != nil {
 				log.Print(err)
@@ -119,8 +119,12 @@ func Transform(doc *gltf.Document, scale *geom.Vector3, offset *geom.Vector3) {
 				for i := range skin.Joints {
 					offset := bufferView.ByteOffset + uint32(i)*64
 					mat := readMatrix(data[offset : offset+64])
-					// TODO: Matrix4.GetTranslate()
-					scaleMat.ApplyTo(&geom.Vector3{X: mat[12], Y: mat[13], Z: mat[14]}).ToArray(mat[12:])
+					// apply scale
+					geom.NewMatrix4FromSlice(mat[:]).Mul(scaleMat).ToArray(mat[:])
+					// normalize rotation
+					geom.NewVector3FromSlice(mat[0:3]).Normalize().ToArray(mat[0:3])
+					geom.NewVector3FromSlice(mat[4:7]).Normalize().ToArray(mat[4:7])
+					geom.NewVector3FromSlice(mat[8:11]).Normalize().ToArray(mat[8:11])
 					writeMatrix(data[offset:offset+64], mat)
 				}
 			}

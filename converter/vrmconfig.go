@@ -2,6 +2,7 @@ package converter
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -299,4 +300,24 @@ func ApplyVRMConfigFile(doc *vrm.Document, confpath string) error {
 	}
 	ApplyConfig(doc, &conf)
 	return nil
+}
+
+func ToVRM(gltfDoc *gltf.Document, output, srcDir, confFile string) (*vrm.Document, error) {
+	if err := vrm.ToSingleFile(gltfDoc, srcDir); err != nil {
+		return nil, err
+	}
+	vrm.FixJointComponentType(gltfDoc)
+	vrm.ResetJointMatrix(gltfDoc)
+	doc := (*vrm.Document)(gltfDoc)
+	if confFile == "" {
+		return doc, nil
+	}
+	if _, err := os.Stat(confFile); err != nil {
+		return doc, fmt.Errorf("vrm config error: %v", err)
+	} else {
+		if err = ApplyVRMConfigFile(doc, confFile); err != nil {
+			return nil, err
+		}
+	}
+	return doc, nil
 }

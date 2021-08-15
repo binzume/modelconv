@@ -63,6 +63,10 @@ func NewVector3FromArray(arr [3]Element) *Vector3 {
 	return &Vector3{X: arr[0], Y: arr[1], Z: arr[2]}
 }
 
+func NewVector3FromSlice(arr []Element) *Vector3 {
+	return &Vector3{X: arr[0], Y: arr[1], Z: arr[2]}
+}
+
 func (v *Vector3) Add(v2 *Vector3) *Vector3 {
 	return &Vector3{X: v.X + v2.X, Y: v.Y + v2.Y, Z: v.Z + v2.Z}
 }

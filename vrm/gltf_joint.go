@@ -22,7 +22,7 @@ func writeMatrix(data []byte, mat [16]float32) {
 	}
 }
 
-func FixJointMatrix(doc *gltf.Document) {
+func ResetJointMatrix(doc *gltf.Document) {
 	for _, skin := range doc.Skins {
 		if skin.InverseBindMatrices != nil {
 			accessor := doc.Accessors[*skin.InverseBindMatrices]
@@ -64,17 +64,17 @@ func FixJointMatrix(doc *gltf.Document) {
 			node.Rotation = [4]float32{0, 0, 0, 1}
 			for _, c := range node.Children {
 				child := doc.Nodes[c]
-				rb := child.Rotation
-				b := Quaternion{X: rb[0], Y: rb[1], Z: rb[2], W: rb[3]}
 
 				pos := child.Translation
 				p := Quaternion{X: pos[0], Y: pos[1], Z: pos[2], W: 1}
-				p2 := a.Mul(p.Mul(a.Inverse()))
+				p2 := a.Mul(&p).Mul(a.Inverse()) // p2 = a * p * ~a
 
 				child.Translation[0] = p2.X
 				child.Translation[1] = p2.Y
 				child.Translation[2] = p2.Z
 
+				rot := child.Rotation
+				b := Quaternion{X: rot[0], Y: rot[1], Z: rot[2], W: rot[3]}
 				q := a.Mul(&b)
 				child.Rotation[0] = q.X
 				child.Rotation[1] = q.Y
