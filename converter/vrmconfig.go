@@ -1,12 +1,14 @@
 package converter
 
 import (
+	"embed"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/binzume/modelconv/vrm"
 	"github.com/qmuntal/gltf"
@@ -50,6 +52,37 @@ type MorphMapping struct {
 type MaterialSetting struct {
 	ForceUnlit bool   `json:"forceUnlit"`
 	AlphaMode  string `json:"alphaMode"`
+}
+
+//go:embed vrmconfig_presets/*.json
+var presetsFs embed.FS
+
+func LoadVRMConfig(name string) (*Config, error) {
+	var data []byte
+	var err error
+	if !strings.Contains(name, ".") && !strings.Contains(name, "/") {
+		execPath, err := os.Executable()
+		if err != nil {
+			return nil, err
+		}
+		presetPath := filepath.Join(filepath.Dir(execPath), "vrmconfig_presets", name+".json")
+		if _, err := os.Stat(presetPath); err == nil {
+			data, err = ioutil.ReadFile(presetPath)
+		} else {
+			data, err = presetsFs.ReadFile(path.Join("vrmconfig_presets", name+".json"))
+		}
+	} else {
+		data, err = ioutil.ReadFile(name)
+	}
+	if err != nil {
+		return nil, err
+	}
+	var presetConf Config
+	err = json.Unmarshal(data, &presetConf)
+	if err != nil {
+		return nil, err
+	}
+	return &presetConf, nil
 }
 
 func (c *Config) MergePreset(preset *Config) {
@@ -204,7 +237,7 @@ func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]
 	}
 }
 
-func ApplyConfig(doc *vrm.Document, conf *Config) {
+func ApplyConfig(doc *vrm.Document, conf *Config) error {
 	ext := doc.VRM()
 	ext.ExporterVersion = vrm.ExporterVersion
 	ext.Meta = conf.Metadata
@@ -228,21 +261,11 @@ func ApplyConfig(doc *vrm.Document, conf *Config) {
 	blendShapeMap := map[[2]int]string{}
 
 	if conf.Preset != "" {
-		execPath, err := os.Executable()
+		presetConf, err := LoadVRMConfig(conf.Preset)
 		if err != nil {
-			log.Fatal("preset error:", conf.Preset, err)
+			return err
 		}
-		presetPath := filepath.Join(filepath.Dir(execPath), "vrmconfig_presets", conf.Preset+".json")
-		data, err := ioutil.ReadFile(presetPath)
-		if err != nil {
-			log.Fatal("preset error:", conf.Preset, err)
-		}
-		var presetConf Config
-		err = json.Unmarshal(data, &presetConf)
-		if err != nil {
-			log.Fatal("preset error:", conf.Preset, err)
-		}
-		conf.MergePreset(&presetConf)
+		conf.MergePreset(presetConf)
 	}
 
 	applyConfigInternal(doc, conf, foundBones, nodeMap, blendShapeMap)
@@ -286,19 +309,7 @@ func ApplyConfig(doc *vrm.Document, conf *Config) {
 			ext.Humanoid.Bones = append(ext.Humanoid.Bones, &vrm.Bone{Bone: name, Node: id, UseDefaultValues: true})
 		}
 	}
-}
 
-func ApplyVRMConfigFile(doc *vrm.Document, confpath string) error {
-	data, err := ioutil.ReadFile(confpath)
-	if err != nil {
-		return err
-	}
-	var conf Config
-	err = json.Unmarshal(data, &conf)
-	if err != nil {
-		return err
-	}
-	ApplyConfig(doc, &conf)
 	return nil
 }
 
@@ -309,15 +320,12 @@ func ToVRM(gltfDoc *gltf.Document, output, srcDir, confFile string) (*vrm.Docume
 	vrm.FixJointComponentType(gltfDoc)
 	vrm.ResetJointMatrix(gltfDoc)
 	doc := (*vrm.Document)(gltfDoc)
-	if confFile == "" {
-		return doc, nil
-	}
-	if _, err := os.Stat(confFile); err != nil {
-		return doc, fmt.Errorf("vrm config error: %v", err)
-	} else {
-		if err = ApplyVRMConfigFile(doc, confFile); err != nil {
-			return nil, err
+	if confFile != "" {
+		conf, err := LoadVRMConfig(confFile)
+		if err == nil {
+			err = ApplyConfig(doc, conf)
 		}
+		return doc, err
 	}
 	return doc, nil
 }
