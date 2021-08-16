@@ -78,6 +78,11 @@ func (p *Parser) readStr() string {
 	return strings.Trim(p.s.TokenText(), "\"")
 }
 
+func (p *Parser) readIdent() string {
+	p.s.Scan()
+	return p.s.TokenText()
+}
+
 func (p *Parser) skipN(n int) {
 	for i := 0; i < n; i++ {
 		p.s.Scan()
@@ -157,8 +162,8 @@ func (p *Parser) readMaterial() *Material {
 	var m Material
 	m.Name = p.readStr()
 	p.procAttrs(map[string]func(){
-		"col":     func() { m.Color = Vector4{p.readFloat(), p.readFloat(), p.readFloat(), p.readFloat()} },
-		"emi_col": func() { m.EmissionColor = &Vector3{p.readFloat(), p.readFloat(), p.readFloat()} },
+		"col":     func() { m.Color = Vector4{X: p.readFloat(), Y: p.readFloat(), Z: p.readFloat(), W: p.readFloat()} },
+		"emi_col": func() { m.EmissionColor = &Vector3{X: p.readFloat(), Y: p.readFloat(), Z: p.readFloat()} },
 		"dif":     func() { m.Diffuse = p.readFloat() },
 		"amb":     func() { m.Ambient = p.readFloat() },
 		"emi":     func() { m.Emission = p.readFloat() },
@@ -176,27 +181,49 @@ func (p *Parser) readMaterialEx() (int, *MaterialEx2) {
 	var ex MaterialEx2
 	p.skip("material")
 	mid := p.readInt()
+
+	readTypedKeyValue := func() (string, interface{}) {
+		n := p.readStr()
+		t := p.readIdent()
+		if t == "." {
+			n += t + p.readStr()
+			t = p.readIdent()
+		}
+		if t == "int" {
+			return n, p.readInt()
+		} else if t == "float" {
+			return n, p.readFloat()
+		} else if t == "bool" {
+			v := p.readStr()
+			return n, v == "true" || v == "1"
+		} else if t == "color" {
+			return n, []float32{p.readFloat(), p.readFloat(), p.readFloat(), p.readFloat()}
+		}
+		return n, p.readStr()
+	}
+
 	p.procObj(map[string]func(){
 		"shadertype": func() { ex.ShaderType = p.readStr() },
 		"shadername": func() { ex.ShaderName = p.readStr() },
 		"shaderparam": func() {
-			ex.ShaderParams = map[string]interface{}{}
 			p.procArray(func(n int) {
+				ex.ShaderParams = map[string]interface{}{}
 			}, func(i int) {
-				p.s.Scan()
-				n := p.s.TokenText()
-				p.s.Scan()
-				t := p.s.TokenText()
-				p.s.Scan()
-				v := p.s.TokenText()
-				if t == "int" {
-					ex.ShaderParams[n], _ = strconv.Atoi(v)
-				} else if t == "float" {
-					ex.ShaderParams[n], _ = strconv.ParseFloat(v, 32)
-				} else if t == "bool" {
-					ex.ShaderParams[n] = v == "true"
-				}
+				key, value := readTypedKeyValue()
+				ex.ShaderParams[key] = value
 			}, "shaderparam")
+		},
+		"shadermappingparam": func() {
+			if ex.ShaderMappingParams == nil {
+				ex.ShaderMappingParams = map[string]map[string]interface{}{}
+			}
+			name := p.readStr()
+			p.procArray(func(n int) {
+				ex.ShaderMappingParams[name] = map[string]interface{}{}
+			}, func(i int) {
+				key, value := readTypedKeyValue()
+				ex.ShaderMappingParams[name][key] = value
+			}, "shadermappingparam")
 		},
 	}, "MaterialEx2")
 	return mid, &ex
@@ -240,7 +267,7 @@ func (p *Parser) readObject() *Object {
 					"UV": func() {
 						f.UVs = make([]Vector2, vn)
 						for i := 0; i < vn; i++ {
-							f.UVs[i] = Vector2{p.readFloat(), p.readFloat()}
+							f.UVs[i] = Vector2{X: p.readFloat(), Y: p.readFloat()}
 						}
 					},
 					"CRS": func() {

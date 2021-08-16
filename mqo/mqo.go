@@ -83,9 +83,10 @@ func (m *Material) GetShaderName() string {
 }
 
 type MaterialEx2 struct {
-	ShaderType   string
-	ShaderName   string
-	ShaderParams map[string]interface{}
+	ShaderType          string
+	ShaderName          string
+	ShaderParams        map[string]interface{}
+	ShaderMappingParams map[string]map[string]interface{}
 }
 
 func (m *MaterialEx2) StringParam(name string) string {
@@ -105,6 +106,9 @@ func (m *MaterialEx2) IntParam(name string) int {
 func (m *MaterialEx2) FloatParam(name string) float64 {
 	if v, ok := m.ShaderParams[name].(float64); ok {
 		return v
+	}
+	if v, ok := m.ShaderParams[name].(float32); ok {
+		return float64(v)
 	}
 	return 0
 }
