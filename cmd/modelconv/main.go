@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -16,17 +17,35 @@ import (
 	"github.com/qmuntal/gltf"
 )
 
+func isGltf(ext string) bool {
+	return ext == ".glb" || ext == ".gltf" || ext == ".vrm"
+}
+
+func isMMD(ext string) bool {
+	return ext == ".pmx" || ext == ".pmd"
+}
+
+func isMQO(ext string) bool {
+	return ext == ".mqo" || ext == ".mqoz"
+}
+
+func defaultOutputExt(inputExt string) string {
+	if isGltf(inputExt) {
+		return ".vrm"
+	} else if isMQO(inputExt) {
+		return ".glb"
+	}
+	return ".mqo"
+}
+
 func defaultOutputFile(input string) string {
 	ext := strings.ToLower(filepath.Ext(input))
 	base := input[0 : len(input)-len(ext)]
-	if ext == ".glb" || ext == ".gltf" {
-		return base + ".vrm"
-	} else if ext == ".mqo" {
-		return base + ".glb"
-	} else if ext == ".pmx" || ext == ".pmd" {
-		return base + ".mqo"
+	outputExt := defaultOutputExt(ext)
+	if outputExt == ext {
+		return input + outputExt
 	}
-	return input + ".mqo"
+	return base + outputExt
 }
 
 func saveGltfDocument(doc *gltf.Document, output, ext, srcDir, vrmConf string) error {
@@ -49,10 +68,10 @@ func saveGltfDocument(doc *gltf.Document, output, ext, srcDir, vrmConf string) e
 	return fmt.Errorf("Unsuppored output type: %v", ext)
 }
 
-func saveDocument(doc *mqo.Document, output, srcDir, vrmConf string, forceUnlit bool, inputs []string) error {
+func saveDocument(doc *mqo.Document, output, srcDir, vrmConf string, inputs []string) error {
 	ext := strings.ToLower(filepath.Ext(output))
-	if ext == ".glb" || ext == ".gltf" || ext == ".vrm" {
-		conv := converter.NewMQOToGLTFConverter(&converter.MQOToGLTFOption{ForceUnlit: forceUnlit})
+	if isGltf(ext) {
+		conv := converter.NewMQOToGLTFConverter(&converter.MQOToGLTFOption{})
 		gltfdoc, err := conv.Convert(doc, srcDir)
 		if err != nil {
 			return err
@@ -86,14 +105,15 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage: %s input.pmx [output.mqo]\n", os.Args[0])
 		flag.PrintDefaults()
 	}
+	format := flag.String("format", "", "output file format")
 	rot180 := flag.Bool("rot180", false, "rotate 180 degrees around Y (.mqo)")
 	autoTpose := flag.String("autotpose", "", "Arm bone names(.mqo)")
-	forceUnlit := flag.Bool("gltfunlit", false, "unlit all materials")
 	scale := flag.Float64("scale", 0, "0:auto")
 	scaleX := flag.Float64("scaleX", 1, "scale-x")
 	scaleY := flag.Float64("scaleY", 1, "scale-y")
 	scaleZ := flag.Float64("scaleZ", 1, "scale-z")
 	vrmconf := flag.String("vrmconfig", "", "config file for VRM")
+	unlit := flag.String("unlit", "", "unlit materials (MAT1,MAT2,...)")
 	hides := flag.String("hide", "", "hide objects (OBJ1,OBJ2,...)")
 	hidemats := flag.String("hidemat", "", "hide materials (MAT1,MAT2,...)")
 	chparent := flag.String("chparent", "", "ch bone parent (BONE1:PARENT1,BONE2:PARENT2,...)")
@@ -104,13 +124,21 @@ func main() {
 		return
 	}
 	input := flag.Arg(0)
+	inputExt := strings.ToLower(filepath.Ext(input))
 	output := ""
+	outputExt := "." + *format
 	inputN := flag.NArg() - 1
 	if inputN < 1 {
 		inputN = 1
-		output = defaultOutputFile(input)
+		if outputExt == "." {
+			outputExt = defaultOutputExt(inputExt)
+		}
+		output = input[0:len(input)-len(inputExt)] + outputExt
 	} else {
 		output = flag.Arg(inputN)
+		if outputExt == "." {
+			outputExt = strings.ToLower(filepath.Ext(output))
+		}
 	}
 	confFile := *vrmconf
 	if confFile == "" {
@@ -119,11 +147,9 @@ func main() {
 			confFile = ""
 		}
 	}
-	inputExt := strings.ToLower(filepath.Ext(input))
-	outputExt := strings.ToLower(filepath.Ext(output))
 
 	// mmd to vrm
-	if (inputExt == ".pmx" || inputExt == ".pmd") && outputExt == ".vrm" {
+	if isMMD(inputExt) && outputExt == ".vrm" {
 		*rot180 = true
 		if confFile == "" {
 			confFile = "mmd" // preset
@@ -134,7 +160,7 @@ func main() {
 	}
 
 	if *scale == 0 {
-		if inputExt == ".pmx" || inputExt == ".pmd" {
+		if isMMD(inputExt) {
 			*scale = 80
 		} else {
 			*scale = 1
@@ -153,7 +179,7 @@ func main() {
 		scaleVec = nil
 	}
 
-	if inputExt == ".glb" || inputExt == ".gltf" || inputExt == ".vrm" {
+	if isGltf(inputExt) && isGltf(outputExt) {
 		doc, err := gltf.Open(input)
 		if err != nil {
 			log.Fatal(err)
@@ -207,20 +233,43 @@ func main() {
 		}
 	}
 
-	if *hides != "" {
-		objectByName := map[string]int{}
-		for idx, obj := range doc.Objects {
-			objectByName[obj.Name] = idx
+	match := func(patterns []string, name string) bool {
+		for _, pattern := range patterns {
+			if m, _ := path.Match(pattern, name); m {
+				return true
+			}
 		}
-		for _, n := range strings.Split(*hides, ",") {
-			if idx, ok := objectByName[n]; ok {
-				d := doc.Objects[idx].Depth
-				doc.Objects[idx].Visible = false
-				idx++
-				for idx < len(doc.Objects) && doc.Objects[idx].Depth > d {
-					doc.Objects[idx].Visible = false
-					idx++
+		return false
+	}
+
+	if *hides != "" {
+		patterns := strings.Split(*hides, ",")
+		for idx, obj := range doc.Objects {
+			if match(patterns, obj.Name) {
+				obj.Visible = false
+				d := obj.Depth
+				for i := idx + 1; i < len(doc.Objects) && doc.Objects[i].Depth > d; i++ {
+					doc.Objects[i].Visible = false
 				}
+			}
+		}
+	}
+
+	if *hidemats != "" {
+		patterns := strings.Split(*hidemats, ",")
+		for _, mat := range doc.Materials {
+			if match(patterns, mat.Name) {
+				mat.Name = "$IGNORE"
+			}
+		}
+	}
+
+	if *unlit != "" {
+		patterns := strings.Split(*unlit, ",")
+		for _, mat := range doc.Materials {
+			if match(patterns, mat.Name) {
+				mat.Shader = 1 // Constant shader
+				mat.Ex2 = nil
 			}
 		}
 	}
@@ -242,20 +291,8 @@ func main() {
 		}
 	}
 
-	if *hidemats != "" {
-		materialsByName := map[string]int{}
-		for idx, mat := range doc.Materials {
-			materialsByName[mat.Name] = idx
-		}
-		for _, n := range strings.Split(*hidemats, ",") {
-			if idx, ok := materialsByName[n]; ok {
-				doc.Materials[idx].Name = "$IGNORE"
-			}
-		}
-	}
-
 	log.Print("out: ", output)
-	if err = saveDocument(doc, output, filepath.Dir(input), confFile, *forceUnlit, flag.Args()[0:inputN]); err != nil {
+	if err = saveDocument(doc, output, filepath.Dir(input), confFile, flag.Args()[0:inputN]); err != nil {
 		log.Fatal(err)
 	}
 }
