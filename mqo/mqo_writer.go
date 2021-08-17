@@ -34,6 +34,9 @@ func WriteMQO(mqo *Document, ww io.Writer, path string) error {
 	fmt.Fprintf(w, "Material %v {\n", len(mqo.Materials))
 	for _, mat := range mqo.Materials {
 		fmt.Fprintf(w, "\t\"%v\"", mat.Name)
+		if mat.Shader != 0 {
+			fmt.Fprintf(w, " shader(%d)", mat.Shader)
+		}
 		if mat.DoubleSided {
 			fmt.Fprintf(w, " dbls(%d)", boolToInt(mat.DoubleSided))
 		}
@@ -71,6 +74,8 @@ func WriteMQO(mqo *Document, ww io.Writer, path string) error {
 					typ = "bool"
 					v = boolToInt(b)
 				} else if _, ok := v.(float64); ok {
+					typ = "float"
+				} else if _, ok := v.(float32); ok {
 					typ = "float"
 				}
 				fmt.Fprintf(w, "\t\t\t%v %v %v\n", name, typ, v)

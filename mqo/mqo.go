@@ -74,10 +74,12 @@ func (m *Material) GetShaderName() string {
 		return "Classic"
 	case 1:
 		return "Constant"
-	case 3:
+	case 2:
 		return "Lambert"
-	case 4:
+	case 3:
 		return "Phong"
+	case 4:
+		return "Blinn"
 	}
 	return ""
 }
