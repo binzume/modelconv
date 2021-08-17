@@ -24,16 +24,25 @@ func loadAnimation(input string) (*mmd.Animation, error) {
 }
 
 func loadDocument(input string) (*mqo.Document, error) {
+	ext := strings.ToLower(filepath.Ext(input))
+
+	if isGltf(ext) {
+		doc, err := gltf.Open(input)
+		if err != nil {
+			return nil, err
+		}
+		return converter.NewGLTFToMQOConverter(nil).Convert(doc)
+	}
+
 	r, err := os.Open(input)
 	if err != nil {
 		return nil, err
 	}
 	defer r.Close()
 
-	if strings.ToLower(filepath.Ext(input)) == ".mqo" {
+	if isMQO(ext) {
 		return mqo.Parse(r, input)
 	}
-
 	pmx, err := mmd.Parse(r)
 	if err != nil {
 		return nil, err
@@ -41,14 +50,6 @@ func loadDocument(input string) (*mqo.Document, error) {
 	log.Println("Name: ", pmx.Name)
 	log.Println("Comment: ", pmx.Comment)
 	return converter.NewMMDToMQOConverter().Convert(pmx), nil
-}
-
-func saveAsGlb(doc *mqo.Document, path, textureDir string, options *converter.MQOToGLTFOption) error {
-	gltfdoc, err := converter.NewMQOToGLTFConverter(options).Convert(doc, textureDir)
-	if err != nil {
-		return err
-	}
-	return gltf.SaveBinary(gltfdoc, path)
 }
 
 func saveAsPmx(doc *mqo.Document, path string) error {
