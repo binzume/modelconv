@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -26,30 +27,30 @@ func loadAnimation(input string) (*mmd.Animation, error) {
 func loadDocument(input string) (*mqo.Document, error) {
 	ext := strings.ToLower(filepath.Ext(input))
 
-	if isGltf(ext) {
+	if isMQO(ext) {
+		return mqo.Load(input)
+	} else if isGltf(ext) {
 		doc, err := gltf.Open(input)
 		if err != nil {
 			return nil, err
 		}
 		return converter.NewGLTFToMQOConverter(nil).Convert(doc)
-	}
+	} else if isMMD(ext) {
+		r, err := os.Open(input)
+		if err != nil {
+			return nil, err
+		}
+		defer r.Close()
 
-	r, err := os.Open(input)
-	if err != nil {
-		return nil, err
+		pmx, err := mmd.Parse(r)
+		if err != nil {
+			return nil, err
+		}
+		log.Println("Name: ", pmx.Name)
+		log.Println("Comment: ", pmx.Comment)
+		return converter.NewMMDToMQOConverter().Convert(pmx), nil
 	}
-	defer r.Close()
-
-	if isMQO(ext) {
-		return mqo.Parse(r, input)
-	}
-	pmx, err := mmd.Parse(r)
-	if err != nil {
-		return nil, err
-	}
-	log.Println("Name: ", pmx.Name)
-	log.Println("Comment: ", pmx.Comment)
-	return converter.NewMMDToMQOConverter().Convert(pmx), nil
+	return nil, fmt.Errorf("Unspoorted input")
 }
 
 func saveAsPmx(doc *mqo.Document, path string) error {

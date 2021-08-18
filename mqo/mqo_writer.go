@@ -1,6 +1,7 @@
 package mqo
 
 import (
+	"archive/zip"
 	"bufio"
 	"fmt"
 	"io"
@@ -9,6 +10,21 @@ import (
 	"strings"
 )
 
+type Writer struct {
+	path   string
+	Create func(name string) (io.WriteCloser, error)
+}
+
+func NewWriter(path string) *Writer {
+	w := &Writer{path: path}
+	if path != "" {
+		w.Create = func(name string) (io.WriteCloser, error) {
+			return os.Create(filepath.Dir(path) + "/" + name)
+		}
+	}
+	return w
+}
+
 func boolToInt(b bool) int {
 	if b {
 		return 1
@@ -16,17 +32,18 @@ func boolToInt(b bool) int {
 	return 0
 }
 
-func WriteMQO(mqo *Document, ww io.Writer, path string) error {
+func (writer *Writer) WriteMQO(mqo *Document, ww io.Writer) error {
 	w := bufio.NewWriter(ww)
 	w.WriteString("Metasequoia Document\n")
 	w.WriteString("Format Text Ver 1.1\n")
 	w.WriteString("CodePage utf8\n")
 	w.WriteString("\n")
 
-	var mqxPath string
-	if path != "" && len(mqo.Plugins) > 0 {
-		mqxPath = path[0:len(path)-len(filepath.Ext(path))] + ".mqx"
-		fmt.Fprintf(w, "IncludeXml \"%v\"\n", filepath.Base(mqxPath))
+	var mqxFile string
+	if writer.path != "" && len(mqo.Plugins) > 0 {
+		path := writer.path
+		mqxFile = filepath.Base(path[0:len(path)-len(filepath.Ext(path))] + ".mqx")
+		fmt.Fprintf(w, "IncludeXml \"%v\"\n", mqxFile)
 	}
 
 	ex2Count := 0
@@ -155,11 +172,46 @@ func WriteMQO(mqo *Document, ww io.Writer, path string) error {
 	w.WriteString("Eof\n")
 	w.Flush()
 
-	if mqxPath != "" && len(mqo.Plugins) > 0 {
-		w, _ := os.Create(mqxPath)
+	if mqxFile != "" && writer.Create != nil {
+		w, _ := writer.Create(mqxFile)
 		defer w.Close()
-		WriteMQX(mqo, w, filepath.Base(path))
+		WriteMQX(mqo, w, filepath.Base(writer.path))
 	}
 
 	return nil
+}
+
+func SaveMQOZ(doc *Document, path string) error {
+	filename := filepath.Base(path)
+	name := filename[0 : len(filename)-len(filepath.Ext(filename))]
+	w, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer w.Close()
+	zw := zip.NewWriter(w)
+	defer zw.Close()
+
+	mqow, err := zw.Create(name + ".mqo")
+	writer := NewWriter(path)
+	writer.Create = func(name string) (io.WriteCloser, error) {
+		w, err := zw.Create(name)
+		return &struct {
+			io.Writer
+			io.Closer
+		}{w, io.NopCloser(nil)}, err
+	}
+	return writer.WriteMQO(doc, mqow)
+}
+
+func Save(doc *Document, path string) error {
+	if strings.HasSuffix(path, ".mqoz") {
+		return SaveMQOZ(doc, path)
+	}
+	w, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer w.Close()
+	return NewWriter(path).WriteMQO(doc, w)
 }

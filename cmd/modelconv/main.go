@@ -38,16 +38,6 @@ func defaultOutputExt(inputExt string) string {
 	return ".mqo"
 }
 
-func defaultOutputFile(input string) string {
-	ext := strings.ToLower(filepath.Ext(input))
-	base := input[0 : len(input)-len(ext)]
-	outputExt := defaultOutputExt(ext)
-	if outputExt == ext {
-		return input + outputExt
-	}
-	return base + outputExt
-}
-
 func saveGltfDocument(doc *gltf.Document, output, ext, srcDir, vrmConf string) error {
 	if ext == ".glb" {
 		err := vrm.ToSingleFile(doc, srcDir)
@@ -87,13 +77,8 @@ func saveDocument(doc *mqo.Document, output, srcDir, vrmConf string, inputs []st
 			}
 		}
 		return saveGltfDocument(gltfdoc, output, ext, srcDir, vrmConf)
-	} else if ext == ".mqo" {
-		w, err := os.Create(output)
-		if err != nil {
-			return err
-		}
-		defer w.Close()
-		return mqo.WriteMQO(doc, w, output)
+	} else if isMQO(ext) {
+		return mqo.Save(doc, output)
 	} else if ext == ".pmx" {
 		return saveAsPmx(doc, output)
 	}

@@ -1,6 +1,7 @@
 package mqo
 
 import (
+	"archive/zip"
 	"bytes"
 	"fmt"
 	"io"
@@ -21,17 +22,22 @@ type Parser struct {
 	name string
 	r    io.Reader
 	s    scanner.Scanner
+	Open func(name string) (io.ReadCloser, error)
 }
 
 // NewParser returns new parser.
-func NewParser(r io.Reader, fname string) *Parser {
-	var s scanner.Scanner
-	s.Filename = fname
-	return &Parser{
-		name: fname,
+func NewParser(r io.Reader, path string) *Parser {
+	p := &Parser{
+		name: path,
 		r:    r,
-		s:    s,
 	}
+	if path != "" {
+		p.s.Filename = path
+		p.Open = func(name string) (io.ReadCloser, error) {
+			return os.Open(filepath.Dir(path) + "/" + name)
+		}
+	}
+	return p
 }
 
 type basckSlashReplacer struct{}
@@ -338,9 +344,8 @@ func (p *Parser) Parse() (*Document, error) {
 	if p.s.ErrorCount > 0 {
 		return &doc, fmt.Errorf("Parse error (count:%d)", p.s.ErrorCount)
 	}
-	if mqxFile != "" && p.name != "" {
-		mqxPath := p.name[0:len(p.name)-len(filepath.Ext(p.name))] + ".mqx"
-		r, _ := os.Open(mqxPath)
+	if mqxFile != "" && p.Open != nil {
+		r, _ := p.Open(mqxFile)
 		if r != nil {
 			defer r.Close()
 			if mqx, err := ReadMQX(r); err == nil {
@@ -351,8 +356,43 @@ func (p *Parser) Parse() (*Document, error) {
 	return &doc, nil
 }
 
-// Parse mqo file.
-func Parse(r io.Reader, fname string) (*Document, error) {
-	p := NewParser(r, fname)
-	return p.Parse()
+func LoadMQOZ(path string) (*Document, error) {
+	z, err := zip.OpenReader(path)
+	if err != nil {
+		return nil, err
+	}
+	defer z.Close()
+	for _, f := range z.File {
+		if strings.HasSuffix(f.Name, ".mqo") {
+			r, err := f.Open()
+			if err != nil {
+				return nil, err
+			}
+			defer r.Close()
+			parser := NewParser(r, path)
+			parser.Open = func(name string) (io.ReadCloser, error) {
+				for _, f := range z.File {
+					if f.Name == name {
+						return f.Open()
+					}
+				}
+				return nil, os.ErrNotExist
+			}
+			return parser.Parse()
+		}
+	}
+	return nil, os.ErrNotExist
+}
+
+func Load(path string) (*Document, error) {
+	if strings.HasSuffix(path, ".mqoz") {
+		return LoadMQOZ(path)
+	}
+	r, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	parser := NewParser(r, path)
+	return parser.Parse()
 }
