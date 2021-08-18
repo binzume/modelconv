@@ -19,12 +19,12 @@ package: [cmd/modelconv](cmd/modelconv)
 
 以下の組み合わせの変換ができます．
 
-- (.pmd | .pmx | .mqo) → (.mqo | .pmx | .glb | .gltf | .vrm)
+- (.pmd | .pmx | .mqo | .mqoz) → (.pmx | .mqo| .mqoz | .glb | .gltf | .vrm)
 - (.glb | .gltf | .vrm) → (.glb | .gltf | .vrm) (※1)
 
 (※1: glTF同士の変換は特別扱いをしているため，モデルに変更を加えるオプションは動きません．scaleは可能です)
 
-### Install "modelconv" commant
+## Install "modelconv" commant
 
 新し目のGoがあればビルドできると思います．
 [Releases](https://github.com/binzume/modelconv/releases/latest)にビルド済みのWindows用の実行ファイルを置いてあります．
@@ -33,29 +33,30 @@ package: [cmd/modelconv](cmd/modelconv)
 go install github.com/binzume/modelconv/cmd/modelconv@latest
 ```
 
-### Example: gltf to glb
+## Usage examples
+
+### MMD to VRM
+
+```bash
+modelconv -autotpose "右腕,左腕" "model.pmx" "model.vrm"
+modelconv -vrmconfig "model.vrmconfig.json" "model.pmx" "model.vrm"
+```
+
+### gltf to glb
 
 ```bash
 modelconv "model.gltf" "model.glb"
-modelconv "model.gltf" -format glb
+modelconv -format glb "model.gltf"
 ```
 
-### Example: scale
+### Scaling
 
 ```bash
 modelconv -scale 1.5 "model.glb" "model_scaled.glb"
 modelconv -scaleY 1.5 -scaleX 1.3 "model.mqo" "model_scaled.mqo"
 ```
 
-### Example: MMD to VRM
-
-```bash
-modelconv "model.pmx" "model.vrm"
-modelconv "model.pmx" -format vrm
-modelconv -vrmconfig "model.vrmconfig.json" "model.pmx" "model.vrm"
-```
-
-### Flags
+## Flags
 
 | Flag       | Description    | Default    |
 | ---------- | -------------- | ---------- |
@@ -72,22 +73,22 @@ modelconv -vrmconfig "model.vrmconfig.json" "model.pmx" "model.vrm"
 | -autotpose | Arm bone names |            |
 | -chparent  | replace parent bone (BONE1:PARENT1,BONE2:PARENT2,...) |  |
 
-vrmconfig:
+### vrmconfig:
 
 設定ファイルのjsonは [converter/vrmconfig_presets](converter/vrmconfig_presets) にあるファイルや，
 [Qiitaの記事](https://qiita.com/binzume/items/d29cd21b9860809f72cf)も参考にしてください．
 
 MMDからの変換時にはデフォルトで [mmd.json](converter/vrmconfig_presets/mmd.json) が使われます．
 
-hide,hidemat,unlit:
+### hide,hidemat,unlit:
 
 対象のオブジェクトやマテリアルの名前をカンマ区切りで指定してください．ワイルドカード(`*`)が利用可能です．
 
-autotpose:
+### autotpose:
 
 腕のボーンを指定するとX軸に沿うように形状を調整します(暫定実装)
 
-Unit:
+### Unit:
 
 - MQO: 1mm
 - MMD: 80mm
