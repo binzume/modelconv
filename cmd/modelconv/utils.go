@@ -36,28 +36,21 @@ func loadDocument(input string) (*mqo.Document, error) {
 		}
 		return converter.NewGLTFToMQOConverter(nil).Convert(doc)
 	} else if isMMD(ext) {
-		r, err := os.Open(input)
-		if err != nil {
-			return nil, err
-		}
-		defer r.Close()
-
-		pmx, err := mmd.Parse(r)
+		pmx, err := mmd.Load(input)
 		if err != nil {
 			return nil, err
 		}
 		log.Println("Name: ", pmx.Name)
 		log.Println("Comment: ", pmx.Comment)
-		return converter.NewMMDToMQOConverter().Convert(pmx), nil
+		return converter.NewMMDToMQOConverter(nil).Convert(pmx), nil
 	}
 	return nil, fmt.Errorf("Unspoorted input")
 }
 
 func saveAsPmx(doc *mqo.Document, path string) error {
-	result, err := converter.NewMQOToMMDConverter().Convert(doc)
+	result, err := converter.NewMQOToMMDConverter(nil).Convert(doc)
 	if err != nil {
 		return err
 	}
-	w, _ := os.Create(path)
-	return mmd.WritePMX(result, w)
+	return mmd.Save(result, path)
 }

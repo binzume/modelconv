@@ -1,6 +1,10 @@
 package mmd
 
-import "github.com/binzume/modelconv/geom"
+import (
+	"os"
+
+	"github.com/binzume/modelconv/geom"
+)
 
 type Vector2 = geom.Vector2
 type Vector3 = geom.Vector3
@@ -180,3 +184,21 @@ const (
 	AttrMorphIndexSz
 	AttrRBIndexSz
 )
+
+func Load(path string) (*Document, error) {
+	r, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	return Parse(r)
+}
+
+func Save(doc *Document, path string) error {
+	w, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	return WritePMX(doc, w)
+}

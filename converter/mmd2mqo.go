@@ -11,7 +11,7 @@ import (
 type mmdToMQO struct {
 }
 
-func NewMMDToMQOConverter() *mmdToMQO {
+func NewMMDToMQOConverter(options interface{}) *mmdToMQO {
 	return &mmdToMQO{}
 }
 

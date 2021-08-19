@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/binzume/modelconv/gltfutil"
 	"github.com/binzume/modelconv/vrm"
 	"github.com/qmuntal/gltf"
 )
@@ -314,11 +315,11 @@ func ApplyConfig(doc *vrm.Document, conf *Config) error {
 }
 
 func ToVRM(gltfDoc *gltf.Document, output, srcDir, confFile string) (*vrm.Document, error) {
-	if err := vrm.ToSingleFile(gltfDoc, srcDir); err != nil {
+	if err := gltfutil.ToSingleFile(gltfDoc, srcDir); err != nil {
 		return nil, err
 	}
-	vrm.FixJointComponentType(gltfDoc)
-	vrm.ResetJointMatrix(gltfDoc)
+	gltfutil.FixJointComponentType(gltfDoc)
+	gltfutil.ResetJointMatrix(gltfDoc)
 	doc := (*vrm.Document)(gltfDoc)
 	if confFile != "" {
 		conf, err := LoadVRMConfig(confFile)

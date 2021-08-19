@@ -1,4 +1,4 @@
-package vrm
+package gltfutil
 
 import (
 	"io/ioutil"
@@ -13,6 +13,10 @@ import (
 	"github.com/qmuntal/gltf/binary"
 	"github.com/qmuntal/gltf/modeler"
 )
+
+func Load(path string) (*gltf.Document, error) {
+	return gltf.Open(path)
+}
 
 func ToSingleFile(doc *gltf.Document, srcDir string) error {
 	for _, b := range doc.Buffers {

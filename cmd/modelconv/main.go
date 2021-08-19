@@ -12,8 +12,8 @@ import (
 
 	"github.com/binzume/modelconv/converter"
 	"github.com/binzume/modelconv/geom"
+	"github.com/binzume/modelconv/gltfutil"
 	"github.com/binzume/modelconv/mqo"
-	"github.com/binzume/modelconv/vrm"
 	"github.com/qmuntal/gltf"
 )
 
@@ -30,9 +30,7 @@ func isMQO(ext string) bool {
 }
 
 func defaultOutputExt(inputExt string) string {
-	if isGltf(inputExt) {
-		return ".vrm"
-	} else if isMQO(inputExt) {
+	if isMQO(inputExt) {
 		return ".glb"
 	}
 	return ".mqo"
@@ -40,7 +38,7 @@ func defaultOutputExt(inputExt string) string {
 
 func saveGltfDocument(doc *gltf.Document, output, ext, srcDir, vrmConf string) error {
 	if ext == ".glb" {
-		err := vrm.ToSingleFile(doc, srcDir)
+		err := gltfutil.ToSingleFile(doc, srcDir)
 		if err != nil {
 			return err
 		}
@@ -53,13 +51,20 @@ func saveGltfDocument(doc *gltf.Document, output, ext, srcDir, vrmConf string) e
 		}
 		return gltf.Save(doc, output)
 	} else if ext == ".vrm" {
-		return saveAsVRM(doc, output, srcDir, vrmConf)
+		vrmdoc, err := converter.ToVRM(doc, output, srcDir, vrmConf)
+		if err := vrmdoc.ValidateBones(); err != nil {
+			log.Print(err)
+		}
+		if err != nil {
+			gltf.SaveBinary(doc, output) // for debug
+			return err
+		}
+		return gltf.SaveBinary(doc, output)
 	}
 	return fmt.Errorf("Unsuppored output type: %v", ext)
 }
 
-func saveDocument(doc *mqo.Document, output, srcDir, vrmConf string, inputs []string) error {
-	ext := strings.ToLower(filepath.Ext(output))
+func saveDocument(doc *mqo.Document, output, ext, srcDir, vrmConf string, inputs []string) error {
 	if isGltf(ext) {
 		conv := converter.NewMQOToGLTFConverter(&converter.MQOToGLTFOption{})
 		gltfdoc, err := conv.Convert(doc, srcDir)
@@ -87,7 +92,7 @@ func saveDocument(doc *mqo.Document, output, srcDir, vrmConf string, inputs []st
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s input.pmx [output.mqo]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s [options] input.pmx [output.mqo]\n", os.Args[0])
 		flag.PrintDefaults()
 	}
 	format := flag.String("format", "", "output file format")
@@ -125,19 +130,18 @@ func main() {
 			outputExt = strings.ToLower(filepath.Ext(output))
 		}
 	}
-	confFile := *vrmconf
-	if confFile == "" {
-		confFile = input[0:len(input)-len(filepath.Ext(input))] + ".vrmconfig.json"
-		if _, err := os.Stat(confFile); err != nil {
-			confFile = ""
+
+	if outputExt == ".vrm" && *vrmconf == "" {
+		conf := input[0:len(input)-len(filepath.Ext(input))] + ".vrmconfig.json"
+		if _, err := os.Stat(conf); err == nil {
+			*vrmconf = conf
 		}
 	}
 
-	// mmd to vrm
 	if isMMD(inputExt) && outputExt == ".vrm" {
 		*rot180 = true
-		if confFile == "" {
-			confFile = "mmd" // preset
+		if *vrmconf == "" {
+			*vrmconf = "mmd" // preset
 		}
 		if *autoTpose == "" {
 			*autoTpose = "右腕,左腕"
@@ -151,6 +155,7 @@ func main() {
 			*scale = 1
 		}
 	}
+
 	var scaleVec = &geom.Vector3{
 		X: float32(*scale * *scaleX),
 		Y: float32(*scale * *scaleY),
@@ -165,27 +170,16 @@ func main() {
 	}
 
 	if isGltf(inputExt) && isGltf(outputExt) {
-		doc, err := gltf.Open(input)
+		doc, err := gltfutil.Load(input)
 		if err != nil {
 			log.Fatal(err)
 		}
-		vrm.Transform(doc, scaleVec, nil)
+		gltfutil.Transform(doc, scaleVec, nil)
 		// vrm.ResetJointMatrix(doc)
-		err = saveGltfDocument(doc, output, outputExt, filepath.Dir(input), confFile)
+		err = saveGltfDocument(doc, output, outputExt, filepath.Dir(input), *vrmconf)
 		if err != nil {
 			log.Fatal(err)
 		}
-		return
-	}
-
-	if inputExt == ".vmd" {
-		// DEBUG
-		anim, err := loadAnimation(input)
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Println(anim.Name)
-		log.Println(anim.GetBoneChannels())
 		return
 	}
 
@@ -201,19 +195,9 @@ func main() {
 			v.Y *= scaleVec.Y
 			v.Z *= scaleVec.Z
 		})
-	}
-	if *rot180 {
-		for _, b := range mqo.GetBonePlugin(doc).Bones() {
-			b.RotationOffset.Y = math.Pi
-		}
-	}
-
-	if *autoTpose != "" {
-		for _, boneName := range strings.Split(*autoTpose, ",") {
+		if *rot180 {
 			for _, b := range mqo.GetBonePlugin(doc).Bones() {
-				if b.Name == boneName {
-					doc.BoneAdjustX(b)
-				}
+				b.RotationOffset.Y = math.Pi
 			}
 		}
 	}
@@ -225,6 +209,15 @@ func main() {
 			}
 		}
 		return false
+	}
+
+	if *autoTpose != "" {
+		patterns := strings.Split(*autoTpose, ",")
+		for _, b := range mqo.GetBonePlugin(doc).Bones() {
+			if match(patterns, b.Name) {
+				doc.BoneAdjustX(b)
+			}
+		}
 	}
 
 	if *hides != "" {
@@ -277,7 +270,7 @@ func main() {
 	}
 
 	log.Print("out: ", output)
-	if err = saveDocument(doc, output, filepath.Dir(input), confFile, flag.Args()[0:inputN]); err != nil {
+	if err = saveDocument(doc, output, outputExt, filepath.Dir(input), *vrmconf, flag.Args()[0:inputN]); err != nil {
 		log.Fatal(err)
 	}
 }

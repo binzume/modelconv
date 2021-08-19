@@ -1,11 +1,14 @@
-package vrm
+package gltfutil
 
 import (
 	"encoding/binary"
 	"math"
 
+	"github.com/binzume/modelconv/geom"
 	"github.com/qmuntal/gltf"
 )
+
+type Quaternion = geom.Vector4
 
 func readMatrix(data []byte) [16]float32 {
 	var mat [16]float32

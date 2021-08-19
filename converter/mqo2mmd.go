@@ -9,7 +9,7 @@ type mqoToMMD struct {
 	Scale float32
 }
 
-func NewMQOToMMDConverter() *mqoToMMD {
+func NewMQOToMMDConverter(options interface{}) *mqoToMMD {
 	return &mqoToMMD{Scale: 1.0 / 80}
 }
 
