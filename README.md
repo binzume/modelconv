@@ -2,27 +2,29 @@
 
 Goで3Dモデルファイルを読み書きするライブラリ＆変換ツールです．
 
-| Format | Read | Write | Comment |
-| ------ | ---- | ----- | ------- |
-| .mqo   |  ○  |  ○  | ボーン・モーフにも対応 |
-| .vrm   |      |  ○  | https://github.com/qmuntal/gltf 用のエクステンションです |
-| .glb   |  △  |  ○  | https://github.com/qmuntal/gltf を使っています |
-| .pmx   |  ○  |  ○  | Physicsは未対応 |
-| .pmd   |  ○  |      | Read only |
-| .vmd   |  △  |      |  |
+| Format     | Read | Write | Comment                          |
+| ---------- | ---- | ----- | -------------------------------- |
+| .mqo/.mqoz |  ○  |  ○   | ボーン・モーフに対応             |
+| .gltf/.glb |  ○  |  ○   | 他フォーマットへの変換は暫定実装 |
+| .vrm       |  △  |  ○   | glTF 用のエクステンション        |
+| .pmx       |  ○  |  ○   | Physics未対応                    |
+| .pmd       |  ○  |       | Read only                        |
+| .vmd       |  △  |       | 暫定実装                         |
 
-データを見ながら雰囲気で実装してるので，おかしな挙動をするかもしれません．
+glTFの読み書きには https://github.com/qmuntal/gltf を使っています．
+
+データを見ながら雰囲気で実装してるので，読み込めないファイルがあるかもしれません．
 
 # Command-line tool
 
 package: [cmd/modelconv](cmd/modelconv)
 
-以下の組み合わせの変換ができます．
+以下の組み合わせの変換が可能です．
 
 - (.pmd | .pmx | .mqo | .mqoz) → (.pmx | .mqo| .mqoz | .glb | .gltf | .vrm)
 - (.glb | .gltf | .vrm) → (.glb | .gltf | .vrm) (※1)
 
-(※1: glTF同士の変換は特別扱いをしているため，モデルに変更を加えるオプションは動きません．scaleは可能です)
+※1: glTF同士の変換は特別扱いをしているため，モデルに変更を加えるオプションは未対応です．(scaleは可能)
 
 ## Install "modelconv" commant
 
@@ -96,6 +98,26 @@ MMDからの変換時にはデフォルトで [mmd.json](converter/vrmconfig_pre
 
 例： MMD → VRM : default scale = 0.08
 
+# API
+
+T.B.D.
+
+### Example: .pmx to .mqoz
+
+```go 
+	mmdModel, err :=  mmd.Load("model.pmx")
+	if err != nil {
+		return err
+	}
+	mqDoc, err := converter.NewMMDToMQOConverter(nil).Convert(mmdModel)
+	if err != nil {
+		return err
+	}
+	err = mqo.Save(mqDoc, "model.mqoz")
+	if err != nil {
+		return err
+	}
+```
 
 # License
 
