@@ -4,40 +4,87 @@
 最新版はGitHubにあります．Windows(x64) 以外のバイナリが必要な場合はお手数ですがご自身でビルドしてください．
 https://github.com/binzume/modelconv
 
-利用方法はQiitaの記事も参考にしてください．
-https://qiita.com/binzume/items/d29cd21b9860809f72cf
-
 # Usage
 
-以下の組み合わせの変換ができます．
+以下の組み合わせの変換が可能です．
 
-- (.pmd | .pmx | .mqo) → (.mqo | .pmx | .glb | .gltf | .vrm)
-- (.glb | .gltf | .vrm) → (.glb | .gltf | .vrm)
+- (.pmd | .pmx | .mqo | .mqoz) → (.pmx | .mqo| .mqoz | .glb | .gltf | .vrm)
+- (.glb | .gltf | .vrm) → (.glb | .gltf | .vrm) (※1)
 
-座標の単位については以下のように扱っています(異なる場合は変換時の-scaleオプションで調整してください)
+※1: glTF同士の変換は特別扱いをしているため，モデルに変更を加えるオプションは未対応です．(scaleは可能)
+
+## Install "modelconv" commant
+
+新し目のGoがあればビルドできると思います．
+[Releases](https://github.com/binzume/modelconv/releases/latest)にビルド済みのWindows用の実行ファイルを置いてあります．
+
+```bash
+go install github.com/binzume/modelconv/cmd/modelconv@latest
+```
+
+## Usage examples
+
+### MMD to VRM
+
+```bash
+modelconv -autotpose "右腕,左腕" "model.pmx" "model.vrm"
+modelconv -vrmconfig "model.vrmconfig.json" "model.pmx" "model.vrm"
+```
+
+### gltf to glb
+
+```bash
+modelconv "model.gltf" "model.glb"
+modelconv -format glb "model.gltf"
+```
+
+### Scaling
+
+```bash
+modelconv -scale 1.5 "model.glb" "model_scaled.glb"
+modelconv -scaleY 1.5 -scaleX 1.3 "model.mqo" "model_scaled.mqo"
+```
+
+## Flags
+
+| Flag       | Description    | Default    |
+| ---------- | -------------- | ---------- |
+| -format    | Output format  |            |
+| -scale     | Scale          | See `Unit` |
+| -scaleX    | Scale x-axis   | 1.0        |
+| -scaleY    | Scale y-axis   | 1.0        |
+| -scaleZ    | Scale z-axis   | 1.0        |
+| -rot180    | rotate 180 degrees around Y-axis |  |
+| -hide      | hide objects (OBJ1,OBJ2,...) |  |
+| -hidemat   | hide materials (MAT1,MAT2,...)  |  |
+| -unlit     | unlit materials (MAT1,MAT2,...)  |  |
+| -vrmconfig | Config file for VRM | "inputfile.vrmconfig.json" |
+| -autotpose | Arm bone names |            |
+| -chparent  | replace parent bone (BONE1:PARENT1,BONE2:PARENT2,...) |  |
+
+### vrmconfig:
+
+設定ファイルのjsonは [converter/vrmconfig_presets](converter/vrmconfig_presets) にあるファイルや，
+[Qiitaの記事](https://qiita.com/binzume/items/d29cd21b9860809f72cf)も参考にしてください．
+
+MMDからの変換時にはデフォルトで [mmd.json](converter/vrmconfig_presets/mmd.json) が使われます．
+
+### hide,hidemat,unlit:
+
+対象のオブジェクトやマテリアルの名前をカンマ区切りで指定してください．ワイルドカード(`*`)が利用可能です．
+
+### autotpose:
+
+腕のボーンを指定するとX軸に沿うように形状を調整します(暫定実装)
+
+### Unit:
 
 - MQO: 1mm
 - MMD: 80mm
 - glTF/VRM: 1m
 
-vrmファイルを出力するためには，設定が書かれたjsonファイルが必要です．
-jsonファイルの内容はQiitaに書いた説明を参考にしてください．
+例： MMD → VRM : default scale = 0.08
 
-## 例
-
-### .pmx → .mqo
-./modelconv -rot180 -scale 80 -autotpose 右腕,左腕 input.pmx output.mqo
-
--rot180 : Y軸回りに100°回転します
--scale : 変換時にスケールをかけます
--autotpose : 指定した腕のボーンがX軸に沿うように調整します(暫定実装)
-
-入力ファイル以外は省略可能なので，ファイルを実行ファイルにドラッグ＆ドロップすれば変換されます．
-
-MMDから変換する場合，scaleを省略すると単位をmmにするために暗黙的に"-scale 80"とみなします．
-
-### .glb+vrmconfig.json → .vrm
-./modelconv -vrmconfig input.vrmconfig.json input.glb output.vrm
 
 # License
 
