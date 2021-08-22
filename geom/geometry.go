@@ -87,6 +87,10 @@ func (v *Vector3) Cross(v2 *Vector3) *Vector3 {
 	}
 }
 
+func (v *Vector3) Scale(s Element) *Vector3 {
+	return &Vector3{X: v.X * s, Y: v.Y * s, Z: v.Z * s}
+}
+
 func (v *Vector3) Len() Element {
 	return Element(math.Sqrt(float64(v.X*v.X + v.Y*v.Y + v.Z*v.Z)))
 }
@@ -192,28 +196,65 @@ func NewTranslateMatrix4(x, y, z Element) *Matrix4 {
 	}
 }
 
+func NewEulerRotationMatrix4(x, y, z Element, rev int) *Matrix4 {
+	m := NewMatrix4()
+	cx := Element(math.Cos(float64(x)))
+	sx := Element(math.Sin(float64(x)))
+	cy := Element(math.Cos(float64(y)))
+	sy := Element(math.Sin(float64(y)))
+	cz := Element(math.Cos(float64(z)))
+	sz := Element(math.Sin(float64(z)))
+
+	if rev == 0 {
+		m[0] = cy * cz
+		m[4] = -cy * sz
+		m[8] = sy
+
+		m[1] = cx*sz + sx*cz*sy
+		m[5] = cx*cz - sx*sz*sy
+		m[9] = -sx * cy
+
+		m[2] = sx*sz - cx*cz*sy
+		m[6] = sx*cz + cx*sz*sy
+		m[10] = cx * cy
+	} else {
+		m[0] = cy * cz
+		m[4] = sx*cz*sy - cx*sz
+		m[8] = cx*cz*sy + sx*sz
+
+		m[1] = cy * sz
+		m[5] = sx*sz*sy + cx*cz
+		m[9] = cx*sz*sy - sx*cz
+
+		m[2] = -sy
+		m[6] = sx * cy
+		m[10] = cx * cy
+	}
+	return m
+}
+
 func (a *Matrix4) Mul(b *Matrix4) *Matrix4 {
 	r := &Matrix4{}
 
-	r[0] = a[0] * b[0] + a[1] * b[4] + a[2] * b[8] + a[3] * b[12]
-	r[1] = a[0] * b[1] + a[1] * b[5] + a[2] * b[9] + a[3] * b[13]
-	r[2] = a[0] * b[2] + a[1] * b[6] + a[2] * b[10] + a[3] * b[14]
-	r[3] = a[0] * b[3] + a[1] * b[7] + a[2] * b[11] + a[3] * b[15]
+	r[0] = a[0]*b[0] + a[1]*b[4] + a[2]*b[8] + a[3]*b[12]
+	r[1] = a[0]*b[1] + a[1]*b[5] + a[2]*b[9] + a[3]*b[13]
+	r[2] = a[0]*b[2] + a[1]*b[6] + a[2]*b[10] + a[3]*b[14]
+	r[3] = a[0]*b[3] + a[1]*b[7] + a[2]*b[11] + a[3]*b[15]
 
-	r[4] = a[4] * b[0] + a[5] * b[4] + a[6] * b[8] + a[7] * b[12]
-	r[5] = a[4] * b[1] + a[5] * b[5] + a[6] * b[9] + a[7] * b[13]
-	r[6] = a[4] * b[2] + a[5] * b[6] + a[6] * b[10] + a[7] * b[14]
-	r[7] = a[4] * b[3] + a[5] * b[7] + a[6] * b[11] + a[7] * b[15]
+	r[4] = a[4]*b[0] + a[5]*b[4] + a[6]*b[8] + a[7]*b[12]
+	r[5] = a[4]*b[1] + a[5]*b[5] + a[6]*b[9] + a[7]*b[13]
+	r[6] = a[4]*b[2] + a[5]*b[6] + a[6]*b[10] + a[7]*b[14]
+	r[7] = a[4]*b[3] + a[5]*b[7] + a[6]*b[11] + a[7]*b[15]
 
-	r[8] = a[8] * b[0] + a[9] * b[4] + a[10] * b[8] + a[11] * b[12]
-	r[9] = a[8] * b[1] + a[9] * b[5] + a[10] * b[9] + a[11] * b[13]
-	r[10] = a[8] * b[2] + a[9] * b[6] + a[10] * b[10] + a[11] * b[14]
-	r[11] = a[8] * b[3] + a[9] * b[7] + a[10] * b[11] + a[11] * b[15]
+	r[8] = a[8]*b[0] + a[9]*b[4] + a[10]*b[8] + a[11]*b[12]
+	r[9] = a[8]*b[1] + a[9]*b[5] + a[10]*b[9] + a[11]*b[13]
+	r[10] = a[8]*b[2] + a[9]*b[6] + a[10]*b[10] + a[11]*b[14]
+	r[11] = a[8]*b[3] + a[9]*b[7] + a[10]*b[11] + a[11]*b[15]
 
-	r[12] = a[12] * b[0] + a[13] * b[4] + a[14] * b[8] + a[15] * b[12]
-	r[13] = a[12] * b[1] + a[13] * b[5] + a[14] * b[9] + a[15] * b[13]
-	r[14] = a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14]
-	r[15] = a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15]
+	r[12] = a[12]*b[0] + a[13]*b[4] + a[14]*b[8] + a[15]*b[12]
+	r[13] = a[12]*b[1] + a[13]*b[5] + a[14]*b[9] + a[15]*b[13]
+	r[14] = a[12]*b[2] + a[13]*b[6] + a[14]*b[10] + a[15]*b[14]
+	r[15] = a[12]*b[3] + a[13]*b[7] + a[14]*b[11] + a[15]*b[15]
 	return r
 }
 

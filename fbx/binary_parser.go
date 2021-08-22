@@ -70,10 +70,10 @@ func (p *binaryParser) readInt() int {
 	return int(v)
 }
 
-func (p *binaryParser) readUint() uint {
+func (p *binaryParser) readUint32() uint32 {
 	var v uint32
 	p.read(&v)
-	return uint(v)
+	return v
 }
 
 func (p *binaryParser) readFloat() float32 {
@@ -99,9 +99,9 @@ func (p *binaryParser) readName() string {
 }
 
 func (p *binaryParser) readPropArray(typ uint8) *Property {
-	count := p.readUint()
-	encoding := p.readUint()
-	sz := p.readUint()
+	count := uint(p.readUint32())
+	encoding := p.readUint32()
+	sz := p.readUint32()
 	var buf interface{}
 	switch typ {
 	case 'b':
@@ -147,7 +147,7 @@ func (p *binaryParser) readProp() *Property {
 	case 'Y':
 		return &Property{typ, p.readUint16(), 0}
 	case 'I':
-		return &Property{typ, p.readUint(), 0}
+		return &Property{typ, p.readUint32(), 0}
 	case 'L':
 		return &Property{typ, p.readUint64(), 0}
 	case 'F':
@@ -155,9 +155,9 @@ func (p *binaryParser) readProp() *Property {
 	case 'D':
 		return &Property{typ, p.readFloat64(), 0}
 	case 'S':
-		return &Property{typ, p.readString(uint(p.readUint())), 0}
+		return &Property{typ, p.readString(uint(p.readUint32())), 0}
 	case 'R':
-		buf := make([]byte, p.readUint())
+		buf := make([]byte, p.readUint32())
 		p.read(buf)
 		return &Property{typ, buf, 0}
 	case 'b', 'i', 'l', 'f', 'd':
@@ -169,9 +169,9 @@ func (p *binaryParser) readProp() *Property {
 
 func (p *binaryParser) readNode() *Node {
 	n := &Node{}
-	next := p.readUint()
+	next := p.readUint32()
 	nprop := p.readInt()
-	propsz := p.readUint()
+	propsz := p.readUint32()
 	n.Name = p.readName()
 
 	if uint64(nprop)*2 > uint64(propsz) {

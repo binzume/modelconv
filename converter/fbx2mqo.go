@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"math"
 	"os"
 
 	"github.com/binzume/modelconv/fbx"
@@ -33,7 +34,7 @@ func (c *fbxToMqo) convertMaterial(src *fbx.Document, m *fbx.Material) *mqo.Mate
 	return mat
 }
 
-func (c *fbxToMqo) convertMesh(src *fbx.Document, m *fbx.Mesh) *mqo.Object {
+func (c *fbxToMqo) convertGeom(m *fbx.Mesh) *mqo.Object {
 	obj := mqo.NewObject(m.Name())
 	obj.Vertexes = m.Vertices
 
@@ -73,6 +74,32 @@ func (c *fbxToMqo) convertMesh(src *fbx.Document, m *fbx.Mesh) *mqo.Object {
 	return obj
 }
 
+func (c *fbxToMqo) convertModel(dst *mqo.Document, m *fbx.Model, d int, parentMat *geom.Matrix4) {
+	obj := mqo.NewObject(m.Name())
+	g := m.FindRefs("Geometry")
+	if len(g) > 0 {
+		if mm, ok := g[0].(*fbx.Mesh); ok {
+			obj = c.convertGeom(mm)
+		}
+	}
+	// log.Println(m.Rotation, m.Scaling, m.Translation)
+	rotv := m.Rotation.Scale(math.Pi / 180)
+	tr := geom.NewTranslateMatrix4(m.Translation.X, m.Translation.Y, m.Translation.Z)
+	sacle := geom.NewScaleMatrix4(m.Scaling.X, m.Scaling.Y, m.Scaling.Z)
+	rot := geom.NewEulerRotationMatrix4(rotv.X, rotv.Y, rotv.Z, 1)
+	mat := tr.Mul(rot).Mul(sacle)
+	obj.Transform(func(v *geom.Vector3) {
+		*v = *mat.ApplyTo(v)
+	})
+	obj.Depth = d
+	dst.Objects = append(dst.Objects, obj)
+	for _, o := range m.FindRefs("Model") {
+		if m, ok := o.(*fbx.Model); ok {
+			c.convertModel(dst, m, d+1, mat)
+		}
+	}
+}
+
 func (c *fbxToMqo) Convert(src *fbx.Document) (*mqo.Document, error) {
 	src.Dump(os.Stdout, false)
 
@@ -82,8 +109,11 @@ func (c *fbxToMqo) Convert(src *fbx.Document) (*mqo.Document, error) {
 		mqdoc.Materials = append(mqdoc.Materials, c.convertMaterial(src, mat))
 	}
 
-	for _, mesh := range src.Meshes {
-		mqdoc.Objects = append(mqdoc.Objects, c.convertMesh(src, mesh))
+	mm := geom.NewMatrix4()
+	for _, o := range src.Scene.FindRefs("Model") {
+		if m, ok := o.(*fbx.Model); ok {
+			c.convertModel(mqdoc, m, 0, mm)
+		}
 	}
 
 	return mqdoc, nil

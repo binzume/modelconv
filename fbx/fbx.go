@@ -14,41 +14,77 @@ type Document struct {
 	Creator      string
 	CreationTime string
 
-	Objects     map[int]*Object
-	Connections []*Connection
+	Objects map[int]Object
+	Scene   Object
 
-	Meshes    []*Mesh
 	Materials []*Material
 
 	RawNode *Node
+}
+
+type Object interface {
+	Type() string
+	ID() int
+	Name() string
+	Kind() string
+	FindRefs(name string) []Object
+	AddRef(o Object)
 }
 
 type Connection struct {
 	Type string
 	To   int
 	From int
+	Prop string
 }
 
-type Object struct {
+type Obj struct {
+	Refs []Object
 	*Node
 }
 
-func (o *Object) ID() int {
+func (o *Obj) Type() string {
+	return o.Node.Name
+}
+func (o *Obj) ID() int {
 	return o.PropInt(0)
 }
-func (o *Object) Name() string {
+func (o *Obj) Name() string {
 	return strings.ReplaceAll(o.PropString(1), "\x00\x01", "::")
+}
+func (o *Obj) Kind() string {
+	return o.PropString(2)
+}
+func (o *Obj) FindRefs(typ string) []Object {
+	var refs []Object
+	for _, o := range o.Refs {
+		if o.Type() == typ {
+			refs = append(refs, o)
+		}
+	}
+	return refs
+}
+
+func (o *Obj) AddRef(ref Object) {
+	o.Refs = append(o.Refs, ref)
 }
 
 type Mesh struct {
-	Object
+	Obj
 	Vertices []*geom.Vector3
 	Faces    [][]int
 	Normals  []*geom.Vector3
 }
 
 type Material struct {
-	Object
+	Obj
+}
+
+type Model struct {
+	Obj
+	Translation geom.Vector3
+	Rotation    geom.Vector3
+	Scaling     geom.Vector3
 }
 
 type Node struct {
@@ -97,14 +133,24 @@ func (n *Node) PropString(i int) string {
 	return ""
 }
 
+func (n *Node) PropFloat(i int) float32 {
+	if v, ok := n.PropValue(i).(float32); ok {
+		return float32(v)
+	}
+	if v, ok := n.PropValue(i).(float64); ok {
+		return float32(v)
+	}
+	return 0
+}
+
 func (n *Node) PropInt(i int) int {
 	if v, ok := n.PropValue(i).(byte); ok {
 		return int(v)
-	} else if v, ok := n.PropValue(i).(int16); ok {
+	} else if v, ok := n.PropValue(i).(uint16); ok {
 		return int(v)
-	} else if v, ok := n.PropValue(i).(int32); ok {
+	} else if v, ok := n.PropValue(i).(uint32); ok {
 		return int(v)
-	} else if v, ok := n.PropValue(i).(int64); ok {
+	} else if v, ok := n.PropValue(i).(uint64); ok {
 		return int(v)
 	}
 	return 0
