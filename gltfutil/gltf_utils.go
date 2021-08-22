@@ -124,7 +124,7 @@ func Transform(doc *gltf.Document, scale *geom.Vector3, offset *geom.Vector3) {
 					offset := bufferView.ByteOffset + uint32(i)*64
 					mat := readMatrix(data[offset : offset+64])
 					// apply scale
-					geom.NewMatrix4FromSlice(mat[:]).Mul(scaleMat).ToArray(mat[:])
+					scaleMat.Mul(geom.NewMatrix4FromSlice(mat[:])).ToArray(mat[:])
 					// normalize rotation
 					geom.NewVector3FromSlice(mat[0:3]).Normalize().ToArray(mat[0:3])
 					geom.NewVector3FromSlice(mat[4:7]).Normalize().ToArray(mat[4:7])

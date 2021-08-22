@@ -158,9 +158,10 @@ func (a *Vector4) Mul(b *Vector4) *Vector4 {
 
 func (mat *Matrix4) ApplyTo(v *Vector3) *Vector3 {
 	return &Vector3{
-		mat[0]*v.X + mat[1]*v.Y + mat[2]*v.Z + mat[3] + mat[12],
-		mat[4]*v.X + mat[5]*v.Y + mat[6]*v.Z + mat[7] + mat[13],
-		mat[8]*v.X + mat[9]*v.Y + mat[10]*v.Z + mat[11] + mat[14]}
+		mat[0]*v.X + mat[4]*v.Y + mat[8]*v.Z + mat[12],
+		mat[1]*v.X + mat[5]*v.Y + mat[9]*v.Z + mat[13],
+		mat[2]*v.X + mat[6]*v.Y + mat[10]*v.Z + mat[14],
+	}
 }
 
 func NewMatrix4() *Matrix4 {
@@ -233,7 +234,7 @@ func NewEulerRotationMatrix4(x, y, z Element, rev int) *Matrix4 {
 	return m
 }
 
-func (a *Matrix4) Mul(b *Matrix4) *Matrix4 {
+func (b *Matrix4) Mul(a *Matrix4) *Matrix4 {
 	r := &Matrix4{}
 
 	r[0] = a[0]*b[0] + a[1]*b[4] + a[2]*b[8] + a[3]*b[12]
