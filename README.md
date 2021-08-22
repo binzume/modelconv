@@ -9,6 +9,7 @@ Goで3Dモデルファイルを読み書きするライブラリ＆変換ツー�
 | .vrm       |  △  |  ○   | glTF 用のエクステンション        |
 | .pmx       |  ○  |  ○   | Physics未対応                    |
 | .pmd       |  ○  |       | Read only                        |
+| .fbx       |  △  |       | 暫定実装                         |
 | .vmd       |  △  |       | 暫定実装                         |
 
 glTFの読み書きには https://github.com/qmuntal/gltf を使っています．

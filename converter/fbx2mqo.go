@@ -2,7 +2,6 @@ package converter
 
 import (
 	"math"
-	"os"
 
 	"github.com/binzume/modelconv/fbx"
 	"github.com/binzume/modelconv/geom"
@@ -80,14 +79,14 @@ func (c *fbxToMqo) convertModel(dst *mqo.Document, m *fbx.Model, d int, parentMa
 	if len(g) > 0 {
 		if mm, ok := g[0].(*fbx.Mesh); ok {
 			obj = c.convertGeom(mm)
+			obj.Name = m.Name()
 		}
 	}
-	// log.Println(m.Rotation, m.Scaling, m.Translation)
 	rotv := m.Rotation.Scale(math.Pi / 180)
 	tr := geom.NewTranslateMatrix4(m.Translation.X, m.Translation.Y, m.Translation.Z)
+	rot := geom.NewEulerRotationMatrix4(rotv.X, rotv.Y, rotv.Z, 0) // XYZ order?
 	sacle := geom.NewScaleMatrix4(m.Scaling.X, m.Scaling.Y, m.Scaling.Z)
-	rot := geom.NewEulerRotationMatrix4(rotv.X, rotv.Y, rotv.Z, 1)
-	mat := tr.Mul(rot).Mul(sacle)
+	mat := parentMat.Mul(tr).Mul(rot).Mul(sacle)
 	obj.Transform(func(v *geom.Vector3) {
 		*v = *mat.ApplyTo(v)
 	})
@@ -101,7 +100,7 @@ func (c *fbxToMqo) convertModel(dst *mqo.Document, m *fbx.Model, d int, parentMa
 }
 
 func (c *fbxToMqo) Convert(src *fbx.Document) (*mqo.Document, error) {
-	src.Dump(os.Stdout, false)
+	//  src.Dump(os.Stdout, false)
 
 	mqdoc := mqo.NewDocument()
 

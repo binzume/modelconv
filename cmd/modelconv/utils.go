@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/binzume/modelconv/converter"
+	"github.com/binzume/modelconv/fbx"
 	"github.com/binzume/modelconv/mmd"
 	"github.com/binzume/modelconv/mqo"
 	"github.com/qmuntal/gltf"
@@ -44,6 +45,15 @@ func loadDocument(input string) (*mqo.Document, error) {
 		log.Println("Comment: ", pmx.Comment)
 		return converter.NewMMDToMQOConverter(nil).Convert(pmx), nil
 	}
+
+	if ext == ".fbx" {
+		doc, err := fbx.Load(input)
+		if err != nil {
+			return nil, err
+		}
+		return converter.NewFBXToMQOConverter(nil).Convert(doc)
+	}
+
 	return nil, fmt.Errorf("Unspoorted input")
 }
 
