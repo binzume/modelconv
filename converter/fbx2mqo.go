@@ -29,7 +29,11 @@ func (c *fbxToMqo) convertMaterial(src *fbx.Document, m *fbx.Material) *mqo.Mate
 	mat.Name = m.Name()
 	mat.Color = geom.Vector4{X: 1, Y: 1, Z: 1, W: 1}
 	mat.Diffuse = 1
-	mat.Texture = "textures.png"
+	textures := m.FindRefs("Texture")
+	if len(textures) > 0 {
+		// TODO: Properties70("DiffuseColor").Child("RelativeFilename").PropString(0)
+		mat.Texture = textures[0].(*fbx.Obj).Child("RelativeFilename").PropString(0)
+	}
 	return mat
 }
 

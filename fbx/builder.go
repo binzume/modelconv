@@ -83,7 +83,7 @@ func BuildDocument(root *Node) (*Document, error) {
 	for _, node := range root.ChildOrEmpty("Connections").Children {
 		if node.Name == "C" {
 			c := parseConnection(node)
-			if c.Type == "OO" {
+			if c.Type == "OO" || c.Type == "OP" {
 				from := doc.Objects[c.From]
 				to := doc.Objects[c.To]
 				if to != nil && from != nil {
