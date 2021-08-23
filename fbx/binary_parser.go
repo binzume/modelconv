@@ -1,6 +1,7 @@
 package fbx
 
 import (
+	"bufio"
 	"compress/zlib"
 	"encoding/binary"
 	"fmt"
@@ -212,9 +213,14 @@ func (p *binaryParser) readNode() *Node {
 }
 
 func (p *binaryParser) Parse() (*Node, error) {
-	if p.readString(20) != "Kaydara FBX Binary  " {
+	magic := p.readString(20)
+	if magic != "Kaydara FBX Binary  " {
+		// try parse texy. TODO
+		if magic[0] == ';' {
+			p2 := &textParser{r: bufio.NewReader(p.r.r), buf: []byte(magic)}
+			return p2.Parse()
+		}
 		return nil, fmt.Errorf("unknown fbx format")
-
 	}
 	p.r.SkipTo(27)
 	root := &Node{Name: "_FBX_ROOT"}
