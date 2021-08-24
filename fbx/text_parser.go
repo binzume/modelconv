@@ -179,7 +179,7 @@ func (p *textParser) parseNodeList() []*Node {
 						if err != nil {
 							p.err = fmt.Errorf("failed to parse num: '%v'", s)
 						}
-						node.Properties = append(node.Properties, &Property{Value: uint64(v)})
+						node.Properties = append(node.Properties, &Property{Value: v})
 					}
 				} else if typ == String {
 					node.Properties = append(node.Properties, &Property{Value: s})

@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"log"
 	"math"
 
 	"github.com/binzume/modelconv/fbx"
@@ -27,35 +28,57 @@ func NewFBXToMQOConverter(options *FBXToMQOOption) *fbxToMqo {
 func (c *fbxToMqo) convertMaterial(src *fbx.Document, m *fbx.Material) *mqo.Material {
 	mat := &mqo.Material{}
 	mat.Name = m.Name()
-	mat.Color = geom.Vector4{X: 1, Y: 1, Z: 1, W: 1}
+	mat.Color = geom.Vector4{
+		X: m.GetProperty70("DiffuseColor").Get(0).ToFloat32(1),
+		Y: m.GetProperty70("DiffuseColor").Get(1).ToFloat32(1),
+		Z: m.GetProperty70("DiffuseColor").Get(2).ToFloat32(1),
+		W: m.GetProperty70("Opacity").Get(0).ToFloat32(1)}
 	mat.Diffuse = 1
+	mat.Specular = m.GetProperty70("SpecularFactor").Get(0).ToFloat32(0)
 	textures := m.FindRefs("Texture")
 	if len(textures) > 0 {
-		// TODO: Properties70("DiffuseColor").Child("RelativeFilename").PropString(0)
-		mat.Texture = textures[0].(*fbx.Obj).Child("RelativeFilename").PropString(0)
+		// TODO: GetPropertyRef("DiffuseColor").FindChild("RelativeFilename").PropString(0)
+		mat.Texture = textures[0].(*fbx.Obj).FindChild("RelativeFilename").PropString(0)
 	}
 	return mat
 }
 
-func (c *fbxToMqo) convertGeom(m *fbx.Mesh) *mqo.Object {
+func (c *fbxToMqo) convertGeom(m *fbx.Geometry, doc *fbx.Document) *mqo.Object {
 	obj := mqo.NewObject(m.Name())
-	obj.Vertexes = m.Vertices
+
+	upAxis := doc.GlobalSettings.GetProperty70("OriginalUpAxis").Get(0).ToInt(1)
+
+	if upAxis == 2 {
+		for _, v := range m.Vertices {
+			obj.Vertexes = append(obj.Vertexes, &geom.Vector3{X: v.X, Y: v.Z, Z: v.Y})
+		}
+	} else {
+		obj.Vertexes = m.Vertices
+	}
 
 	var matByPolygon []int32
 
-	matnode := m.Child("LayerElementMaterial")
-	if matnode.Child("MappingInformationType").PropString(0) == "ByPolygon" {
-		matByPolygon = matnode.Child("Materials").Prop(0).ToInt32Array()
+	matnode := m.FindChild("LayerElementMaterial")
+	if matnode.FindChild("MappingInformationType").PropString(0) == "ByPolygon" {
+		matByPolygon = matnode.FindChild("Materials").Prop(0).ToInt32Array()
 	}
 
 	var uv []*geom.Vector2
 	var uvIndex []int32
-	uvnode := m.Child("LayerElementUV")
-	if uvnode.Child("MappingInformationType").PropString(0) == "ByPolygonVertex" {
-		uv = uvnode.Child("UV").Prop(0).ToVec2Array()
+	uvnode := m.FindChild("LayerElementUV")
+	if uvnode.FindChild("MappingInformationType").PropString(0) == "ByPolygonVertex" {
+		uv = uvnode.FindChild("UV").Prop(0).ToVec2Array()
 		if uv != nil {
-			uvIndex = uvnode.Child("UVIndex").Prop(0).ToInt32Array()
+			uvIndex = uvnode.FindChild("UVIndex").Prop(0).ToInt32Array()
 		}
+	}
+	for _, node := range m.FindRefs("Deformer") {
+		sub := node.FindRefs("Deformer")
+		name := ""
+		if len(sub) > 0 && len(sub[0].FindRefs("Model")) > 0 {
+			name = sub[0].FindRefs("Model")[0].Name()
+		}
+		log.Println("TODO: skinning", name, node.ID(), len(sub))
 	}
 
 	vcount := 0
@@ -77,12 +100,12 @@ func (c *fbxToMqo) convertGeom(m *fbx.Mesh) *mqo.Object {
 	return obj
 }
 
-func (c *fbxToMqo) convertModel(dst *mqo.Document, m *fbx.Model, d int, parentMat *geom.Matrix4) {
+func (c *fbxToMqo) convertModel(dst *mqo.Document, m *fbx.Model, d int, parentMat *geom.Matrix4, doc *fbx.Document) {
 	obj := mqo.NewObject(m.Name())
 	g := m.FindRefs("Geometry")
 	if len(g) > 0 {
-		if mm, ok := g[0].(*fbx.Mesh); ok {
-			obj = c.convertGeom(mm)
+		if mm, ok := g[0].(*fbx.Geometry); ok {
+			obj = c.convertGeom(mm, doc)
 			obj.Name = m.Name()
 		}
 	}
@@ -98,7 +121,7 @@ func (c *fbxToMqo) convertModel(dst *mqo.Document, m *fbx.Model, d int, parentMa
 	dst.Objects = append(dst.Objects, obj)
 	for _, o := range m.FindRefs("Model") {
 		if m, ok := o.(*fbx.Model); ok {
-			c.convertModel(dst, m, d+1, mat)
+			c.convertModel(dst, m, d+1, mat, doc)
 		}
 	}
 }
@@ -115,7 +138,7 @@ func (c *fbxToMqo) Convert(src *fbx.Document) (*mqo.Document, error) {
 	mm := geom.NewMatrix4()
 	for _, o := range src.Scene.FindRefs("Model") {
 		if m, ok := o.(*fbx.Model); ok {
-			c.convertModel(mqdoc, m, 0, mm)
+			c.convertModel(mqdoc, m, 0, mm, src)
 		}
 	}
 

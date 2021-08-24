@@ -40,11 +40,11 @@ type binaryParser struct {
 	err error
 }
 
-func (p *binaryParser) read(v interface{}) error {
+func (p *binaryParser) read(v interface{}) interface{} {
 	if p.err == nil {
 		p.err = binary.Read(p.r, binary.LittleEndian, v)
 	}
-	return p.err
+	return v
 }
 
 func (p *binaryParser) readUint8() uint8 {
@@ -107,6 +107,8 @@ func (p *binaryParser) readPropArray(typ uint8) *Property {
 	switch typ {
 	case 'b':
 		buf = make([]byte, count)
+	case 'y':
+		buf = make([]int16, count)
 	case 'i':
 		buf = make([]int32, count)
 	case 'l':
@@ -125,7 +127,7 @@ func (p *binaryParser) readPropArray(typ uint8) *Property {
 		r, err := zlib.NewReader(io.LimitReader(p.r, int64(sz)))
 		if err != nil {
 			p.err = err
-			return &Property{typ, buf, count}
+			return &Property{buf, count}
 		}
 		defer r.Close()
 		err = binary.Read(r, binary.LittleEndian, buf)
@@ -134,7 +136,7 @@ func (p *binaryParser) readPropArray(typ uint8) *Property {
 		}
 		p.r.SkipTo(next)
 	}
-	return &Property{typ, buf, count}
+	return &Property{buf, count}
 }
 
 func (p *binaryParser) readProp() *Property {
@@ -142,26 +144,36 @@ func (p *binaryParser) readProp() *Property {
 
 	switch typ {
 	case 'B':
-		return &Property{typ, p.readUint8(), 0}
+		var v byte
+		p.read(&v)
+		return &Property{v, 0}
 	case 'C':
-		return &Property{typ, p.readUint8(), 0}
+		var v byte
+		p.read(&v)
+		return &Property{v, 0}
 	case 'Y':
-		return &Property{typ, p.readUint16(), 0}
+		var v int16
+		p.read(&v)
+		return &Property{v, 0}
 	case 'I':
-		return &Property{typ, p.readUint32(), 0}
+		var v int32
+		p.read(&v)
+		return &Property{v, 0}
 	case 'L':
-		return &Property{typ, p.readUint64(), 0}
+		var v int64
+		p.read(&v)
+		return &Property{v, 0}
 	case 'F':
-		return &Property{typ, p.readFloat(), 0}
+		return &Property{p.readFloat(), 0}
 	case 'D':
-		return &Property{typ, p.readFloat64(), 0}
+		return &Property{p.readFloat64(), 0}
 	case 'S':
-		return &Property{typ, p.readString(uint(p.readUint32())), 0}
+		return &Property{p.readString(uint(p.readUint32())), 0}
 	case 'R':
 		buf := make([]byte, p.readUint32())
 		p.read(buf)
-		return &Property{typ, buf, 0}
-	case 'b', 'i', 'l', 'f', 'd':
+		return &Property{buf, 0}
+	case 'b', 'y', 'i', 'l', 'f', 'd':
 		return p.readPropArray(typ)
 	}
 	p.err = fmt.Errorf("unknown prop type: %v", typ)
