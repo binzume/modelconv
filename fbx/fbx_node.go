@@ -74,17 +74,21 @@ func (p PropertyList) Get(i int) *Property {
 }
 
 func (p *Property) ToInt(defvalue int) int {
+	return int(p.ToInt64(int64(defvalue)))
+}
+
+func (p *Property) ToInt64(defvalue int64) int64 {
 	if p == nil {
 		return defvalue
 	}
 	if v, ok := p.Value.(byte); ok {
-		return int(v)
+		return int64(v)
 	} else if v, ok := p.Value.(int16); ok {
-		return int(v)
+		return int64(v)
 	} else if v, ok := p.Value.(int32); ok {
-		return int(v)
+		return int64(v)
 	} else if v, ok := p.Value.(int64); ok {
-		return int(v)
+		return int64(v)
 	}
 	return defvalue
 }
@@ -169,6 +173,29 @@ func (p *Property) ToInt32Array() []int32 {
 	} else if vv, ok := p.Value.([]int64); ok {
 		for _, v := range vv {
 			r = append(r, int32(v))
+		}
+	}
+	return r
+}
+
+func (p *Property) ToFloat32Array() []float32 {
+	if p == nil {
+		return nil
+	}
+	var r []float32
+	if vv, ok := p.Value.([]float32); ok {
+		return vv
+	} else if vv, ok := p.Value.([]float64); ok {
+		for _, v := range vv {
+			r = append(r, float32(v))
+		}
+	} else if vv, ok := p.Value.([]int32); ok {
+		for _, v := range vv {
+			r = append(r, float32(v))
+		}
+	} else if vv, ok := p.Value.([]int64); ok {
+		for _, v := range vv {
+			r = append(r, float32(v))
 		}
 	}
 	return r

@@ -1,7 +1,5 @@
 package fbx
 
-import "github.com/binzume/modelconv/geom"
-
 func parseGeometry(base *Obj) *Geometry {
 	mesh := &Geometry{Obj: *base}
 	mesh.Vertices = base.FindChild("Vertices").Prop(0).ToVec3Array()
@@ -27,33 +25,28 @@ func parseGeometry(base *Obj) *Geometry {
 func parseModel(base *Obj) *Model {
 	m := &Model{Obj: *base}
 
-	tr := m.GetProperty70("Lcl Translation")
-	m.Translation = geom.Vector3{X: tr.Get(0).ToFloat32(0), Y: tr.Get(1).ToFloat32(0), Z: tr.Get(2).ToFloat32(0)}
-
-	rot := m.GetProperty70("Lcl Rotation")
-	m.Rotation = geom.Vector3{X: rot.Get(0).ToFloat32(0), Y: rot.Get(1).ToFloat32(0), Z: rot.Get(2).ToFloat32(0)}
-
-	sc := m.GetProperty70("Lcl Scaling")
-	m.Scaling = geom.Vector3{X: sc.Get(0).ToFloat32(1), Y: sc.Get(1).ToFloat32(1), Z: sc.Get(2).ToFloat32(1)}
+	m.Translation = m.GetProperty70("Lcl Translation").ToVector3(0, 0, 0)
+	m.Rotation = m.GetProperty70("Lcl Rotation").ToVector3(0, 0, 0)
+	m.Scaling = m.GetProperty70("Lcl Scaling").ToVector3(1, 1, 1)
 
 	return m
 }
 
 func parseConnection(node *Node) *Connection {
 	c := &Connection{
-		Type: node.PropString(0),
-		From: node.PropInt(1),
-		To:   node.PropInt(2),
+		Type: node.Prop(0).ToString(""),
+		From: node.Prop(1).ToInt64(0),
+		To:   node.Prop(2).ToInt64(0),
 	}
 	if c.Type == "OP" {
-		c.Prop = node.PropString(3)
+		c.Prop = node.Prop(3).ToString("")
 	}
 	return c
 }
 
 func BuildDocument(root *Node) (*Document, error) {
 	doc := &Document{RawNode: root, Scene: &Obj{}}
-	doc.Objects = map[int]Object{0: doc.Scene}
+	doc.Objects = map[int64]Object{0: doc.Scene}
 
 	doc.Creator = root.FindChild("Creator").PropString(0)
 	doc.CreationTime = root.FindChild("CreationTime").PropString(0)
@@ -91,6 +84,13 @@ func BuildDocument(root *Node) (*Document, error) {
 				to := doc.Objects[c.To]
 				if to != nil && from != nil {
 					to.AddRef(from)
+
+					// build model tree
+					if toModel, ok := to.(*Model); ok {
+						if fromModel, ok := from.(*Model); ok {
+							fromModel.Parent = toModel
+						}
+					}
 				}
 			}
 		}

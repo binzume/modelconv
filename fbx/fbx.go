@@ -3,6 +3,7 @@ package fbx
 import (
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"strings"
 
@@ -15,7 +16,7 @@ type Document struct {
 	CreationTime string
 
 	GlobalSettings Object
-	Objects        map[int]Object
+	Objects        map[int64]Object
 	Scene          Object
 
 	Materials []*Material
@@ -24,26 +25,37 @@ type Document struct {
 }
 
 type Property70 struct {
-	node *Node
-	Type string
+	PropertyList
+	Type  string
+	Label string
+	Flag  string
 }
 
-func (p *Property70) Get(i int) *Property {
-	if p == nil {
-		return nil
-	}
-	return p.node.Prop(i + 4)
+func (p *Property70) ToInt(defvalue int) int {
+	return p.Get(0).ToInt(defvalue)
+}
+
+func (p *Property70) ToFloat32(defvalue float32) float32 {
+	return p.Get(0).ToFloat32(defvalue)
+}
+
+func (p *Property70) ToString(defvalue string) string {
+	return p.Get(0).ToString(defvalue)
+}
+
+func (p *Property70) ToVector3(x, y, z float32) geom.Vector3 {
+	return geom.Vector3{X: p.Get(0).ToFloat32(x), Y: p.Get(1).ToFloat32(y), Z: p.Get(2).ToFloat32(z)}
 }
 
 type Connection struct {
 	Type string
-	To   int
-	From int
+	To   int64
+	From int64
 	Prop string
 }
 type Object interface {
 	NodeName() string
-	ID() int
+	ID() int64
 	Name() string
 	Kind() string
 	GetProperty70(name string) *Property70
@@ -61,8 +73,8 @@ type Obj struct {
 func (o *Obj) NodeName() string {
 	return o.Node.Name
 }
-func (o *Obj) ID() int {
-	return o.PropInt(0)
+func (o *Obj) ID() int64 {
+	return o.Prop(0).ToInt64(0)
 }
 func (o *Obj) Name() string {
 	return strings.ReplaceAll(o.PropString(1), "\x00\x01", "::")
@@ -74,8 +86,11 @@ func (o *Obj) GetProperty70(name string) *Property70 {
 	if o.properties == nil {
 		o.properties = map[string]*Property70{}
 		for _, node := range o.FindChild("Properties70").GetChildren() {
-			p := &Property70{node: node, Type: node.PropString(1)}
-			o.properties[node.PropString(0)] = p
+			o.properties[node.PropString(0)] = &Property70{
+				PropertyList: node.Properties[4:],
+				Type:         node.PropString(1),
+				Label:        node.PropString(2),
+				Flag:         node.PropString(3)}
 		}
 	}
 	if p, ok := o.properties[name]; ok {
@@ -83,7 +98,7 @@ func (o *Obj) GetProperty70(name string) *Property70 {
 	} else if o.Template != nil {
 		return o.Template.GetProperty70(name)
 	}
-	return nil
+	return &Property70{}
 }
 func (o *Obj) FindRefs(typ string) []Object {
 	var refs []Object
@@ -114,6 +129,18 @@ type Model struct {
 	Translation geom.Vector3
 	Rotation    geom.Vector3
 	Scaling     geom.Vector3
+	Parent      *Model
+}
+
+func (m *Model) GetWorldMatrix() *geom.Matrix4 {
+	if m == nil {
+		return geom.NewMatrix4()
+	}
+	rotv := m.Rotation.Scale(math.Pi / 180)
+	tr := geom.NewTranslateMatrix4(m.Translation.X, m.Translation.Y, m.Translation.Z)
+	rot := geom.NewEulerRotationMatrix4(rotv.X, rotv.Y, rotv.Z, 1) // XYZ order?
+	sacle := geom.NewScaleMatrix4(m.Scaling.X, m.Scaling.Y, m.Scaling.Z)
+	return m.Parent.GetWorldMatrix().Mul(tr).Mul(rot).Mul(sacle)
 }
 
 func (doc *Document) Dump(w io.Writer, full bool) {

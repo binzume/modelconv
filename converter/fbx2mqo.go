@@ -13,7 +13,11 @@ type FBXToMQOOption struct {
 }
 
 type fbxToMqo struct {
-	options *FBXToMQOOption
+	options     *FBXToMQOOption
+	boneNodeMap map[*fbx.Model]int
+	boneNodes   []*fbx.Model
+	bones       []*mqo.Bone
+	upAxis      int
 }
 
 func NewFBXToMQOConverter(options *FBXToMQOOption) *fbxToMqo {
@@ -21,20 +25,27 @@ func NewFBXToMQOConverter(options *FBXToMQOOption) *fbxToMqo {
 		options = &FBXToMQOOption{}
 	}
 	return &fbxToMqo{
-		options: options,
+		options:     options,
+		boneNodeMap: map[*fbx.Model]int{},
+		upAxis:      1,
 	}
+}
+
+func (c *fbxToMqo) convertCoord(v *geom.Vector3) *geom.Vector3 {
+	if c.upAxis == 2 {
+		return &geom.Vector3{X: v.X, Y: v.Z, Z: v.Y}
+	}
+	return v
 }
 
 func (c *fbxToMqo) convertMaterial(src *fbx.Document, m *fbx.Material) *mqo.Material {
 	mat := &mqo.Material{}
 	mat.Name = m.Name()
-	mat.Color = geom.Vector4{
-		X: m.GetProperty70("DiffuseColor").Get(0).ToFloat32(1),
-		Y: m.GetProperty70("DiffuseColor").Get(1).ToFloat32(1),
-		Z: m.GetProperty70("DiffuseColor").Get(2).ToFloat32(1),
-		W: m.GetProperty70("Opacity").Get(0).ToFloat32(1)}
-	mat.Diffuse = 1
-	mat.Specular = m.GetProperty70("SpecularFactor").Get(0).ToFloat32(0)
+	col := m.GetProperty70("DiffuseColor").ToVector3(1, 1, 1)
+	opacity := m.GetProperty70("Opacity").ToFloat32(1)
+	mat.Color = geom.Vector4{X: col.X, Y: col.Y, Z: col.Z, W: opacity}
+	mat.Diffuse = m.GetProperty70("DiffuseFactor").ToFloat32(1)
+	mat.Specular = m.GetProperty70("SpecularFactor").ToFloat32(0)
 	textures := m.FindRefs("Texture")
 	if len(textures) > 0 {
 		// TODO: GetPropertyRef("DiffuseColor").FindChild("RelativeFilename").PropString(0)
@@ -43,12 +54,10 @@ func (c *fbxToMqo) convertMaterial(src *fbx.Document, m *fbx.Material) *mqo.Mate
 	return mat
 }
 
-func (c *fbxToMqo) convertGeom(m *fbx.Geometry, doc *fbx.Document) *mqo.Object {
+func (c *fbxToMqo) convertGeom(m *fbx.Geometry, doc *fbx.Document, objID int) *mqo.Object {
 	obj := mqo.NewObject(m.Name())
 
-	upAxis := doc.GlobalSettings.GetProperty70("OriginalUpAxis").Get(0).ToInt(1)
-
-	if upAxis == 2 {
+	if c.upAxis == 2 {
 		for _, v := range m.Vertices {
 			obj.Vertexes = append(obj.Vertexes, &geom.Vector3{X: v.X, Y: v.Z, Z: v.Y})
 		}
@@ -73,12 +82,49 @@ func (c *fbxToMqo) convertGeom(m *fbx.Geometry, doc *fbx.Document) *mqo.Object {
 		}
 	}
 	for _, node := range m.FindRefs("Deformer") {
-		sub := node.FindRefs("Deformer")
-		name := ""
-		if len(sub) > 0 && len(sub[0].FindRefs("Model")) > 0 {
-			name = sub[0].FindRefs("Model")[0].Name()
+		for _, sub := range node.FindRefs("Deformer") {
+			models := sub.FindRefs("Model")
+			if len(models) > 0 {
+				model := models[0].(*fbx.Model)
+				var modelPath []*fbx.Model
+				m := model
+				for m != nil {
+					if _, exists := c.boneNodeMap[m]; exists {
+						break
+					}
+					c.boneNodeMap[m] = 0
+					modelPath = append(modelPath, m)
+					m = m.Parent
+				}
+				for i := range modelPath {
+					m := modelPath[len(modelPath)-i-1]
+
+					pos := c.convertCoord(m.GetWorldMatrix().ApplyTo(&geom.Vector3{}))
+					b := &mqo.Bone{
+						ID:     len(c.bones) + 1,
+						Name:   m.Name(),
+						Group:  0,
+						Pos:    mqo.Vector3Attr{Vector3: *pos},
+						Parent: c.boneNodeMap[m.Parent],
+					}
+					c.boneNodeMap[m] = b.ID
+					c.bones = append(c.bones, b)
+				}
+				bone := c.bones[c.boneNodeMap[model]-1]
+				weights := sub.(*fbx.Obj).FindChild("Weights").Prop(0).ToFloat32Array()
+				indexes := sub.(*fbx.Obj).FindChild("Indexes").Prop(0).ToInt32Array()
+				if len(weights) == len(indexes) {
+					for i := range indexes {
+						bone.SetVertexWeight(objID, int(indexes[i])+1, weights[i])
+					}
+				} else {
+					log.Println("ERR: Deformer weights ", len(weights), len(indexes))
+				}
+			}
+			if len(models) != 1 {
+				log.Println("ERR: Deformer models: ", sub.ID(), len(models))
+			}
 		}
-		log.Println("TODO: skinning", name, node.ID(), len(sub))
 	}
 
 	vcount := 0
@@ -105,7 +151,7 @@ func (c *fbxToMqo) convertModel(dst *mqo.Document, m *fbx.Model, d int, parentMa
 	g := m.FindRefs("Geometry")
 	if len(g) > 0 {
 		if mm, ok := g[0].(*fbx.Geometry); ok {
-			obj = c.convertGeom(mm, doc)
+			obj = c.convertGeom(mm, doc, len(dst.Objects)+1)
 			obj.Name = m.Name()
 		}
 	}
@@ -129,6 +175,8 @@ func (c *fbxToMqo) convertModel(dst *mqo.Document, m *fbx.Model, d int, parentMa
 func (c *fbxToMqo) Convert(src *fbx.Document) (*mqo.Document, error) {
 	//  src.Dump(os.Stdout, false)
 
+	c.upAxis = src.GlobalSettings.GetProperty70("OriginalUpAxis").ToInt(1)
+
 	mqdoc := mqo.NewDocument()
 
 	for _, mat := range src.Materials {
@@ -141,6 +189,8 @@ func (c *fbxToMqo) Convert(src *fbx.Document) (*mqo.Document, error) {
 			c.convertModel(mqdoc, m, 0, mm, src)
 		}
 	}
+
+	mqo.GetBonePlugin(mqdoc).SetBones(c.bones)
 
 	return mqdoc, nil
 }
