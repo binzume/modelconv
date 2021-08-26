@@ -84,7 +84,7 @@ func (c *fbxToMqoState) convertMaterial(m *fbx.Material) *mqo.Material {
 	textures := m.FindRefs("Texture")
 	if len(textures) > 0 {
 		// TODO: GetPropertyRef("DiffuseColor").FindChild("RelativeFilename").PropString(0)
-		mat.Texture = textures[0].(*fbx.Obj).FindChild("RelativeFilename").PropString(0)
+		mat.Texture = textures[0].(*fbx.Obj).FindChild("RelativeFilename").GetString("")
 	}
 	return mat
 }
@@ -130,17 +130,17 @@ func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transf
 	var matByPolygon []int32
 
 	matnode := g.FindChild("LayerElementMaterial")
-	if matnode.FindChild("MappingInformationType").PropString(0) == "ByPolygon" {
-		matByPolygon = matnode.FindChild("Materials").Prop(0).ToInt32Array()
+	if matnode.FindChild("MappingInformationType").GetString("") == "ByPolygon" {
+		matByPolygon = matnode.FindChild("Materials").GetInt32Array()
 	}
 
 	var uv []*geom.Vector2
 	var uvIndex []int32
 	uvnode := g.FindChild("LayerElementUV")
-	if uvnode.FindChild("MappingInformationType").PropString(0) == "ByPolygonVertex" {
-		uv = uvnode.FindChild("UV").Prop(0).ToVec2Array()
+	if uvnode.FindChild("MappingInformationType").GetString("") == "ByPolygonVertex" {
+		uv = uvnode.FindChild("UV").Attr(0).ToVec2Array()
 		if uv != nil {
-			uvIndex = uvnode.FindChild("UVIndex").Prop(0).ToInt32Array()
+			uvIndex = uvnode.FindChild("UVIndex").GetInt32Array()
 		}
 	}
 
@@ -210,8 +210,8 @@ func (c *fbxToMqoState) convertDeformer(node fbx.Object, objID int) {
 				c.bones = append(c.bones, b)
 			}
 			bone := c.bones[c.boneNodeMap[model]-1]
-			weights := sub.(*fbx.Obj).FindChild("Weights").Prop(0).ToFloat32Array()
-			indexes := sub.(*fbx.Obj).FindChild("Indexes").Prop(0).ToInt32Array()
+			weights := sub.(*fbx.Obj).FindChild("Weights").GetFloat32Array()
+			indexes := sub.(*fbx.Obj).FindChild("Indexes").GetInt32Array()
 			if len(weights) == len(indexes) {
 				for i := range indexes {
 					bone.SetVertexWeight(objID, int(indexes[i])+1, weights[i])
@@ -224,15 +224,15 @@ func (c *fbxToMqoState) convertDeformer(node fbx.Object, objID int) {
 }
 
 func (c *fbxToMqoState) convertShape(node *fbx.Node, src *mqo.Object, g *fbx.Geometry, transfrom *geom.Matrix4) *mqo.Object {
-	vertices := node.FindChild("Vertices").Prop(0).ToVec3Array()
-	indexes := node.FindChild("Indexes").Prop(0).ToInt32Array()
-	_ = node.FindChild("Normals").Prop(0).ToVec3Array()
+	vertices := node.FindChild("Vertices").Attr(0).ToVec3Array()
+	indexes := node.FindChild("Indexes").Attr(0).ToInt32Array()
+	_ = node.FindChild("Normals").Attr(0).ToVec3Array()
 
 	obj := src.Clone()
-	obj.Name = node.PropString(0)
+	obj.Name = node.GetString("")
 
 	if len(vertices) != len(indexes) {
-		log.Println("ERROR: Shape ", node.PropString(0), len(vertices), len(indexes))
+		log.Println("ERROR: Shape ", node.GetString(""), len(vertices), len(indexes))
 		return obj
 	}
 

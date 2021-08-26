@@ -2,12 +2,12 @@ package fbx
 
 func parseGeometry(base *Obj) *Geometry {
 	mesh := &Geometry{Obj: *base}
-	mesh.Vertices = base.FindChild("Vertices").Prop(0).ToVec3Array()
+	mesh.Vertices = base.FindChild("Vertices").Attr(0).ToVec3Array()
 	normal := base.FindChild("LayerElementNormal")
-	if normal.FindChild("MappingInformationType").PropString(0) == "ByPolygonVertex" {
-		mesh.Normals = normal.FindChild("Normals").Prop(0).ToVec3Array()
+	if normal.FindChild("MappingInformationType").GetString("") == "ByPolygonVertex" {
+		mesh.Normals = normal.FindChild("Normals").Attr(0).ToVec3Array()
 	}
-	if v := base.FindChild("PolygonVertexIndex").Prop(0).ToInt32Array(); v != nil {
+	if v := base.FindChild("PolygonVertexIndex").GetInt32Array(); v != nil {
 		var face []int
 		for _, index := range v {
 			if index < 0 {
@@ -34,12 +34,12 @@ func parseModel(base *Obj) *Model {
 
 func parseConnection(node *Node) *Connection {
 	c := &Connection{
-		Type: node.Prop(0).ToString(""),
-		From: node.Prop(1).ToInt64(0),
-		To:   node.Prop(2).ToInt64(0),
+		Type: node.Attr(0).ToString(""),
+		From: node.Attr(1).ToInt64(0),
+		To:   node.Attr(2).ToInt64(0),
 	}
 	if c.Type == "OP" {
-		c.Prop = node.Prop(3).ToString("")
+		c.Prop = node.Attr(3).ToString("")
 	}
 	return c
 }
@@ -48,16 +48,18 @@ func BuildDocument(root *Node) (*Document, error) {
 	doc := &Document{RawNode: root, Scene: &Obj{}}
 	doc.Objects = map[int64]Object{0: doc.Scene}
 
-	doc.Creator = root.FindChild("Creator").PropString(0)
-	doc.CreationTime = root.FindChild("CreationTime").PropString(0)
-	doc.FileId, _ = root.FindChild("FileId").PropValue(0).([]byte)
+	doc.Creator = root.FindChild("Creator").GetString("")
+	doc.CreationTime = root.FindChild("CreationTime").GetString("")
+	if fileId := root.FindChild("FileId").Attr(0); fileId != nil {
+		doc.FileId, _ = fileId.Value.([]byte)
+	}
 
 	templates := map[string]*Obj{}
 	for _, node := range root.FindChild("Definitions").GetChildren() {
 		if node.Name != "ObjectType" {
 			continue
 		}
-		templates[node.PropString(0)] = &Obj{Node: node.FindChild("PropertyTemplate")}
+		templates[node.GetString("")] = &Obj{Node: node.FindChild("PropertyTemplate")}
 	}
 	doc.GlobalSettings = &Obj{Node: root.FindChild("GlobalSettings"), Template: templates["GlobalSettings"]}
 

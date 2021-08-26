@@ -25,26 +25,10 @@ type Document struct {
 }
 
 type Property70 struct {
-	PropertyList
+	AttributeList
 	Type  string
 	Label string
 	Flag  string
-}
-
-func (p *Property70) ToInt(defvalue int) int {
-	return p.Get(0).ToInt(defvalue)
-}
-
-func (p *Property70) ToFloat32(defvalue float32) float32 {
-	return p.Get(0).ToFloat32(defvalue)
-}
-
-func (p *Property70) ToString(defvalue string) string {
-	return p.Get(0).ToString(defvalue)
-}
-
-func (p *Property70) ToVector3(x, y, z float32) geom.Vector3 {
-	return geom.Vector3{X: p.Get(0).ToFloat32(x), Y: p.Get(1).ToFloat32(y), Z: p.Get(2).ToFloat32(z)}
 }
 
 type Connection struct {
@@ -74,23 +58,23 @@ func (o *Obj) NodeName() string {
 	return o.Node.Name
 }
 func (o *Obj) ID() int64 {
-	return o.Prop(0).ToInt64(0)
+	return o.Attr(0).ToInt64(0)
 }
 func (o *Obj) Name() string {
-	return strings.ReplaceAll(o.PropString(1), "\x00\x01", "::")
+	return strings.ReplaceAll(o.Attr(1).ToString(""), "\x00\x01", "::")
 }
 func (o *Obj) Kind() string {
-	return o.PropString(2)
+	return o.Attr(2).ToString("")
 }
 func (o *Obj) GetProperty70(name string) *Property70 {
 	if o.properties == nil {
 		o.properties = map[string]*Property70{}
 		for _, node := range o.FindChild("Properties70").GetChildren() {
-			o.properties[node.PropString(0)] = &Property70{
-				PropertyList: node.Properties[4:],
-				Type:         node.PropString(1),
-				Label:        node.PropString(2),
-				Flag:         node.PropString(3)}
+			o.properties[node.Attr(0).ToString("")] = &Property70{
+				AttributeList: node.Attributes[4:],
+				Type:          node.Attr(1).ToString(""),
+				Label:         node.Attr(2).ToString(""),
+				Flag:          node.Attr(3).ToString("")}
 		}
 	}
 	if p, ok := o.properties[name]; ok {

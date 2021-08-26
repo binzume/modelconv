@@ -99,7 +99,7 @@ func (p *binaryParser) readName() string {
 	return p.readString(uint(p.readUint8()))
 }
 
-func (p *binaryParser) readPropArray(typ uint8) *Property {
+func (p *binaryParser) readPropArray(typ uint8) *Attribute {
 	count := uint(p.readUint32())
 	encoding := p.readUint32()
 	sz := p.readUint32()
@@ -127,7 +127,7 @@ func (p *binaryParser) readPropArray(typ uint8) *Property {
 		r, err := zlib.NewReader(io.LimitReader(p.r, int64(sz)))
 		if err != nil {
 			p.err = err
-			return &Property{buf, count}
+			return &Attribute{buf, count}
 		}
 		defer r.Close()
 		err = binary.Read(r, binary.LittleEndian, buf)
@@ -136,43 +136,43 @@ func (p *binaryParser) readPropArray(typ uint8) *Property {
 		}
 		p.r.SkipTo(next)
 	}
-	return &Property{buf, count}
+	return &Attribute{buf, count}
 }
 
-func (p *binaryParser) readProp() *Property {
+func (p *binaryParser) readProp() *Attribute {
 	typ := p.readUint8()
 
 	switch typ {
 	case 'B':
 		var v byte
 		p.read(&v)
-		return &Property{v, 0}
+		return &Attribute{v, 0}
 	case 'C':
 		var v byte
 		p.read(&v)
-		return &Property{v, 0}
+		return &Attribute{v, 0}
 	case 'Y':
 		var v int16
 		p.read(&v)
-		return &Property{v, 0}
+		return &Attribute{v, 0}
 	case 'I':
 		var v int32
 		p.read(&v)
-		return &Property{v, 0}
+		return &Attribute{v, 0}
 	case 'L':
 		var v int64
 		p.read(&v)
-		return &Property{v, 0}
+		return &Attribute{v, 0}
 	case 'F':
-		return &Property{p.readFloat(), 0}
+		return &Attribute{p.readFloat(), 0}
 	case 'D':
-		return &Property{p.readFloat64(), 0}
+		return &Attribute{p.readFloat64(), 0}
 	case 'S':
-		return &Property{p.readString(uint(p.readUint32())), 0}
+		return &Attribute{p.readString(uint(p.readUint32())), 0}
 	case 'R':
 		buf := make([]byte, p.readUint32())
 		p.read(buf)
-		return &Property{buf, 0}
+		return &Attribute{buf, 0}
 	case 'b', 'y', 'i', 'l', 'f', 'd':
 		return p.readPropArray(typ)
 	}
@@ -198,7 +198,7 @@ func (p *binaryParser) readNode() *Node {
 	}
 
 	for i := 0; i < nprop && p.err == nil; i++ {
-		n.Properties = append(n.Properties, p.readProp())
+		n.Attributes = append(n.Attributes, p.readProp())
 		if p.err != nil {
 			log.Println(n, p.err)
 
@@ -211,7 +211,7 @@ func (p *binaryParser) readNode() *Node {
 	for p.r.position < int64(next) && p.err == nil {
 		child := p.readNode()
 		if child != nil {
-			n.Children = append(n.Children, child)
+			n.AddChild(child)
 		}
 	}
 
@@ -240,7 +240,7 @@ func (p *binaryParser) Parse() (*Node, error) {
 	for p.err == nil {
 		node := p.readNode()
 		if node != nil {
-			root.Children = append(root.Children, node)
+			root.AddChild(node)
 		}
 	}
 	if p.err != nil && p.err != io.EOF {

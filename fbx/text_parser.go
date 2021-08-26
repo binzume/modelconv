@@ -105,7 +105,7 @@ func (p *textParser) Skip(t tokenType) bool {
 	return typ == t
 }
 
-func (p *textParser) parseArrayProp() *Property {
+func (p *textParser) parseArrayProp() *Attribute {
 	_, s := p.getToken()
 	size, err := strconv.ParseInt(s, 10, 32)
 	if err != nil {
@@ -145,7 +145,7 @@ func (p *textParser) parseArrayProp() *Property {
 		}
 		values = i32values
 	}
-	return &Property{Value: values, Count: uint(size)}
+	return &Attribute{Value: values, Count: uint(size)}
 }
 
 func (p *textParser) parseNodeList() []*Node {
@@ -173,18 +173,18 @@ func (p *textParser) parseNodeList() []*Node {
 						if err != nil {
 							p.err = fmt.Errorf("failed to parse num: '%v'", s)
 						}
-						node.Properties = append(node.Properties, &Property{Value: v})
+						node.Attributes = append(node.Attributes, &Attribute{Value: v})
 					} else {
 						v, err := strconv.ParseInt(s, 10, 64)
 						if err != nil {
 							p.err = fmt.Errorf("failed to parse num: '%v'", s)
 						}
-						node.Properties = append(node.Properties, &Property{Value: v})
+						node.Attributes = append(node.Attributes, &Attribute{Value: v})
 					}
 				} else if typ == String {
-					node.Properties = append(node.Properties, &Property{Value: s})
+					node.Attributes = append(node.Attributes, &Attribute{Value: s})
 				} else if typ == Operator && s == "*" {
-					node.Properties = append(node.Properties, p.parseArrayProp())
+					node.Attributes = append(node.Attributes, p.parseArrayProp())
 				}
 			}
 		} else {
