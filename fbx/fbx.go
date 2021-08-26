@@ -132,15 +132,19 @@ type Model struct {
 	Parent      *Model
 }
 
-func (m *Model) GetWorldMatrix() *geom.Matrix4 {
-	if m == nil {
-		return geom.NewMatrix4()
-	}
+func (m *Model) GetMatrix() *geom.Matrix4 {
 	rotv := m.Rotation.Scale(math.Pi / 180)
 	tr := geom.NewTranslateMatrix4(m.Translation.X, m.Translation.Y, m.Translation.Z)
 	rot := geom.NewEulerRotationMatrix4(rotv.X, rotv.Y, rotv.Z, 1) // XYZ order?
 	sacle := geom.NewScaleMatrix4(m.Scaling.X, m.Scaling.Y, m.Scaling.Z)
-	return m.Parent.GetWorldMatrix().Mul(tr).Mul(rot).Mul(sacle)
+	return tr.Mul(rot).Mul(sacle)
+}
+
+func (m *Model) GetWorldMatrix() *geom.Matrix4 {
+	if m.Parent == nil {
+		return m.GetMatrix()
+	}
+	return m.Parent.GetWorldMatrix().Mul(m.GetMatrix())
 }
 
 func (doc *Document) Dump(w io.Writer, full bool) {
