@@ -9,7 +9,7 @@ Goで3Dモデルファイルを読み書きするライブラリ＆変換ツー�
 | .vrm       |  △  |  ○   | glTF 用のエクステンション        |
 | .pmx       |  ○  |  ○   | Physics未対応                    |
 | .pmd       |  ○  |       | Read only                        |
-| .fbx       |  △  |       | 暫定実装                         |
+| .fbx       |  ○  |       | 暫定実装                         |
 | .vmd       |  △  |       | 暫定実装                         |
 
 glTFの読み書きには https://github.com/qmuntal/gltf を使っています．
@@ -22,7 +22,7 @@ package: [cmd/modelconv](cmd/modelconv)
 
 以下の組み合わせの変換が可能です．
 
-- (.pmd | .pmx | .mqo | .mqoz) → (.pmx | .mqo| .mqoz | .glb | .gltf | .vrm)
+- (.pmd | .pmx | .mqo | .mqoz | .fbx) → (.pmx | .mqo| .mqoz | .glb | .gltf | .vrm)
 - (.glb | .gltf | .vrm) → (.glb | .gltf | .vrm) (※1)
 
 ※1: glTF同士の変換は特別扱いをしているため，モデルに変更を加えるオプションは未対応です．(scaleは可能)
