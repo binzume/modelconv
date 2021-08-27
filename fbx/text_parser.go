@@ -145,7 +145,7 @@ func (p *textParser) parseArrayProp() *Attribute {
 		}
 		values = i32values
 	}
-	return &Attribute{Value: values, Count: uint(size)}
+	return &Attribute{Value: values, ArraySize: uint(size)}
 }
 
 func (p *textParser) parseNodeList() []*Node {

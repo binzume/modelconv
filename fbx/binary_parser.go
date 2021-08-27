@@ -106,7 +106,7 @@ func (p *binaryParser) readPropArray(typ uint8) *Attribute {
 	var buf interface{}
 	switch typ {
 	case 'b':
-		buf = make([]byte, count)
+		buf = make([]int8, count)
 	case 'y':
 		buf = make([]int16, count)
 	case 'i':
@@ -144,7 +144,7 @@ func (p *binaryParser) readProp() *Attribute {
 
 	switch typ {
 	case 'B':
-		var v byte
+		var v int8
 		p.read(&v)
 		return &Attribute{v, 0}
 	case 'C':

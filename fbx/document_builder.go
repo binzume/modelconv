@@ -1,11 +1,13 @@
 package fbx
 
+import "github.com/binzume/modelconv/geom"
+
 func parseGeometry(base *Obj) *Geometry {
 	mesh := &Geometry{Obj: *base}
-	mesh.Vertices = base.FindChild("Vertices").Attr(0).ToVec3Array()
+	mesh.Vertices = base.FindChild("Vertices").GetVec3Array()
 	normal := base.FindChild("LayerElementNormal")
-	if normal.FindChild("MappingInformationType").GetString("") == "ByPolygonVertex" {
-		mesh.Normals = normal.FindChild("Normals").Attr(0).ToVec3Array()
+	if normal.FindChild("MappingInformationType").GetString() == "ByPolygonVertex" {
+		mesh.Normals = normal.FindChild("Normals").GetVec3Array()
 	}
 	if v := base.FindChild("PolygonVertexIndex").GetInt32Array(); v != nil {
 		var face []int
@@ -25,31 +27,31 @@ func parseGeometry(base *Obj) *Geometry {
 func parseModel(base *Obj) *Model {
 	m := &Model{Obj: *base}
 
-	m.Translation = m.GetProperty70("Lcl Translation").ToVector3(0, 0, 0)
-	m.Rotation = m.GetProperty70("Lcl Rotation").ToVector3(0, 0, 0)
-	m.Scaling = m.GetProperty70("Lcl Scaling").ToVector3(1, 1, 1)
+	m.Translation = *m.GetProperty70("Lcl Translation").ToVector3(0, 0, 0)
+	m.Rotation = *m.GetProperty70("Lcl Rotation").ToVector3(0, 0, 0)
+	m.Scaling = *m.GetProperty70("Lcl Scaling").ToVector3(1, 1, 1)
 
 	return m
 }
 
 func parseConnection(node *Node) *Connection {
 	c := &Connection{
-		Type: node.Attr(0).ToString(""),
+		Type: node.Attr(0).ToString(),
 		From: node.Attr(1).ToInt64(0),
 		To:   node.Attr(2).ToInt64(0),
 	}
 	if c.Type == "OP" {
-		c.Prop = node.Attr(3).ToString("")
+		c.Prop = node.Attr(3).ToString()
 	}
 	return c
 }
 
 func BuildDocument(root *Node) (*Document, error) {
-	doc := &Document{RawNode: root, Scene: &Obj{}}
+	doc := &Document{RawNode: root, Scene: &Model{Obj: Obj{}, Scaling: geom.Vector3{X: 1, Y: 1, Z: 1}}}
 	doc.Objects = map[int64]Object{0: doc.Scene}
 
-	doc.Creator = root.FindChild("Creator").GetString("")
-	doc.CreationTime = root.FindChild("CreationTime").GetString("")
+	doc.Creator = root.FindChild("Creator").GetString()
+	doc.CreationTime = root.FindChild("CreationTime").GetString()
 	if fileId := root.FindChild("FileId").Attr(0); fileId != nil {
 		doc.FileId, _ = fileId.Value.([]byte)
 	}
@@ -59,7 +61,7 @@ func BuildDocument(root *Node) (*Document, error) {
 		if node.Name != "ObjectType" {
 			continue
 		}
-		templates[node.GetString("")] = &Obj{Node: node.FindChild("PropertyTemplate")}
+		templates[node.GetString()] = &Obj{Node: node.FindChild("PropertyTemplate")}
 	}
 	doc.GlobalSettings = &Obj{Node: root.FindChild("GlobalSettings"), Template: templates["GlobalSettings"]}
 
@@ -67,6 +69,8 @@ func BuildDocument(root *Node) (*Document, error) {
 		base := &Obj{Node: node, Template: templates[node.Name]}
 		var obj Object = base
 		switch node.Name {
+		case "Deformer":
+			obj = &Deformer{*base}
 		case "Geometry":
 			obj = parseGeometry(base)
 		case "Material":

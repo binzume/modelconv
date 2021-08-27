@@ -2,7 +2,6 @@ package fbx
 
 import (
 	"fmt"
-	"io"
 	"math"
 	"os"
 	"strings"
@@ -17,7 +16,7 @@ type Document struct {
 
 	GlobalSettings Object
 	Objects        map[int64]Object
-	Scene          Object
+	Scene          *Model
 
 	Materials []*Material
 
@@ -61,20 +60,20 @@ func (o *Obj) ID() int64 {
 	return o.Attr(0).ToInt64(0)
 }
 func (o *Obj) Name() string {
-	return strings.ReplaceAll(o.Attr(1).ToString(""), "\x00\x01", "::")
+	return strings.ReplaceAll(o.Attr(1).ToString(), "\x00\x01", "::")
 }
 func (o *Obj) Kind() string {
-	return o.Attr(2).ToString("")
+	return o.Attr(2).ToString()
 }
 func (o *Obj) GetProperty70(name string) *Property70 {
 	if o.properties == nil {
 		o.properties = map[string]*Property70{}
 		for _, node := range o.FindChild("Properties70").GetChildren() {
-			o.properties[node.Attr(0).ToString("")] = &Property70{
+			o.properties[node.Attr(0).ToString()] = &Property70{
 				AttributeList: node.Attributes[4:],
-				Type:          node.Attr(1).ToString(""),
-				Label:         node.Attr(2).ToString(""),
-				Flag:          node.Attr(3).ToString("")}
+				Type:          node.Attr(1).ToString(),
+				Label:         node.Attr(2).ToString(),
+				Flag:          node.Attr(3).ToString()}
 		}
 	}
 	if p, ok := o.properties[name]; ok {
@@ -97,11 +96,44 @@ func (o *Obj) AddRef(ref Object) {
 	o.Refs = append(o.Refs, ref)
 }
 
+type Deformer struct {
+	Obj
+}
+
+func (d *Deformer) GetWeights() []float32 {
+	return d.FindChild("Weights").GetFloat32Array()
+}
+
+func (d *Deformer) GetIndexes() []int32 {
+	return d.FindChild("Indexes").GetInt32Array()
+}
+
+func (d *Deformer) GetTarget() *Model {
+	nodes := d.FindRefs("Model")
+	if len(nodes) == 0 {
+		return nil
+	}
+	m, _ := nodes[0].(*Model)
+	return m
+}
+
 type Geometry struct {
 	Obj
 	Vertices []*geom.Vector3
 	Faces    [][]int
 	Normals  []*geom.Vector3
+}
+
+func (g *Geometry) GetDeformers() []*Deformer {
+	var r []*Deformer
+	for _, deformer := range g.FindRefs("Deformer") {
+		for _, sub := range deformer.FindRefs("Deformer") {
+			if d, ok := sub.(*Deformer); ok {
+				r = append(r, d)
+			}
+		}
+	}
+	return r
 }
 
 type Material struct {
@@ -117,11 +149,13 @@ type Model struct {
 }
 
 func (m *Model) GetMatrix() *geom.Matrix4 {
+	prerotv := m.GetProperty70("PreRotation").ToVector3(0, 0, 0).Scale(math.Pi / 180)
+	prerot := geom.NewEulerRotationMatrix4(prerotv.X, prerotv.Y, prerotv.Z, 1)
 	rotv := m.Rotation.Scale(math.Pi / 180)
 	tr := geom.NewTranslateMatrix4(m.Translation.X, m.Translation.Y, m.Translation.Z)
 	rot := geom.NewEulerRotationMatrix4(rotv.X, rotv.Y, rotv.Z, 1) // XYZ order?
 	sacle := geom.NewScaleMatrix4(m.Scaling.X, m.Scaling.Y, m.Scaling.Z)
-	return tr.Mul(rot).Mul(sacle)
+	return tr.Mul(prerot).Mul(rot).Mul(sacle)
 }
 
 func (m *Model) GetWorldMatrix() *geom.Matrix4 {
@@ -131,10 +165,23 @@ func (m *Model) GetWorldMatrix() *geom.Matrix4 {
 	return m.Parent.GetWorldMatrix().Mul(m.GetMatrix())
 }
 
-func (doc *Document) Dump(w io.Writer, full bool) {
-	for _, n := range doc.RawNode.Children {
-		n.Dump(w, 0, full)
+func (m *Model) GetChildModels() []*Model {
+	var r []*Model
+	for _, o := range m.FindRefs("Model") {
+		if c, ok := o.(*Model); ok {
+			r = append(r, c)
+		}
 	}
+	return r
+}
+
+func (m *Model) GetGeometry() *Geometry {
+	geometries := m.FindRefs("Geometry")
+	if len(geometries) == 0 {
+		return nil
+	}
+	g, _ := geometries[0].(*Geometry)
+	return g
 }
 
 func Load(path string) (*Document, error) {
