@@ -70,7 +70,7 @@ func (c *fbxToMqoState) convertCoord(v *geom.Vector3) *geom.Vector3 {
 	if c.upAxis == 2 {
 		return &geom.Vector3{X: v.X, Y: v.Z, Z: v.Y}
 	}
-	return &geom.Vector3{X: v.X, Y: v.Y, Z: -v.Z}
+	return &geom.Vector3{X: v.X, Y: v.Y, Z: v.Z}
 }
 
 func (c *fbxToMqoState) convertMaterial(m *fbx.Material) *mqo.Material {
@@ -168,6 +168,7 @@ func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transf
 			}
 		}
 		vcount += len(f)
+		face.Flip()
 		obj.Faces = append(obj.Faces, face)
 	}
 

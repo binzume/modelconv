@@ -125,6 +125,15 @@ type Face struct {
 	UVs      []Vector2
 }
 
+func (f *Face) Flip() {
+	for i, j := 0, len(f.Verts)-1; i < j; i, j = i+1, j-1 {
+		f.Verts[i], f.Verts[j] = f.Verts[j], f.Verts[i]
+	}
+	for i, j := 0, len(f.UVs)-1; i < j; i, j = i+1, j-1 {
+		f.UVs[i], f.UVs[j] = f.UVs[j], f.UVs[i]
+	}
+}
+
 type Object struct {
 	UID       int
 	Name      string
