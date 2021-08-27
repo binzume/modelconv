@@ -46,6 +46,24 @@ func (writer *Writer) WriteMQO(mqo *Document, ww io.Writer) error {
 		fmt.Fprintf(w, "IncludeXml \"%v\"\n", mqxFile)
 	}
 
+	if mqo.Scene != nil {
+		scene := mqo.Scene
+		w.WriteString("Scene {\n")
+		fmt.Fprintf(w, "\tpos %v %v %v\n", scene.CameraPos.X, scene.CameraPos.Y, scene.CameraPos.Z)
+		fmt.Fprintf(w, "\tlookat %v %v %v\n", scene.CameraLookAt.X, scene.CameraLookAt.Y, scene.CameraLookAt.Z)
+		fmt.Fprintf(w, "\thead %v\n", scene.CameraRot.Y)
+		fmt.Fprintf(w, "\tpitch %v\n", scene.CameraRot.X)
+		fmt.Fprintf(w, "\tbank %v\n", scene.CameraRot.Z)
+		fmt.Fprintf(w, "\tzoom2 %v\n", scene.Zoom2)
+		if scene.FrontClip > 0 {
+			fmt.Fprintf(w, "\tfrontclip %v\n", scene.FrontClip)
+		}
+		if scene.BackClip > 0 {
+			fmt.Fprintf(w, "\tbackclip %v\n", scene.BackClip)
+		}
+		w.WriteString("}\n")
+	}
+
 	ex2Count := 0
 
 	fmt.Fprintf(w, "Material %v {\n", len(mqo.Materials))
@@ -110,17 +128,32 @@ func (writer *Writer) WriteMQO(mqo *Document, ww io.Writer) error {
 			fmt.Fprintf(w, "\tuid %v\n", obj.UID)
 		}
 		fmt.Fprintf(w, "\tdepth %d\n", obj.Depth)
-		fmt.Fprintf(w, "\tlocking %v\n", boolToInt(obj.Locked))
+		fmt.Fprintf(w, "\tfolding %v\n", boolToInt(obj.Folding))
+		if obj.Scale != nil {
+			fmt.Fprintf(w, "\tscale %v %v %v\n", obj.Scale.X, obj.Scale.Y, obj.Scale.Z)
+		}
+		if obj.Rotation != nil {
+			fmt.Fprintf(w, "\trotation %v %v %v\n", obj.Rotation.X, obj.Rotation.Y, obj.Rotation.Z)
+		}
+		if obj.Translation != nil {
+			fmt.Fprintf(w, "\ttranslation %v %v %v\n", obj.Translation.X, obj.Translation.Y, obj.Translation.Z)
+		}
 		if !obj.Visible {
 			fmt.Fprint(w, "\tvisible 0\n")
 		}
+		fmt.Fprintf(w, "\tlocking %v\n", boolToInt(obj.Locked))
 		fmt.Fprintf(w, "\tshading %v\n", obj.Shading)
 		fmt.Fprintf(w, "\tfacet %v\n", obj.Facet)
-		fmt.Fprintf(w, "\tmirror %d\n", obj.Mirror)
-		fmt.Fprintf(w, "\tmirror_dis %f\n", obj.MirrorDis)
+		if obj.Mirror != 0 || obj.MirrorDis != 0 {
+			fmt.Fprintf(w, "\tmirror %d\n", obj.Mirror)
+			fmt.Fprintf(w, "\tmirror_dis %f\n", obj.MirrorDis)
+		}
 		if obj.Patch > 0 {
 			fmt.Fprintf(w, "\tpatch %d\n", obj.Patch)
 			fmt.Fprintf(w, "\tsegment %d\n", obj.Segment)
+		}
+		if obj.Color != nil {
+			fmt.Fprintf(w, "\tcolor %v %v %v\n", obj.Color.X, obj.Color.Y, obj.Color.Z)
 		}
 
 		fmt.Fprintf(w, "\tvertex %v {\n", len(obj.Vertexes))

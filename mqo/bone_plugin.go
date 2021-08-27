@@ -206,11 +206,27 @@ type BonePose struct {
 }
 
 func (p *BonePlugin) PreSerialize(mqo *Document) {
-	// TODO
 	p.Name = "Bone"
+
+	objs := map[int]bool{}
+	for _, b := range p.BoneSet2.Bones {
+		for _, w := range b.Weights {
+			objs[w.ObjectID] = true
+		}
+	}
+	for _, b := range p.BoneSet.Bone {
+		for _, w := range b.Weights {
+			objs[w.ObjectID] = true
+		}
+	}
+
 	for i, o := range mqo.Objects {
-		if o.Depth == 0 {
-			p.Obj = append(p.Obj, BoneObj{ID: i + 1})
+		id := o.UID
+		if id <= 0 {
+			id = i + 1
+		}
+		if objs[id] {
+			p.Obj = append(p.Obj, BoneObj{ID: id})
 		}
 	}
 }

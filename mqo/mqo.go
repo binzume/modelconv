@@ -43,6 +43,9 @@ type Scene struct {
 	CameraPos    Vector3
 	CameraLookAt Vector3
 	CameraRot    Vector3
+	Zoom2        float32
+	FrontClip    float32
+	BackClip     float32
 }
 
 type Material struct {
@@ -130,12 +133,19 @@ type Object struct {
 	Visible   bool
 	Locked    bool
 	Depth     int
+	Folding   bool
 	Shading   int
 	Facet     float32
 	Patch     int
 	Segment   int
 	Mirror    int
 	MirrorDis float32
+
+	Scale       *Vector3
+	Rotation    *Vector3
+	Translation *Vector3
+
+	Color *Vector3
 
 	VertexByUID map[int]int
 }

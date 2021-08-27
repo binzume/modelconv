@@ -239,15 +239,20 @@ func (p *Parser) readObject() *Object {
 	o := NewObject(p.readStr())
 
 	p.procObj(map[string]func(){
-		"uid":        func() { o.UID = p.readInt() },
-		"depth":      func() { o.Depth = p.readInt() },
-		"visible":    func() { o.Visible = p.readInt() > 0 },
-		"shading":    func() { o.Shading = p.readInt() },
-		"facet":      func() { o.Facet = p.readFloat() },
-		"patch":      func() { o.Patch = p.readInt() },
-		"segment":    func() { o.Segment = p.readInt() },
-		"mirror":     func() { o.Mirror = p.readInt() },
-		"mirror_dis": func() { o.MirrorDis = p.readFloat() },
+		"uid":         func() { o.UID = p.readInt() },
+		"depth":       func() { o.Depth = p.readInt() },
+		"folding":     func() { o.Folding = p.readInt() > 0 },
+		"visible":     func() { o.Visible = p.readInt() > 0 },
+		"shading":     func() { o.Shading = p.readInt() },
+		"facet":       func() { o.Facet = p.readFloat() },
+		"patch":       func() { o.Patch = p.readInt() },
+		"segment":     func() { o.Segment = p.readInt() },
+		"mirror":      func() { o.Mirror = p.readInt() },
+		"mirror_dis":  func() { o.MirrorDis = p.readFloat() },
+		"scale":       func() { o.Scale = &Vector3{X: p.readFloat(), Y: p.readFloat(), Z: p.readFloat()} },
+		"rotation":    func() { o.Rotation = &Vector3{X: p.readFloat(), Y: p.readFloat(), Z: p.readFloat()} },
+		"translation": func() { o.Translation = &Vector3{X: p.readFloat(), Y: p.readFloat(), Z: p.readFloat()} },
+		"color":       func() { o.Color = &Vector3{X: p.readFloat(), Y: p.readFloat(), Z: p.readFloat()} },
 		"vertex": func() {
 			p.procArray(func(n int) {
 				o.Vertexes = make([]*Vector3, n)
@@ -333,6 +338,19 @@ func (p *Parser) Parse() (*Document, error) {
 					doc.Materials[mid].Ex2 = ex
 				}
 			}, "MaterialEx2")
+		} else if tok == scanner.Ident && p.s.TokenText() == "Scene" {
+			s := &Scene{}
+			p.procObj(map[string]func(){
+				"pos":       func() { s.CameraPos = Vector3{X: p.readFloat(), Y: p.readFloat(), Z: p.readFloat()} },
+				"lookat":    func() { s.CameraLookAt = Vector3{X: p.readFloat(), Y: p.readFloat(), Z: p.readFloat()} },
+				"head":      func() { s.CameraRot.Y = p.readFloat() },
+				"pich":      func() { s.CameraRot.X = p.readFloat() },
+				"bank":      func() { s.CameraRot.Z = p.readFloat() },
+				"zoom2":     func() { s.Zoom2 = p.readFloat() },
+				"frontclip": func() { s.FrontClip = p.readFloat() },
+				"backclip":  func() { s.BackClip = p.readFloat() },
+			}, fmt.Sprintf("Scene"))
+			doc.Scene = s
 		} else if tok == scanner.Ident && p.s.TokenText() == "IncludeXml" {
 			mqxFile = p.readStr()
 		} else if tok == scanner.Ident && p.s.TokenText() == "Eof" {
