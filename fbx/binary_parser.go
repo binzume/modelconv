@@ -36,8 +36,9 @@ func (r *positionReader) SkipTo(pos int64) error {
 }
 
 type binaryParser struct {
-	r   *positionReader
-	err error
+	r       *positionReader
+	version uint32
+	err     error
 }
 
 func (p *binaryParser) read(v interface{}) interface{} {
@@ -182,9 +183,18 @@ func (p *binaryParser) readProp() *Attribute {
 
 func (p *binaryParser) readNode() *Node {
 	n := &Node{}
-	next := p.readUint32()
-	nprop := p.readInt()
-	propsz := p.readUint32()
+	var next int64
+	var nprop int64
+	var propsz int64
+	if p.version >= 7500 {
+		p.read(&next)
+		p.read(&nprop)
+		p.read(&propsz)
+	} else {
+		next = int64(p.readUint32())
+		nprop = int64(p.readUint32())
+		propsz = int64(p.readUint32())
+	}
 	n.Name = p.readName()
 
 	if uint64(nprop)*2 > uint64(propsz) {
@@ -197,7 +207,7 @@ func (p *binaryParser) readNode() *Node {
 		return nil
 	}
 
-	for i := 0; i < nprop && p.err == nil; i++ {
+	for i := int64(0); i < nprop && p.err == nil; i++ {
 		n.Attributes = append(n.Attributes, p.readProp())
 		if p.err != nil {
 			log.Println(n, p.err)
@@ -208,7 +218,7 @@ func (p *binaryParser) readNode() *Node {
 		return nil
 	}
 
-	for p.r.position < int64(next) && p.err == nil {
+	for p.r.position < next && p.err == nil {
 		child := p.readNode()
 		if child != nil {
 			n.AddChild(child)
@@ -216,7 +226,7 @@ func (p *binaryParser) readNode() *Node {
 	}
 
 	if p.err == nil {
-		p.err = p.r.SkipTo(int64(next))
+		p.err = p.r.SkipTo(next)
 	}
 	if p.err != nil && p.err != io.EOF {
 		return nil
@@ -225,8 +235,8 @@ func (p *binaryParser) readNode() *Node {
 }
 
 func (p *binaryParser) Parse() (*Node, error) {
-	magic := p.readString(20)
-	if magic != "Kaydara FBX Binary  " {
+	magic := p.readString(21)
+	if magic != "Kaydara FBX Binary  \x00" {
 		// try parse texy. TODO
 		if magic[0] == ';' {
 			p2 := &textParser{r: bufio.NewReader(p.r.r), buf: []byte(magic)}
@@ -234,7 +244,8 @@ func (p *binaryParser) Parse() (*Node, error) {
 		}
 		return nil, fmt.Errorf("unknown fbx format")
 	}
-	p.r.SkipTo(27)
+	p.readUint16()
+	p.read(&p.version)
 	root := &Node{Name: "_FBX_ROOT"}
 
 	for p.err == nil {
