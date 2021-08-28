@@ -13,11 +13,10 @@ const (
 	Ident tokenType = iota
 	Number
 	String
-	Operator
 	BlockStart
 	BlockEnd
+	Operator
 	EOL
-	EOF
 )
 
 type textParser struct {
@@ -55,7 +54,7 @@ func (p *textParser) getToken() (tokenType, string) {
 			for p.err == nil && c != '\n' {
 				c = p.read()
 			}
-			continue
+			return EOL, ""
 		} else if c == '{' {
 			return BlockStart, string(c)
 		} else if c == '}' {
@@ -95,7 +94,7 @@ func (p *textParser) getToken() (tokenType, string) {
 			return Ident, string(buf)
 		}
 	}
-	return EOF, ""
+	return EOL, ""
 }
 func (p *textParser) Skip(t tokenType) bool {
 	typ, s := p.getToken()
@@ -154,7 +153,7 @@ func (p *textParser) parseNodeList() []*Node {
 		typ, s := p.getToken()
 		if typ == EOL {
 			continue
-		} else if typ == EOF || typ == BlockEnd {
+		} else if typ == BlockEnd {
 			break
 		} else if typ == Ident {
 			p.Skip(Operator)
@@ -186,6 +185,9 @@ func (p *textParser) parseNodeList() []*Node {
 				} else if typ == Operator && s == "*" {
 					node.Attributes = append(node.Attributes, p.parseArrayProp())
 				}
+			}
+			if p.err == io.EOF {
+				p.err = fmt.Errorf("Unexpected EOF")
 			}
 		} else {
 			// ERR
