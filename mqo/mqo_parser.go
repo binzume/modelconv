@@ -246,7 +246,7 @@ func (p *Parser) readObject() *Object {
 		"shading":     func() { o.Shading = p.readInt() },
 		"facet":       func() { o.Facet = p.readFloat() },
 		"patch":       func() { o.Patch = p.readInt() },
-		"segment":     func() { o.Segment = p.readInt() },
+		"segment":     func() { o.PatchSegment = p.readInt() },
 		"mirror":      func() { o.Mirror = p.readInt() },
 		"mirror_dis":  func() { o.MirrorDis = p.readFloat() },
 		"scale":       func() { o.Scale = &Vector3{X: p.readFloat(), Y: p.readFloat(), Z: p.readFloat()} },
@@ -347,8 +347,10 @@ func (p *Parser) Parse() (*Document, error) {
 				"pich":      func() { s.CameraRot.X = p.readFloat() },
 				"bank":      func() { s.CameraRot.Z = p.readFloat() },
 				"zoom2":     func() { s.Zoom2 = p.readFloat() },
+				"ortho":     func() { s.Ortho = p.readInt() > 0 },
 				"frontclip": func() { s.FrontClip = p.readFloat() },
 				"backclip":  func() { s.BackClip = p.readFloat() },
+				"amb":       func() { s.AmbientLight = &Vector3{X: p.readFloat(), Y: p.readFloat(), Z: p.readFloat()} },
 			}, fmt.Sprintf("Scene"))
 			doc.Scene = s
 		} else if tok == scanner.Ident && p.s.TokenText() == "IncludeXml" {

@@ -51,10 +51,14 @@ func (writer *Writer) WriteMQO(mqo *Document, ww io.Writer) error {
 		w.WriteString("Scene {\n")
 		fmt.Fprintf(w, "\tpos %v %v %v\n", scene.CameraPos.X, scene.CameraPos.Y, scene.CameraPos.Z)
 		fmt.Fprintf(w, "\tlookat %v %v %v\n", scene.CameraLookAt.X, scene.CameraLookAt.Y, scene.CameraLookAt.Z)
-		fmt.Fprintf(w, "\thead %v\n", scene.CameraRot.Y)
-		fmt.Fprintf(w, "\tpitch %v\n", scene.CameraRot.X)
-		fmt.Fprintf(w, "\tbank %v\n", scene.CameraRot.Z)
-		fmt.Fprintf(w, "\tzoom2 %v\n", scene.Zoom2)
+		fmt.Fprintf(w, "\thead %.4f\n", scene.CameraRot.Y)
+		fmt.Fprintf(w, "\tpich %.4f\n", scene.CameraRot.X)
+		fmt.Fprintf(w, "\tbank %.4f\n", scene.CameraRot.Z)
+		fmt.Fprintf(w, "\tortho %v\n", boolToInt(scene.Ortho))
+		fmt.Fprintf(w, "\tzoom2 %.4f\n", scene.Zoom2)
+		if scene.AmbientLight != nil {
+			fmt.Fprintf(w, "\tamb %.3f %.3f %.3f\n", scene.AmbientLight.X, scene.AmbientLight.Y, scene.AmbientLight.Z)
+		}
 		if scene.FrontClip > 0 {
 			fmt.Fprintf(w, "\tfrontclip %v\n", scene.FrontClip)
 		}
@@ -150,10 +154,10 @@ func (writer *Writer) WriteMQO(mqo *Document, ww io.Writer) error {
 		}
 		if obj.Patch > 0 {
 			fmt.Fprintf(w, "\tpatch %d\n", obj.Patch)
-			fmt.Fprintf(w, "\tsegment %d\n", obj.Segment)
+			fmt.Fprintf(w, "\tsegment %d\n", obj.PatchSegment)
 		}
 		if obj.Color != nil {
-			fmt.Fprintf(w, "\tcolor %v %v %v\n", obj.Color.X, obj.Color.Y, obj.Color.Z)
+			fmt.Fprintf(w, "\tcolor %.3f %.3f %.3f\n", obj.Color.X, obj.Color.Y, obj.Color.Z)
 		}
 
 		fmt.Fprintf(w, "\tvertex %v {\n", len(obj.Vertexes))

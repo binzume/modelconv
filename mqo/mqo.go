@@ -46,6 +46,9 @@ type Scene struct {
 	Zoom2        float32
 	FrontClip    float32
 	BackClip     float32
+	Ortho        bool
+
+	AmbientLight *Vector3
 }
 
 type Material struct {
@@ -135,20 +138,20 @@ func (f *Face) Flip() {
 }
 
 type Object struct {
-	UID       int
-	Name      string
-	Vertexes  []*Vector3
-	Faces     []*Face
-	Visible   bool
-	Locked    bool
-	Depth     int
-	Folding   bool
-	Shading   int
-	Facet     float32
-	Patch     int
-	Segment   int
-	Mirror    int
-	MirrorDis float32
+	UID          int
+	Name         string
+	Vertexes     []*Vector3
+	Faces        []*Face
+	Visible      bool
+	Locked       bool
+	Depth        int
+	Folding      bool
+	Shading      int
+	Facet        float32
+	Patch        int
+	PatchSegment int
+	Mirror       int
+	MirrorDis    float32
 
 	Scale       *Vector3
 	Rotation    *Vector3
