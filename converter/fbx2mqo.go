@@ -87,7 +87,7 @@ func (c *fbxToMqoState) convertMaterial(m *fbx.Material) *mqo.Material {
 	mat.Color = geom.Vector4{X: col.X, Y: col.Y, Z: col.Z, W: opacity}
 	mat.Diffuse = m.GetFactor("DiffuseFactor", 1)
 	mat.Specular = m.GetColor("SpecularColor", &geom.Vector3{}).Scale(m.GetFactor("SpecularFactor", 0)).X
-	// mat.Emission = m.GetProperty70("EmissiveFactor").ToFloat32(0) * m.GetProperty70("EmissiveColor").ToFloat32(0)
+	mat.Emission = m.GetColor("EmissiveColor", &geom.Vector3{}).Scale(m.GetFactor("EmissiveFactor", 0)).X * 0.1 // ?
 	mat.Ambient = m.GetColor("AmbientColor", &geom.Vector3{}).Scale(m.GetFactor("AmbientFactor", 0)).X
 	mat.Power = m.GetFactor("ShininessExponent", 0)
 	texture := m.GetTexture("DiffuseColor")
@@ -223,6 +223,7 @@ func (c *fbxToMqoState) convertDeformer(sub *fbx.Deformer, objID int) {
 		m := modelPath[len(modelPath)-i-1]
 
 		pos := c.coordMat.Mul(m.GetWorldMatrix()).ApplyTo(&geom.Vector3{})
+		// pos := c.coordMat.Mul(sub.GetTransformLink()).ApplyTo(&geom.Vector3{})
 		b := &mqo.Bone{
 			ID:     len(c.bones) + 1,
 			Name:   strings.TrimPrefix(m.Name(), "Model::"),

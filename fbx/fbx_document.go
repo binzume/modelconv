@@ -139,6 +139,22 @@ func (d *Deformer) GetIndexes() []int32 {
 	return d.FindChild("Indexes").GetInt32Array()
 }
 
+func (d *Deformer) GetTransform() *geom.Matrix4 {
+	m := d.FindChild("Transform").GetFloat32Array()
+	if len(m) != 16 {
+		return geom.NewMatrix4()
+	}
+	return geom.NewMatrix4FromSlice(m)
+}
+
+func (d *Deformer) GetTransformLink() *geom.Matrix4 {
+	m := d.FindChild("TransformLink").GetFloat32Array()
+	if len(m) != 16 {
+		return geom.NewMatrix4()
+	}
+	return geom.NewMatrix4FromSlice(m)
+}
+
 func (d *Deformer) GetTarget() *Model {
 	nodes := d.FindRefs("Model")
 	if len(nodes) == 0 {
