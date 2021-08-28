@@ -33,7 +33,7 @@ package: [cmd/modelconv](cmd/modelconv)
 [Releases](https://github.com/binzume/modelconv/releases/latest)にビルド済みのWindows用の実行ファイルを置いてあります．
 
 ```bash
-go install github.com/binzume/modelconv/cmd/modelconv@latest
+go install github.com/binzume/modelconv/cmd/modelconv@v0.3.1
 ```
 
 ## Usage examples

@@ -8,7 +8,7 @@ https://github.com/binzume/modelconv
 
 以下の組み合わせの変換が可能です．
 
-- (.pmd | .pmx | .mqo | .mqoz) → (.pmx | .mqo| .mqoz | .glb | .gltf | .vrm)
+- (.pmd | .pmx | .mqo | .mqoz | .fbx) → (.pmx | .mqo| .mqoz | .glb | .gltf | .vrm)
 - (.glb | .gltf | .vrm) → (.glb | .gltf | .vrm) (※1)
 
 ※1: glTF同士の変換は特別扱いをしているため，モデルに変更を加えるオプションは未対応です．(scaleは可能)
