@@ -1,37 +1,21 @@
 package fbx
 
-import "github.com/binzume/modelconv/geom"
-
 func parseGeometry(base *Obj) *Geometry {
-	mesh := &Geometry{Obj: *base}
-	mesh.Vertices = base.FindChild("Vertices").GetVec3Array()
-	normal := base.FindChild("LayerElementNormal")
-	if normal.FindChild("MappingInformationType").GetString() == "ByPolygonVertex" {
-		mesh.Normals = normal.FindChild("Normals").GetVec3Array()
-	}
+	geometry := &Geometry{Obj: *base}
+	geometry.Vertices = geometry.GetVertices()
 	if v := base.FindChild("PolygonVertexIndex").GetInt32Array(); v != nil {
 		var face []int
 		for _, index := range v {
 			if index < 0 {
 				face = append(face, int(^index))
-				mesh.Faces = append(mesh.Faces, face)
+				geometry.Faces = append(geometry.Faces, face)
 				face = nil
 				continue
 			}
 			face = append(face, int(index))
 		}
 	}
-	return mesh
-}
-
-func parseModel(base *Obj) *Model {
-	m := &Model{Obj: *base}
-
-	m.Translation = *m.GetProperty70("Lcl Translation").ToVector3(0, 0, 0)
-	m.Rotation = *m.GetProperty70("Lcl Rotation").ToVector3(0, 0, 0)
-	m.Scaling = *m.GetProperty70("Lcl Scaling").ToVector3(1, 1, 1)
-
-	return m
+	return geometry
 }
 
 func parseConnection(node *Node) *Connection {
@@ -47,7 +31,7 @@ func parseConnection(node *Node) *Connection {
 }
 
 func BuildDocument(root *Node) (*Document, error) {
-	doc := &Document{RawNode: root, Scene: &Model{Obj: Obj{}, Scaling: geom.Vector3{X: 1, Y: 1, Z: 1}}}
+	doc := &Document{RawNode: root, Scene: &Model{Obj: Obj{}}}
 	doc.Objects = map[int64]Object{0: doc.Scene}
 
 	doc.Creator = root.FindChild("Creator").GetString()
@@ -77,7 +61,7 @@ func BuildDocument(root *Node) (*Document, error) {
 			doc.Materials = append(doc.Materials, &Material{*base})
 			obj = doc.Materials[len(doc.Materials)-1]
 		case "Model":
-			obj = parseModel(base)
+			obj = &Model{Obj: *base}
 		}
 		doc.Objects[obj.ID()] = obj
 	}
