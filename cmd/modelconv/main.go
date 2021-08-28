@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/binzume/modelconv/converter"
+	"github.com/binzume/modelconv/fbx"
 	"github.com/binzume/modelconv/geom"
 	"github.com/binzume/modelconv/gltfutil"
 	"github.com/binzume/modelconv/mqo"
@@ -169,14 +170,27 @@ func main() {
 		scaleVec = nil
 	}
 
+	// glTF to glTF
 	if isGltf(inputExt) && isGltf(outputExt) {
 		doc, err := gltfutil.Load(input)
 		if err != nil {
 			log.Fatal(err)
 		}
 		gltfutil.Transform(doc, scaleVec, nil)
-		// vrm.ResetJointMatrix(doc)
 		err = saveGltfDocument(doc, output, outputExt, filepath.Dir(input), *vrmconf)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+
+	// FBX to FBX
+	if inputExt == ".fbx" && outputExt == ".fbx" {
+		doc, err := fbx.Load(input)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = fbx.Save(doc, output) // Save ASCII file
 		if err != nil {
 			log.Fatal(err)
 		}
