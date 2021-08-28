@@ -124,13 +124,43 @@ func (m *mqoToGltf) getWeights(bones []*mqo.Bone, obj *mqo.Object, boneIDToJoint
 			jointIds = append(jointIds, boneIDToJoint[b.ID])
 			for _, vw := range bw.Vertexes {
 				v := obj.GetVertexIndexByID(vw.VertexID)
-				if v < 0 || v >= vs || njoint[v] >= 4 {
+				jindex := njoint[v]
+				njoint[v]++
+				if jindex >= 4 {
+					// Overwrite smallest weight.
+					minWeight := vw.Weight * 0.01
+					for i, w := range weights[v] {
+						if w < minWeight {
+							minWeight = w
+							jindex = i
+						}
+					}
+					if jindex >= 4 {
+						continue
+					}
+				}
+				if v < 0 || v >= vs {
 					log.Fatal("invalid weight. V:", vw.VertexID, " O:", obj.Name)
 				}
-				joints[v][njoint[v]] = uint16(len(jointIds)) - 1
-				weights[v][njoint[v]] = vw.Weight * 0.01
-				njoint[v]++
+				joints[v][jindex] = uint16(len(jointIds)) - 1
+				weights[v][jindex] = vw.Weight * 0.01
 			}
+			for _, vw := range bw.Vertexes {
+				v := obj.GetVertexIndexByID(vw.VertexID)
+				if njoint[v] > 4 {
+					log.Println("WWARNING: njoint > 4. V:", vw.VertexID, " O:", obj.Name)
+					var sum float32 = 0
+					for _, w := range weights[v] {
+						sum += w
+					}
+					if sum > 0 {
+						for i := range weights[v] {
+							weights[v][i] /= sum
+						}
+					}
+				}
+			}
+
 		}
 	}
 	return jointIds, joints, weights
