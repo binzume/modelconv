@@ -21,12 +21,13 @@ type FBXToMQOConverter struct {
 
 type fbxToMqoState struct {
 	*FBXToMQOOption
-	src         *fbx.Document
-	dst         *mqo.Document
-	boneNodeMap map[*fbx.Model]int
-	boneNodes   []*fbx.Model
-	bones       []*mqo.Bone
-	coordMat    *geom.Matrix4
+	src           *fbx.Document
+	dst           *mqo.Document
+	materialIDMap map[*fbx.Material]int
+	boneNodeMap   map[*fbx.Model]int
+	boneNodes     []*fbx.Model
+	bones         []*mqo.Bone
+	coordMat      *geom.Matrix4
 }
 
 func NewFBXToMQOConverter(options *FBXToMQOOption) *FBXToMQOConverter {
@@ -57,10 +58,12 @@ func (conv *FBXToMQOConverter) Convert(src *fbx.Document) (*mqo.Document, error)
 		src:            src,
 		dst:            dst,
 		boneNodeMap:    map[*fbx.Model]int{},
+		materialIDMap:  map[*fbx.Material]int{},
 		coordMat:       &mat,
 	}
 
 	for _, mat := range src.Materials {
+		c.materialIDMap[mat] = len(dst.Materials)
 		dst.Materials = append(dst.Materials, c.convertMaterial(mat))
 	}
 
@@ -101,10 +104,15 @@ func (c *fbxToMqoState) convertModel(m *fbx.Model, d int, parentTransform *geom.
 	obj.UID = len(dst.Objects)
 	obj.Depth = d
 
+	var materialIDs []int
+	for _, mat := range m.FindRefs("Material") {
+		materialIDs = append(materialIDs, c.materialIDMap[mat.(*fbx.Material)])
+	}
+
 	transform := parentTransform.Mul(m.GetMatrix())
 	geometry := m.GetGeometry()
 	if geometry != nil {
-		shapes := c.convertGeometry(geometry, obj, transform)
+		shapes := c.convertGeometry(geometry, obj, transform, materialIDs)
 		if len(shapes) > 0 {
 			morphPlugin := mqo.GetMorphPlugin(dst)
 			var morphTargets mqo.MorphTargetList
@@ -136,17 +144,16 @@ func hasGeometryNode(m *fbx.Model) bool {
 	return false
 }
 
-func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transform *geom.Matrix4) []*mqo.Object {
+func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transform *geom.Matrix4, materialIDs []int) []*mqo.Object {
 	for _, v := range g.Vertices {
 		obj.Vertexes = append(obj.Vertexes, transform.ApplyTo(v))
 	}
 
-	var matByPolygon []int32
-
 	matnode := g.FindChild("LayerElementMaterial")
-	if matnode.FindChild("MappingInformationType").GetString() == "ByPolygon" {
-		matByPolygon = matnode.FindChild("Materials").GetInt32Array()
-	}
+	matArray := matnode.FindChild("Materials").GetInt32Array()
+	matType := matnode.FindChild("MappingInformationType").GetString()
+	matByPolygon := matType == "ByPolygon" && len(matArray) >= len(g.Faces)
+	matAllSame := matType == "AllSame" && len(matArray) > 0
 
 	var uv []*geom.Vector2
 	var uvIndex []int32
@@ -161,8 +168,14 @@ func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transf
 	vcount := 0
 	for i, f := range g.Faces {
 		face := &mqo.Face{Verts: f}
-		if len(matByPolygon) == len(g.Faces) {
-			face.Material = int(matByPolygon[i])
+		var matIdx int
+		if matByPolygon {
+			matIdx = int(matArray[i])
+		} else if matAllSame {
+			matIdx = int(matArray[0])
+		}
+		if matIdx < len(materialIDs) {
+			face.Material = materialIDs[matIdx]
 		}
 		if len(uvIndex) > vcount+len(f) {
 			for n := range f {
