@@ -26,7 +26,7 @@ type fbxToMqoState struct {
 	boneNodeMap map[*fbx.Model]int
 	boneNodes   []*fbx.Model
 	bones       []*mqo.Bone
-	upAxis      int
+	coordMat    *geom.Matrix4
 }
 
 func NewFBXToMQOConverter(options *FBXToMQOOption) *FBXToMQOConverter {
@@ -40,22 +40,33 @@ func NewFBXToMQOConverter(options *FBXToMQOOption) *FBXToMQOConverter {
 
 func (conv *FBXToMQOConverter) Convert(src *fbx.Document) (*mqo.Document, error) {
 	dst := mqo.NewDocument()
+	gs := src.GlobalSettings
+
+	mat := geom.Matrix4{
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 1,
+	}
+	mat[gs.GetProperty70("CoordAxis").ToInt(0)] = gs.GetProperty70("CoordAxisSign").ToFloat32(1)
+	mat[gs.GetProperty70("UpAxis").ToInt(1)+4] = gs.GetProperty70("UpAxisSign").ToFloat32(1)
+	mat[gs.GetProperty70("FrontAxis").ToInt(2)+8] = gs.GetProperty70("FrontAxisSign").ToFloat32(1)
 
 	c := &fbxToMqoState{
 		FBXToMQOOption: conv.options,
 		src:            src,
 		dst:            dst,
 		boneNodeMap:    map[*fbx.Model]int{},
-		upAxis:         src.GlobalSettings.GetProperty70("UpAxis").ToInt(1),
+		coordMat:       &mat,
 	}
 
 	for _, mat := range src.Materials {
 		dst.Materials = append(dst.Materials, c.convertMaterial(mat))
 	}
 
-	transform := geom.NewMatrix4()
+	transform := c.coordMat.Mul(src.Scene.GetMatrix())
 	for _, m := range src.Scene.GetChildModels() {
-		if c.convertWholeNode || c.containsGeometry(m) {
+		if c.convertWholeNode || hasGeometryNode(m) {
 			c.convertModel(m, 0, transform)
 		}
 	}
@@ -65,28 +76,20 @@ func (conv *FBXToMQOConverter) Convert(src *fbx.Document) (*mqo.Document, error)
 	return dst, nil
 }
 
-func (c *fbxToMqoState) convertCoord(v *geom.Vector3) *geom.Vector3 {
-	// TODO
-	if c.upAxis == 2 {
-		return &geom.Vector3{X: v.X, Y: v.Z, Z: v.Y}
-	}
-	return &geom.Vector3{X: v.X, Y: v.Y, Z: v.Z}
-}
-
 func (c *fbxToMqoState) convertMaterial(m *fbx.Material) *mqo.Material {
 	mat := &mqo.Material{}
 	mat.Name = m.Name()
-	col := m.GetProperty70("DiffuseColor").ToVector3(1, 1, 1)
-	opacity := m.GetProperty70("Opacity").ToFloat32(1)
+	col := m.GetColor("DiffuseColor", &geom.Vector3{X: 1, Y: 1, Z: 1})
+	opacity := m.GetFactor("Opacity", 1)
 	mat.Color = geom.Vector4{X: col.X, Y: col.Y, Z: col.Z, W: opacity}
-	mat.Diffuse = m.GetProperty70("DiffuseFactor").ToFloat32(1)
-	mat.Specular = m.GetProperty70("SpecularFactor").ToFloat32(0) * m.GetProperty70("SpecularColor").ToFloat32(0)
+	mat.Diffuse = m.GetFactor("DiffuseFactor", 1)
+	mat.Specular = m.GetColor("SpecularColor", &geom.Vector3{}).Scale(m.GetFactor("SpecularFactor", 0)).X
 	// mat.Emission = m.GetProperty70("EmissiveFactor").ToFloat32(0) * m.GetProperty70("EmissiveColor").ToFloat32(0)
-	mat.Ambient = m.GetProperty70("AmbientFactor").ToFloat32(0) * m.GetProperty70("AmbientColor").ToFloat32(0)
-	textures := m.FindRefs("Texture")
-	if len(textures) > 0 {
-		// TODO: GetPropertyRef("DiffuseColor").FindChild("RelativeFilename").PropString(0)
-		mat.Texture = textures[0].(*fbx.Obj).FindChild("RelativeFilename").GetString()
+	mat.Ambient = m.GetColor("AmbientColor", &geom.Vector3{}).Scale(m.GetFactor("AmbientFactor", 0)).X
+	mat.Power = m.GetFactor("ShininessExponent", 0)
+	texture := m.GetTexture("DiffuseColor")
+	if texture != nil {
+		mat.Texture = texture.FindChild("RelativeFilename").GetString()
 	}
 	return mat
 }
@@ -121,12 +124,12 @@ func (c *fbxToMqoState) convertModel(m *fbx.Model, d int, parentTransform *geom.
 	}
 }
 
-func (c *fbxToMqoState) containsGeometry(m *fbx.Model) bool {
+func hasGeometryNode(m *fbx.Model) bool {
 	if m.GetGeometry() != nil {
 		return true
 	}
 	for _, child := range m.GetChildModels() {
-		if c.containsGeometry(child) {
+		if hasGeometryNode(child) {
 			return true
 		}
 	}
@@ -135,7 +138,7 @@ func (c *fbxToMqoState) containsGeometry(m *fbx.Model) bool {
 
 func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transform *geom.Matrix4) []*mqo.Object {
 	for _, v := range g.Vertices {
-		obj.Vertexes = append(obj.Vertexes, c.convertCoord(transform.ApplyTo(v)))
+		obj.Vertexes = append(obj.Vertexes, transform.ApplyTo(v))
 	}
 
 	var matByPolygon []int32
@@ -180,10 +183,8 @@ func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transf
 
 	var shapes []*mqo.Object
 	if !c.disableBlendShape {
-		for _, node := range g.GetChildren() {
-			if node.Name == "Shape" {
-				shapes = append(shapes, c.convertShape(node, obj, g, transform))
-			}
+		for _, shape := range g.GetShapes() {
+			shapes = append(shapes, c.convertShape(shape, obj, g, transform))
 		}
 	}
 	return shapes
@@ -208,7 +209,7 @@ func (c *fbxToMqoState) convertDeformer(sub *fbx.Deformer, objID int) {
 	for i := range modelPath {
 		m := modelPath[len(modelPath)-i-1]
 
-		pos := c.convertCoord(m.GetWorldMatrix().ApplyTo(&geom.Vector3{}))
+		pos := c.coordMat.Mul(m.GetWorldMatrix()).ApplyTo(&geom.Vector3{})
 		b := &mqo.Bone{
 			ID:     len(c.bones) + 1,
 			Name:   strings.TrimPrefix(m.Name(), "Model::"),
@@ -231,22 +232,21 @@ func (c *fbxToMqoState) convertDeformer(sub *fbx.Deformer, objID int) {
 	}
 }
 
-func (c *fbxToMqoState) convertShape(node *fbx.Node, src *mqo.Object, g *fbx.Geometry, transfrom *geom.Matrix4) *mqo.Object {
-	vertices := node.FindChild("Vertices").GetVec3Array()
-	indexes := node.FindChild("Indexes").GetInt32Array()
-	_ = node.FindChild("Normals").GetVec3Array()
+func (c *fbxToMqoState) convertShape(node *fbx.GeometryShape, src *mqo.Object, g *fbx.Geometry, transfrom *geom.Matrix4) *mqo.Object {
+	vertices := node.GetVertices()
+	indexes := node.GetIndexes()
 
 	obj := src.Clone()
-	obj.Name = node.GetString()
+	obj.Name = node.Name()
 
 	if len(vertices) != len(indexes) {
-		log.Println("ERROR: Shape ", node.GetString(), len(vertices), len(indexes))
+		log.Println("ERROR: Shape ", node.Name(), len(vertices), len(indexes))
 		return obj
 	}
 
 	for i, idx := range indexes {
 		if int(idx) < len(obj.Vertexes) {
-			obj.Vertexes[idx] = c.convertCoord(transfrom.ApplyTo(g.Vertices[idx].Add(vertices[i])))
+			obj.Vertexes[idx] = transfrom.ApplyTo(g.Vertices[idx].Add(vertices[i]))
 		}
 	}
 
