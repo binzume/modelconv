@@ -223,11 +223,9 @@ func (c *fbxToMqoState) convertDeformer(sub *fbx.Deformer, objID int) {
 		m := modelPath[len(modelPath)-i-1]
 
 		pos := c.coordMat.Mul(m.GetWorldMatrix()).ApplyTo(&geom.Vector3{})
-		// pos := c.coordMat.Mul(sub.GetTransformLink()).ApplyTo(&geom.Vector3{})
 		b := &mqo.Bone{
 			ID:     len(c.bones) + 1,
 			Name:   strings.TrimPrefix(m.Name(), "Model::"),
-			Group:  0,
 			Pos:    mqo.Vector3Attr{Vector3: *pos},
 			Parent: c.boneNodeMap[m.Parent],
 		}
@@ -235,6 +233,7 @@ func (c *fbxToMqoState) convertDeformer(sub *fbx.Deformer, objID int) {
 		c.bones = append(c.bones, b)
 	}
 	bone := c.bones[c.boneNodeMap[model]-1]
+	bone.Pos.Vector3 = *c.coordMat.Mul(sub.GetTransformLink()).ApplyTo(&geom.Vector3{})
 	weights := sub.GetWeights()
 	indexes := sub.GetIndexes()
 	if len(weights) == len(indexes) {
