@@ -15,19 +15,22 @@ const (
 	String
 	BlockStart
 	BlockEnd
-	Operator
+	Comma
+	Colon
+	Asterisk
 	EOL
 )
 
 type textParser struct {
-	r   io.Reader
-	buf []byte
-	err error
+	r    io.Reader
+	buf  []byte
+	err  error
+	line int
 }
 
 func (p *textParser) errorf(f string, a ...interface{}) error {
 	if p.err == nil {
-		p.err = fmt.Errorf(f, a...)
+		p.err = fmt.Errorf("%s (line: %d)", fmt.Sprintf(f, a...), p.line+1)
 	}
 	return p.err
 }
@@ -54,13 +57,18 @@ func (p *textParser) getToken() (tokenType, string) {
 			for p.err == nil && c != '\n' {
 				c = p.read()
 			}
+			p.line++
 			return EOL, ""
 		} else if c == '{' {
 			return BlockStart, string(c)
 		} else if c == '}' {
 			return BlockEnd, string(c)
-		} else if c == '*' || c == ':' || c == ',' {
-			return Operator, string(c)
+		} else if c == ',' {
+			return Comma, string(c)
+		} else if c == ':' {
+			return Colon, string(c)
+		} else if c == '*' {
+			return Asterisk, string(c)
 		} else if c >= '0' && c <= '9' || c == '.' || c == '-' {
 			buf := []byte{c}
 			c = p.read()
@@ -73,6 +81,7 @@ func (p *textParser) getToken() (tokenType, string) {
 			}
 			return Number, string(buf)
 		} else if c == '\n' {
+			p.line++
 			return EOL, ""
 		} else if c == '"' {
 			buf := []byte{}
@@ -120,7 +129,7 @@ func (p *textParser) parseArrayProp() *Attribute {
 	var hasPoint bool
 	for i := 0; i < int(size) && p.err == nil; {
 		typ, s := p.getToken()
-		if typ == EOL || typ == Operator {
+		if typ == EOL || typ == Comma {
 			continue
 		} else if typ == BlockEnd {
 			break
@@ -129,7 +138,7 @@ func (p *textParser) parseArrayProp() *Attribute {
 			dvalues = append(dvalues, v)
 			hasPoint = hasPoint || strings.Contains(s, ".")
 		} else {
-			p.err = fmt.Errorf("Invalid token: %v", s)
+			p.errorf("Invalid token: %v", s)
 			break
 		}
 	}
@@ -156,7 +165,7 @@ func (p *textParser) parseNodeList() []*Node {
 		} else if typ == BlockEnd {
 			break
 		} else if typ == Ident {
-			p.Skip(Operator)
+			p.Skip(Colon)
 			node := &Node{Name: s}
 			nodes = append(nodes, node)
 			for p.err == nil {
@@ -170,19 +179,19 @@ func (p *textParser) parseNodeList() []*Node {
 					if strings.Contains(s, ".") {
 						v, err := strconv.ParseFloat(s, 64)
 						if err != nil {
-							p.err = fmt.Errorf("failed to parse num: '%v'", s)
+							p.errorf("failed to parse float: '%v'", s)
 						}
 						node.Attributes = append(node.Attributes, &Attribute{Value: v})
 					} else {
 						v, err := strconv.ParseInt(s, 10, 64)
 						if err != nil {
-							p.err = fmt.Errorf("failed to parse num: '%v'", s)
+							p.errorf("failed to parse integer: '%v'", s)
 						}
 						node.Attributes = append(node.Attributes, &Attribute{Value: v})
 					}
 				} else if typ == String {
 					node.Attributes = append(node.Attributes, &Attribute{Value: s})
-				} else if typ == Operator && s == "*" {
+				} else if typ == Asterisk {
 					node.Attributes = append(node.Attributes, p.parseArrayProp())
 				}
 			}
@@ -190,7 +199,7 @@ func (p *textParser) parseNodeList() []*Node {
 				p.err = fmt.Errorf("Unexpected EOF")
 			}
 		} else {
-			// ERR
+			p.errorf("Unexpected Token '%v'", s)
 			break
 		}
 	}
