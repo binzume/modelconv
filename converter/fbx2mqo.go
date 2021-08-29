@@ -201,13 +201,25 @@ func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transf
 		obj.Faces = append(obj.Faces, face)
 	}
 
-	if !c.disableBone {
-		for _, deformer := range g.GetDeformers() {
-			c.convertDeformer(deformer, obj.UID)
+	var shapes []*mqo.Object
+
+	for _, deformer := range g.GetDeformers() {
+		if deformer.Kind() == "BlendShapeChannel" {
+			// TODO: Apply deformer.FullWeights
+			if !c.disableBlendShape {
+				for _, shape := range deformer.FindRefs("Geometry") {
+					obj := c.convertShape(&fbx.GeometryShape{Node: shape.(*fbx.Geometry).Node}, obj, g, transform)
+					obj.Name = shape.Name()
+					shapes = append(shapes, obj)
+				}
+			}
+		} else {
+			if !c.disableBone {
+				c.convertDeformer(deformer, obj.UID)
+			}
 		}
 	}
 
-	var shapes []*mqo.Object
 	if !c.disableBlendShape {
 		for _, shape := range g.GetShapes() {
 			shapes = append(shapes, c.convertShape(shape, obj, g, transform))
@@ -219,7 +231,7 @@ func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transf
 func (c *fbxToMqoState) convertDeformer(sub *fbx.Deformer, objID int) {
 	model := sub.GetTarget()
 	if model == nil {
-		log.Println("ERR: Deformer model: ", sub.ID())
+		log.Println("ERR: Deformer has no model: ", sub.ID(), sub.Kind())
 		return
 	}
 	var modelPath []*fbx.Model
