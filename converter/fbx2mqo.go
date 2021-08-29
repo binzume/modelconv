@@ -149,24 +149,32 @@ func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transf
 		obj.Vertexes = append(obj.Vertexes, transform.ApplyTo(v))
 	}
 
-	matnode := g.FindChild("LayerElementMaterial")
-	matArray := matnode.FindChild("Materials").GetInt32Array()
-	matType := matnode.FindChild("MappingInformationType").GetString()
-	matByPolygon := matType == "ByPolygon" && len(matArray) >= len(g.Faces)
+	matnode := g.GetLayerElementMaterial()
+	matArray := matnode.GetIndexes()
+	matType := matnode.GetMappingInformationType()
+	matByPolygon := matType == "ByPolygon" && len(matArray) >= len(g.Polygons)
 	matAllSame := matType == "AllSame" && len(matArray) > 0
 
+	uvnode := g.GetLayerElementUV()
 	var uv []*geom.Vector2
 	var uvIndex []int32
-	uvnode := g.FindChild("LayerElementUV")
-	if uvnode.FindChild("MappingInformationType").GetString() == "ByPolygonVertex" {
-		uv = uvnode.FindChild("UV").GetVec2Array()
-		if uv != nil {
-			uvIndex = uvnode.FindChild("UVIndex").GetInt32Array()
+	if uvnode.GetMappingInformationType() == "ByPolygonVertex" {
+		uv = uvnode.Array.GetVec2Array()
+		if uvnode.GetReferenceInformationType() == "IndexToDirect" {
+			uvIndex = uvnode.GetIndexes()
+			if len(uvIndex) < g.PolygonVertexCount {
+				uv = nil
+				uvIndex = nil
+			}
+		} else {
+			if len(uv) < g.PolygonVertexCount {
+				uv = nil
+			}
 		}
 	}
 
 	vcount := 0
-	for i, f := range g.Faces {
+	for i, f := range g.Polygons {
 		face := &mqo.Face{Verts: f}
 		var matIdx int
 		if matByPolygon {
@@ -177,9 +185,14 @@ func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transf
 		if matIdx < len(materialIDs) {
 			face.Material = materialIDs[matIdx]
 		}
-		if len(uvIndex) > vcount+len(f) {
+		if uvIndex != nil { // Indexed
 			for n := range f {
 				v := uv[uvIndex[vcount+n]]
+				face.UVs = append(face.UVs, geom.Vector2{X: v.X, Y: 1 - v.Y})
+			}
+		} else if uv != nil {
+			for n := range f {
+				v := uv[vcount+n]
 				face.UVs = append(face.UVs, geom.Vector2{X: v.X, Y: 1 - v.Y})
 			}
 		}

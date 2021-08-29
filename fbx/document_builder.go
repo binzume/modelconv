@@ -3,12 +3,14 @@ package fbx
 func parseGeometry(base *Obj) *Geometry {
 	geometry := &Geometry{Obj: *base}
 	geometry.Vertices = geometry.GetVertices()
-	if v := base.FindChild("PolygonVertexIndex").GetInt32Array(); v != nil {
+	polygonVertices := base.FindChild("PolygonVertexIndex").GetInt32Array()
+	geometry.PolygonVertexCount = len(polygonVertices)
+	if v := polygonVertices; v != nil {
 		var face []int
 		for _, index := range v {
 			if index < 0 {
 				face = append(face, int(^index))
-				geometry.Faces = append(geometry.Faces, face)
+				geometry.Polygons = append(geometry.Polygons, face)
 				face = nil
 				continue
 			}

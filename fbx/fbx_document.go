@@ -96,8 +96,9 @@ func (o *Obj) AddRef(ref Object) {
 
 type Geometry struct {
 	Obj
-	Vertices []*geom.Vector3
-	Faces    [][]int
+	Vertices           []*geom.Vector3
+	Polygons           [][]int
+	PolygonVertexCount int
 }
 
 func (g *Geometry) GetVertices() []*geom.Vector3 {
@@ -124,6 +125,73 @@ func (g *Geometry) GetShapes() []*GeometryShape {
 		}
 	}
 	return shapes
+}
+
+func (g *Geometry) GetLayerElement(name string, arrayName string, indexName string) *LayerElement {
+	node := g.FindChild(name)
+	return &LayerElement{node, node.FindChild(arrayName), node.FindChild(indexName)}
+}
+
+func (g *Geometry) GetLayerElementUV() *LayerElement {
+	return g.GetLayerElement("LayerElementUV", "UV", "UVIndex")
+}
+
+func (g *Geometry) GetLayerElementMaterial() *LayerElement {
+	return g.GetLayerElement("LayerElementMaterial", "Materials", "Materials") // Materials as index?
+}
+
+func (g *Geometry) GetLayerElementNormal() *LayerElement {
+	return g.GetLayerElement("LayerElementNormal", "Normals", "NormalsIndex")
+}
+
+func (g *Geometry) GetLayerElementBinormal() *LayerElement {
+	return g.GetLayerElement("LayerElementBinormal", "Binormals", "BinormalsIndex")
+}
+
+func (g *Geometry) GetLayerElementTangent() *LayerElement {
+	return g.GetLayerElement("LayerElementTangent", "Tangents", "TangentsIndex")
+}
+
+func (g *Geometry) GetLayerElementSmoothing() *LayerElement {
+	return g.GetLayerElement("LayerElementSmoothing", "Smoothing", "SmoothingIndex")
+}
+
+type LayerElement struct {
+	*Node
+	Array     *Node
+	IndexNode *Node
+}
+
+func (e *LayerElement) GetMappingInformationType() string {
+	return e.FindChild("MappingInformationType").GetString()
+}
+
+func (e *LayerElement) GetReferenceInformationType() string {
+	return e.FindChild("ReferenceInformationType").GetString()
+}
+
+func (e *LayerElement) GetIndexes() []int32 {
+	return e.IndexNode.GetInt32Array()
+}
+
+type GeometryShape struct {
+	*Node
+}
+
+func (s *GeometryShape) Name() string {
+	return s.GetString()
+}
+
+func (s *GeometryShape) GetVertices() []*geom.Vector3 {
+	return s.FindChild("Vertices").GetVec3Array()
+}
+
+func (s *GeometryShape) GetNormals() []*geom.Vector3 {
+	return s.FindChild("Normals").GetVec3Array()
+}
+
+func (s *GeometryShape) GetIndexes() []int32 {
+	return s.FindChild("Indexes").GetInt32Array()
 }
 
 // TODO: rename to SubDeformer
@@ -162,26 +230,6 @@ func (d *Deformer) GetTarget() *Model {
 	}
 	m, _ := nodes[0].(*Model)
 	return m
-}
-
-type GeometryShape struct {
-	*Node
-}
-
-func (s *GeometryShape) Name() string {
-	return s.GetString()
-}
-
-func (s *GeometryShape) GetVertices() []*geom.Vector3 {
-	return s.FindChild("Vertices").GetVec3Array()
-}
-
-func (s *GeometryShape) GetNormals() []*geom.Vector3 {
-	return s.FindChild("Normals").GetVec3Array()
-}
-
-func (s *GeometryShape) GetIndexes() []int32 {
-	return s.FindChild("Indexes").GetInt32Array()
 }
 
 type Material struct {
