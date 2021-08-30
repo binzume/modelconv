@@ -69,7 +69,7 @@ func (conv *FBXToMQOConverter) Convert(src *fbx.Document) (*mqo.Document, error)
 
 	transform := c.coordMat.Mul(src.Scene.GetMatrix())
 	for _, m := range src.Scene.GetChildModels() {
-		if c.convertWholeNode || hasGeometryNode(m) {
+		if c.convertWholeNode || (m.Kind() != "LimbNode" && hasGeometryNode(m)) {
 			c.convertModel(m, 0, transform)
 		}
 	}
@@ -128,7 +128,9 @@ func (c *fbxToMqoState) convertModel(m *fbx.Model, d int, parentTransform *geom.
 		}
 	}
 	for _, m := range m.GetChildModels() {
-		c.convertModel(m, d+1, transform)
+		if c.convertWholeNode || m.Kind() != "LimbNode" {
+			c.convertModel(m, d+1, transform)
+		}
 	}
 }
 
