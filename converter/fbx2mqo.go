@@ -49,9 +49,9 @@ func (conv *FBXToMQOConverter) Convert(src *fbx.Document) (*mqo.Document, error)
 		0, 0, 0, 0,
 		0, 0, 0, 1,
 	}
-	mat[gs.GetProperty70("CoordAxis").ToInt(0)] = gs.GetProperty70("CoordAxisSign").ToFloat32(1)
-	mat[gs.GetProperty70("UpAxis").ToInt(1)+4] = gs.GetProperty70("UpAxisSign").ToFloat32(1)
-	mat[gs.GetProperty70("FrontAxis").ToInt(2)+8] = gs.GetProperty70("FrontAxisSign").ToFloat32(1)
+	mat[gs.GetProperty70("CoordAxis").ToInt(0)*4] = gs.GetProperty70("CoordAxisSign").ToFloat32(1)
+	mat[gs.GetProperty70("UpAxis").ToInt(1)*4+1] = gs.GetProperty70("UpAxisSign").ToFloat32(1)
+	mat[gs.GetProperty70("FrontAxis").ToInt(2)*4+2] = gs.GetProperty70("FrontAxisSign").ToFloat32(1)
 
 	c := &fbxToMqoState{
 		FBXToMQOOption: conv.options,
@@ -209,10 +209,8 @@ func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transf
 		if deformer.Kind() == "BlendShapeChannel" {
 			// TODO: Apply deformer.FullWeights
 			if !c.disableBlendShape {
-				for _, shape := range deformer.FindRefs("Geometry") {
-					obj := c.convertShape(&fbx.GeometryShape{Node: shape.(*fbx.Geometry).Node}, obj, g, transform)
-					obj.Name = shape.Name()
-					shapes = append(shapes, obj)
+				for _, shape := range deformer.GetShapes() {
+					shapes = append(shapes, c.convertShape(shape, obj, g, transform))
 				}
 			}
 		} else {

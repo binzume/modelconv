@@ -179,6 +179,9 @@ type GeometryShape struct {
 }
 
 func (s *GeometryShape) Name() string {
+	if len(s.Attributes) >= 3 {
+		return strings.ReplaceAll(s.Attr(1).ToString(), "\x00\x01", "::")
+	}
 	return s.GetString()
 }
 
@@ -230,6 +233,16 @@ func (d *Deformer) GetTarget() *Model {
 	}
 	m, _ := nodes[0].(*Model)
 	return m
+}
+
+func (d *Deformer) GetShapes() []*GeometryShape {
+	var shapes []*GeometryShape
+	for _, node := range d.FindRefs("Geometry") {
+		if node.Kind() == "Shape" {
+			shapes = append(shapes, &GeometryShape{Node: node.(*Geometry).Node})
+		}
+	}
+	return shapes
 }
 
 type Material struct {
