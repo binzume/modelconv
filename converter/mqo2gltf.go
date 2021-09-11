@@ -297,7 +297,7 @@ func (m *mqoToGltf) convertMaterial(textureDir string, mat *mqo.Material) *gltf.
 }
 
 func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJoint map[int]uint32,
-	morphObjs []*mqo.Object, ignoreMats map[int]bool) (*gltf.Mesh, []uint32) {
+	morphObjs []*mqo.Object, materialMap map[int]int) (*gltf.Mesh, []uint32) {
 	scale := m.scale
 
 	var vertexes [][3]float32
@@ -321,7 +321,8 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 		if len(f.Verts) < 3 {
 			continue
 		}
-		if _, ok := ignoreMats[f.Material]; ok {
+		mat, ok := materialMap[f.Material]
+		if !ok {
 			continue
 		}
 		verts := make([]int, len(f.Verts))
@@ -351,7 +352,7 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 		}
 		// convex polygon only. TODO: triangulation.
 		for n := 0; n < len(verts)-2; n++ {
-			indices[f.Material] = append(indices[f.Material], uint32(verts[0]), uint32(verts[n+2]), uint32(verts[n+1]))
+			indices[mat] = append(indices[mat], uint32(verts[0]), uint32(verts[n+2]), uint32(verts[n+1]))
 		}
 	}
 
@@ -427,10 +428,12 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		}
 	}
 
-	ignoreMats := map[int]bool{}
-	for m, mat := range doc.Materials {
-		if mat.Name == "$IGNORE" {
-			ignoreMats[m] = true
+	materialMap := map[int]int{}
+	materialCount := 0
+	for i, mat := range doc.Materials {
+		if !strings.HasSuffix(mat.Name, "$IGNORE") && !strings.HasPrefix(mat.Name, "$MORPH:") {
+			materialMap[i] = materialCount
+			materialCount++
 		}
 	}
 
@@ -458,7 +461,7 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 				}
 			}
 		}
-		mesh, joints := m.ConvertObject(obj, bones, boneIDToJoint, morphTargets, ignoreMats)
+		mesh, joints := m.ConvertObject(obj, bones, boneIDToJoint, morphTargets, materialMap)
 		node := &gltf.Node{Name: obj.Name}
 		if len(mesh.Primitives) > 0 {
 			node.Mesh = gltf.Index(uint32(len(m.Document.Meshes)))
@@ -473,7 +476,10 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 
 	textures := map[string]uint32{}
 	useUnlit := false
-	for _, mat := range doc.Materials {
+	for i, mat := range doc.Materials {
+		if _, ok := materialMap[i]; !ok {
+			continue
+		}
 		mm := m.convertMaterial(textureDir, mat)
 		if mat.Texture != "" {
 			if _, exist := textures[mat.Texture]; !exist {

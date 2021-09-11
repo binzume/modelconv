@@ -117,6 +117,14 @@ func (v *Vector3) ToArray(array []Element) {
 	array[2] = v.Z
 }
 
+func (v *Vector4) Add(v2 *Vector4) *Vector4 {
+	return &Vector4{X: v.X + v2.X, Y: v.Y + v2.Y, Z: v.Z + v2.Z, W: v.W + v2.W}
+}
+
+func (v *Vector4) Sub(v2 *Vector4) *Vector4 {
+	return &Vector4{X: v.X - v2.X, Y: v.Y - v2.Y, Z: v.Z - v2.Z, W: v.W - v2.W}
+}
+
 func (v *Vector4) Dot(v2 *Vector4) Element {
 	return v.X*v2.X + v.Y*v2.Y + v.Z*v2.Z + v.W*v2.W
 }

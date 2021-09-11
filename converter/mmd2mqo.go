@@ -313,6 +313,23 @@ func (c *mmdToMQO) Convert(pmx *mmd.Document) *mqo.Document {
 			mq.Objects = append(mq.Objects, o)
 		}
 	}
+
+	for _, morph := range pmx.Morphs {
+		for _, mat := range morph.Material {
+			if mat.Target < 0 || mat.Target >= len(mq.Materials) {
+				continue
+			}
+			var m mqo.Material = *mq.Materials[mat.Target]
+			m.Name = "$MORPH:" + m.Name + ":" + morph.Name
+			m.Color = *m.Color.Add(&mqo.Vector4{X: mat.Diffuse.X, Y: mat.Diffuse.Y, Z: mat.Diffuse.Z, W: mat.Diffuse.W})
+			m.Specular = 0
+			m.Diffuse = 1.0
+			m.Ambient = 1.4
+			m.Power = mat.Specularity
+			mq.Materials = append(mq.Materials, &m)
+		}
+	}
+
 	mq.FixObjectID()
 	return mq
 }
