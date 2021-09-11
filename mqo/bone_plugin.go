@@ -304,10 +304,14 @@ func (doc *Document) BoneTransform(baseBone *Bone, transform func(v *Vector3), b
 // TODO: more generic function.
 func (doc *Document) BoneAdjustX(baseBone *Bone) {
 	var boneVec *Vector3
+	var max float32 = 0
 	for _, b := range GetBonePlugin(doc).Bones() {
 		if b.Parent == baseBone.ID {
-			boneVec = b.Pos.Sub(&baseBone.Pos.Vector3)
-			break
+			v := b.Pos.Sub(&baseBone.Pos.Vector3)
+			if v.LenSqr() > max {
+				max = v.LenSqr()
+				boneVec = v
+			}
 		}
 	}
 	if boneVec == nil {
