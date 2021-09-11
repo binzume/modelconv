@@ -225,6 +225,23 @@ func main() {
 		return false
 	}
 
+	if *chparent != "" {
+		boneByName := map[string]*mqo.Bone{}
+		for _, b := range mqo.GetBonePlugin(doc).Bones() {
+			boneByName[b.Name] = b
+		}
+		for _, n := range strings.Split(*chparent, ",") {
+			boneAndParent := strings.Split(n, ":")
+			if len(boneAndParent) != 2 {
+				log.Fatal("invalid bone setting (BONE_NAME:PARENT_NAME)", n)
+				continue
+			}
+			if b, ok := boneByName[boneAndParent[0]]; ok {
+				b.Parent = boneByName[boneAndParent[1]].ID
+			}
+		}
+	}
+
 	if *autoTpose != "" {
 		patterns := strings.Split(*autoTpose, ",")
 		for _, b := range mqo.GetBonePlugin(doc).Bones() {
@@ -251,7 +268,8 @@ func main() {
 		patterns := strings.Split(*hidemats, ",")
 		for _, mat := range doc.Materials {
 			if match(patterns, mat.Name) {
-				mat.Name = "$IGNORE"
+				mat.Name += "$IGNORE"
+				mat.Color.W = 0
 			}
 		}
 	}
@@ -262,23 +280,6 @@ func main() {
 			if match(patterns, mat.Name) {
 				mat.Shader = 1 // Constant shader
 				mat.Ex2 = nil
-			}
-		}
-	}
-
-	if *chparent != "" {
-		boneByName := map[string]*mqo.Bone{}
-		for _, b := range mqo.GetBonePlugin(doc).Bones() {
-			boneByName[b.Name] = b
-		}
-		for _, n := range strings.Split(*chparent, ",") {
-			boneAndParent := strings.Split(n, ":")
-			if len(boneAndParent) != 2 {
-				log.Fatal("invalid bone setting (BONE_NAME:PARENT_NAME)", n)
-				continue
-			}
-			if b, ok := boneByName[boneAndParent[0]]; ok {
-				b.Parent = boneByName[boneAndParent[1]].ID
 			}
 		}
 	}

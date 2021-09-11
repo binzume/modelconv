@@ -51,8 +51,9 @@ type MorphMapping struct {
 }
 
 type MaterialSetting struct {
-	ForceUnlit bool   `json:"forceUnlit"`
-	AlphaMode  string `json:"alphaMode"`
+	ForceUnlit bool    `json:"forceUnlit"`
+	AlphaMode  string  `json:"alphaMode"`
+	Alpha      float32 `json:"alpha"`
 }
 
 //go:embed vrmconfig_presets/*.json
@@ -154,6 +155,11 @@ func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]
 				mat.AlphaMode = gltf.AlphaBlend
 			} else if setting.AlphaMode == "mask" {
 				mat.AlphaMode = gltf.AlphaMask
+			} else if setting.AlphaMode == "opaque" {
+				mat.AlphaMode = gltf.AlphaOpaque
+			}
+			if setting.Alpha > 0 && mat.PBRMetallicRoughness != nil {
+				mat.PBRMetallicRoughness.BaseColorFactor[3] = setting.Alpha
 			}
 		}
 	}
