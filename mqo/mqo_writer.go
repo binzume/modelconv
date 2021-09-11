@@ -189,13 +189,32 @@ func (writer *Writer) WriteMQO(mqo *Document, ww io.Writer) error {
 			if f.UID > 0 {
 				fmt.Fprintf(w, " UID(%v)", f.UID)
 			}
-			if len(f.UVs) > 0 {
+			if len(f.UVs) == len(f.Verts) {
 				w.WriteString(" UV(")
 				for i, uv := range f.UVs {
 					if i != 0 {
 						fmt.Fprint(w, " ")
 					}
 					fmt.Fprintf(w, "%v %v", uv.X, uv.Y)
+				}
+				w.WriteString(")")
+			}
+			if len(f.Normals) == len(f.Verts) {
+				w.WriteString(" N(")
+				for i, n := range f.Normals {
+					if i != 0 {
+						fmt.Fprint(w, " ")
+					}
+					flag := 0
+					if n != nil {
+						flag = 2
+					}
+					fmt.Fprint(w, flag)
+				}
+				for _, n := range f.Normals {
+					if n != nil {
+						fmt.Fprintf(w, " %v %v %v", n.X, n.Y, n.Z)
+					}
 				}
 				w.WriteString(")")
 			}

@@ -126,6 +126,7 @@ type Face struct {
 	Verts    []int
 	Material int
 	UVs      []Vector2
+	Normals  []*Vector3
 }
 
 func (f *Face) Flip() {

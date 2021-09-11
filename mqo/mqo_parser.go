@@ -281,6 +281,18 @@ func (p *Parser) readObject() *Object {
 							f.UVs[i] = Vector2{X: p.readFloat(), Y: p.readFloat()}
 						}
 					},
+					"N": func() {
+						flags := make([]int, vn)
+						f.Normals = make([]*Vector3, vn)
+						for i := 0; i < vn; i++ {
+							flags[i] = p.readInt()
+						}
+						for i := 0; i < vn; i++ {
+							if flags[i]&2 != 0 {
+								f.Normals[i] = &Vector3{X: p.readFloat(), Y: p.readFloat(), Z: p.readFloat()}
+							}
+						}
+					},
 					"CRS": func() {
 						for i := 0; i < vn; i++ {
 							p.readFloat()

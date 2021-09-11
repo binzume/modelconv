@@ -81,10 +81,12 @@ func (c *mmdToMQO) convertFaces(pmx *mmd.Document, faces []int, face2mat []int, 
 		face := pmx.Faces[fi]
 		verts := make([]int, len(face.Verts))
 		uvs := make([]mqo.Vector2, len(face.Verts))
+		normals := make([]*mqo.Vector3, len(face.Verts))
 
 		for i, vi := range face.Verts {
 			v := pmx.Vertexes[vi]
-			uvs[i] = mqo.Vector2{X: v.UV.X, Y: v.UV.Y}
+			uvs[i] = v.UV
+			normals[i] = c.convertVec3(&v.Normal)
 			if mv, ok := vmap[vi]; ok {
 				verts[i] = mv
 			} else {
@@ -93,7 +95,7 @@ func (c *mmdToMQO) convertFaces(pmx *mmd.Document, faces []int, face2mat []int, 
 				o.Vertexes = append(o.Vertexes, c.convertVec3(&v.Pos))
 			}
 		}
-		o.Faces[i] = &mqo.Face{Verts: verts, Material: face2mat[fi], UVs: uvs}
+		o.Faces[i] = &mqo.Face{Verts: verts, Material: face2mat[fi], UVs: uvs, Normals: normals}
 	}
 }
 
