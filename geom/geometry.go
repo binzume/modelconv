@@ -205,6 +205,21 @@ func NewTranslateMatrix4(x, y, z Element) *Matrix4 {
 	}
 }
 
+func NewRotationMatrix4FromQuaternion(q *Vector4) *Matrix4 {
+	var (
+		x = q.X
+		y = q.Y
+		z = q.Z
+		w = q.W
+	)
+	return &Matrix4{
+		1 - 2*y*y - 2*z*z, 2*x*y - 2*z*w, 2*x*z + 2*y*w, 0,
+		2*x*y + 2*z*w, 1 - 2*x*x - 2*z*z, 2*y*z - 2*x*w, 0,
+		2*x*z - 2*y*w, 2*y*z + 2*x*w, 1 - 2*x*x - 2*y*y, 0,
+		0, 0, 0, 1,
+	}
+}
+
 func NewEulerRotationMatrix4(x, y, z Element, rev int) *Matrix4 {
 	m := NewMatrix4()
 	cx := Element(math.Cos(float64(x)))

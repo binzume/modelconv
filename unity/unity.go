@@ -6,16 +6,24 @@ import (
 	"github.com/binzume/modelconv/geom"
 )
 
+var UnityMeshes = map[Ref]string{
+	{FileID: 10202, GUID: "0000000000000000e000000000000000"}: "Cube",
+	{FileID: 10209, GUID: "0000000000000000e000000000000000"}: "Plane",
+	{FileID: 10210, GUID: "0000000000000000e000000000000000"}: "Quad",
+}
+
 type Scene struct {
 	GUID    string
 	Objects []*GameObject
 
 	Elements        map[int64]Element
 	PrefabInstances map[string]*Scene
+
+	Assets Assets
 }
 
-func NewScene(guid string) *Scene {
-	return &Scene{GUID: guid, Elements: map[int64]Element{}, PrefabInstances: map[string]*Scene{}}
+func NewScene(assets Assets, guid string) *Scene {
+	return &Scene{GUID: guid, Elements: map[int64]Element{}, PrefabInstances: map[string]*Scene{}, Assets: assets}
 }
 
 func (s *Scene) GetElement(ref *Ref) Element {
@@ -107,6 +115,21 @@ type Transform struct {
 	LocalScale    geom.Vector3 `yaml:"m_LocalScale"`
 
 	RootOrder int `yaml:"m_RootOrder"`
+}
+
+func (tr *Transform) GetMatrix() *geom.Matrix4 {
+	pos := geom.NewTranslateMatrix4(tr.LocalPosition.X, tr.LocalPosition.Y, tr.LocalPosition.Z)
+	rot := geom.NewRotationMatrix4FromQuaternion(&tr.LocalRotation)
+	sacle := geom.NewScaleMatrix4(tr.LocalScale.X, tr.LocalScale.Y, tr.LocalScale.Z)
+	return pos.Mul(rot).Mul(sacle)
+}
+
+func (tr *Transform) GetWorldMatrix() *geom.Matrix4 {
+	parent := tr.GetParent()
+	if parent == nil {
+		return tr.GetMatrix()
+	}
+	return parent.GetWorldMatrix().Mul(tr.GetMatrix())
 }
 
 func (tr *Transform) GetChildren() []*Transform {

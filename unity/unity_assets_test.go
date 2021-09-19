@@ -36,7 +36,7 @@ func TestLoadScene(t *testing.T) {
 	}
 	defer assets.Close()
 
-	scene, err := LoadScene(assets, assets.GetAssetByPath(SceneAssetPath))
+	scene, err := LoadScene(assets, SceneAssetPath)
 	if err != nil {
 		t.Error("Cannot open scene.", err)
 	}

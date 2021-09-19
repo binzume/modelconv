@@ -9,7 +9,15 @@ import (
 )
 
 // Load *.unity or *.prefab
-func LoadScene(assets Assets, sceneAsset *Asset) (*Scene, error) {
+func LoadScene(assets Assets, scenePath string) (*Scene, error) {
+	sceneAsset := assets.GetAssetByPath(scenePath)
+	if sceneAsset == nil {
+		return nil, fmt.Errorf("Scene not found: %s", scenePath)
+	}
+	return LoadSceneAsset(assets, sceneAsset)
+}
+
+func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 	r, err := assets.Open(sceneAsset.Path)
 	if err != nil {
 		return nil, err
@@ -21,7 +29,7 @@ func LoadScene(assets Assets, sceneAsset *Asset) (*Scene, error) {
 		return nil, err
 	}
 
-	scene := NewScene(sceneAsset.GUID)
+	scene := NewScene(assets, sceneAsset.GUID)
 	var objects []*GameObject
 
 	for _, doc := range ParseYamlDocuments(b) {
@@ -70,7 +78,7 @@ func LoadScene(assets Assets, sceneAsset *Asset) (*Scene, error) {
 				if assets.GetAsset(guid) == nil {
 					continue
 				}
-				s, err := LoadScene(assets, assets.GetAsset(guid))
+				s, err := LoadSceneAsset(assets, assets.GetAsset(guid))
 				if err == nil {
 					scene.PrefabInstances[guid] = s
 				}
@@ -129,9 +137,7 @@ func (o *GameObject) Dump(indent int, recursive, component bool) {
 	if tr == nil || !recursive {
 		return
 	}
-	for _, c := range tr.Children {
-		if t, ok := tr.Scene.GetElement(c).(*Transform); ok {
-			t.GetGameObject().Dump(indent+1, recursive, component)
-		}
+	for _, child := range tr.GetChildren() {
+		child.GetGameObject().Dump(indent+1, recursive, component)
 	}
 }
