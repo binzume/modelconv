@@ -79,6 +79,7 @@ func LoadScene(assets Assets, sceneAsset *Asset) (*Scene, error) {
 					// TODO: apply qll modifications
 					if root.GetTransform() != nil {
 						root.GetTransform().Father = *prefab.Modification.TransformParent
+						root.GetTransform().Father.GUID = scene.GUID
 					}
 					objects = append(objects, root)
 				}
@@ -114,13 +115,17 @@ func (o *GameObject) Dump(indent int, recursive, component bool) {
 		log.Println(strings.Repeat(" ", indent*2), "Object: Missing reference")
 		return
 	}
-	log.Println(strings.Repeat(" ", indent*2), "Object:", o.Name)
+	tr := o.GetTransform()
+	prefix := "Object:"
+	if tr != nil && tr.Father.GUID != "" && tr.Father.GUID != o.Scene.GUID {
+		prefix += "(Prefab)"
+	}
+	log.Println(strings.Repeat(" ", indent*2), prefix, o.Name)
 	if component {
 		for _, c := range o.Components {
 			log.Println(strings.Repeat(" ", indent*2), " -", fmt.Sprintf("%#v", o.Scene.GetElement(&c.Ref)))
 		}
 	}
-	tr := o.GetTransform()
 	if tr == nil || !recursive {
 		return
 	}
