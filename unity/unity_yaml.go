@@ -22,7 +22,7 @@ type yamlSplitter struct {
 	tags map[string]string
 }
 
-func parseDocuments(data []byte) []*YAMLDoc {
+func ParseYamlDocuments(data []byte) []*YAMLDoc {
 	s := yamlSplitter{data: data, tags: map[string]string{}}
 	docStart := -0
 	var doc *YAMLDoc

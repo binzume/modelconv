@@ -13,17 +13,23 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+type Assets interface {
+	GetAsset(guid string) *Asset
+	GetAssetByPath(assetPath string) *Asset
+	GetAllAssets() []*Asset
+	GetMetaFile(asset *Asset) (*MetaFile, error)
+	Open(assetPath string) (fs.File, error)
+	Close() error
+}
 type Asset struct {
 	GUID string
 	Path string
 }
 
-type Assets interface {
-	GetAsset(guid string) *Asset
-	GetAssetByPath(assetPath string) *Asset
-	GetAllAssets() []*Asset
-	Open(assetPath string) (fs.File, error)
-	Close() error
+type MetaFile struct {
+	FileFormatVersion int         `yaml:"fileFormatVersion"`
+	GUID              string      `yaml:"guid"`
+	ModelImporter     interface{} `yaml:"ModelImporter"`
 }
 
 // OpenAssets opens Assets dir.
@@ -51,28 +57,32 @@ func OpenPackage(packagePath string) (Assets, error) {
 	return scanPackage(tmpDir, true)
 }
 
-type packageFs struct {
-	PackageDir   string
-	Temp         bool
+type assets struct {
 	Assets       map[string]*Asset
 	AssetsByPath map[string]*Asset
-	HideMetaFile bool
 }
 
-func (a *packageFs) GetAsset(guid string) *Asset {
+func (a *assets) GetAsset(guid string) *Asset {
 	return a.Assets[guid]
 }
 
-func (a *packageFs) GetAssetByPath(path string) *Asset {
+func (a *assets) GetAssetByPath(path string) *Asset {
 	return a.AssetsByPath[path]
 }
 
-func (a *packageFs) GetAllAssets() []*Asset {
+func (a *assets) GetAllAssets() []*Asset {
 	var assets []*Asset
 	for _, a := range a.Assets {
 		assets = append(assets, a)
 	}
 	return assets
+}
+
+type packageFs struct {
+	assets
+	PackageDir   string
+	Temp         bool
+	HideMetaFile bool
 }
 
 func (a *packageFs) Open(path string) (fs.File, error) {
@@ -81,6 +91,18 @@ func (a *packageFs) Open(path string) (fs.File, error) {
 		return nil, fs.ErrNotExist
 	}
 	return os.Open(filepath.Join(a.PackageDir, asset.GUID, "asset"))
+}
+
+func (a *packageFs) GetMetaFile(asset *Asset) (*MetaFile, error) {
+	r, err := os.Open(filepath.Join(a.PackageDir, asset.GUID, "asset.meta"))
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	var meta MetaFile
+	err = yaml.NewDecoder(r).Decode(&meta)
+	return &meta, err
 }
 
 func (a *packageFs) Close() error {
@@ -97,10 +119,13 @@ func scanPackage(packageDir string, tmp bool) (*packageFs, error) {
 	}
 
 	pkg := &packageFs{
-		Temp:         tmp,
-		PackageDir:   packageDir,
-		Assets:       map[string]*Asset{},
-		AssetsByPath: map[string]*Asset{}}
+		assets: assets{
+			Assets:       map[string]*Asset{},
+			AssetsByPath: map[string]*Asset{},
+		},
+		Temp:       tmp,
+		PackageDir: packageDir,
+	}
 	for _, f := range ent {
 		if !f.IsDir() {
 			continue
@@ -183,30 +208,25 @@ func extractPackage(pacakage, dst string) error {
 }
 
 type assetsFs struct {
+	assets
 	AssetsDir    string
-	Assets       map[string]*Asset
-	AssetsByPath map[string]*Asset
 	HideMetaFile bool
-}
-
-func (a *assetsFs) GetAsset(guid string) *Asset {
-	return a.Assets[guid]
-}
-
-func (a *assetsFs) GetAssetByPath(path string) *Asset {
-	return a.AssetsByPath[path]
-}
-
-func (a *assetsFs) GetAllAssets() []*Asset {
-	var assets []*Asset
-	for _, a := range a.Assets {
-		assets = append(assets, a)
-	}
-	return assets
 }
 
 func (a *assetsFs) Open(path string) (fs.File, error) {
 	return os.Open(filepath.Join(a.AssetsDir, path))
+}
+
+func (a *assetsFs) GetMetaFile(asset *Asset) (*MetaFile, error) {
+	r, err := os.Open(filepath.Join(a.AssetsDir, asset.Path, ".meta"))
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	var meta MetaFile
+	err = yaml.NewDecoder(r).Decode(&meta)
+	return &meta, err
 }
 
 func (a *assetsFs) Close() error {
@@ -215,9 +235,11 @@ func (a *assetsFs) Close() error {
 
 func scanAssets(assetsDir string) (*assetsFs, error) {
 	assets := &assetsFs{
-		AssetsDir:    assetsDir,
-		Assets:       map[string]*Asset{},
-		AssetsByPath: map[string]*Asset{},
+		assets: assets{
+			Assets:       map[string]*Asset{},
+			AssetsByPath: map[string]*Asset{},
+		},
+		AssetsDir: assetsDir,
 	}
 	err := filepath.Walk(assetsDir, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {

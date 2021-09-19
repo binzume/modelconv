@@ -40,5 +40,13 @@ func TestLoadScene(t *testing.T) {
 	if err != nil {
 		t.Error("Cannot open scene.", err)
 	}
-	DumpScene(scene)
+
+	DumpScene(scene, true)
+
+	var transform *Transform
+	scene.Objects[0].GetComponent(&transform)
+	if transform == nil {
+		t.Error("GetComponent return nil", err)
+	}
+	t.Log(transform.GetGameObject() == scene.Objects[0])
 }

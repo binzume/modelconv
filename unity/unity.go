@@ -1,6 +1,8 @@
 package unity
 
 import (
+	"reflect"
+
 	"github.com/binzume/modelconv/geom"
 )
 
@@ -8,12 +10,16 @@ type Scene struct {
 	GUID    string
 	Objects []*GameObject
 
-	Elements        map[int64]interface{}
+	Elements        map[int64]Element
 	PrefabInstances map[string]*Scene
 }
 
-func (s *Scene) GetElement(ref *Ref) interface{} {
-	if ref == nil {
+func NewScene(guid string) *Scene {
+	return &Scene{GUID: guid, Elements: map[int64]Element{}, PrefabInstances: map[string]*Scene{}}
+}
+
+func (s *Scene) GetElement(ref *Ref) Element {
+	if !ref.IsValid() {
 		return nil
 	}
 	if ref.GUID != "" && ref.GUID != s.GUID {
@@ -25,10 +31,6 @@ func (s *Scene) GetElement(ref *Ref) interface{} {
 	return s.Elements[ref.FileID]
 }
 
-func (s *Scene) GetTransform(ref *Ref) *Transform {
-	t, _ := s.GetElement(ref).(*Transform)
-	return t
-}
 func (s *Scene) GetGameObject(ref *Ref) *GameObject {
 	t, _ := s.GetElement(ref).(*GameObject)
 	return t
@@ -39,6 +41,8 @@ type Ref struct {
 	GUID   string `yaml:"guid"`
 	Type   int    `yaml:"type"`
 }
+
+type Element interface{}
 
 func (r *Ref) IsValid() bool {
 	return r != nil && r.FileID != 0
@@ -59,8 +63,16 @@ type GameObject struct {
 	Scene *Scene `yaml:"-"`
 }
 
-func (o *GameObject) GetComponent(ref *Ref) interface{} {
-	return o.Scene.GetElement(ref)
+func (o *GameObject) GetComponent(target interface{}) bool {
+	typ := reflect.TypeOf(target).Elem()
+	for _, c := range o.Components {
+		component := o.Scene.GetElement(&c.Ref)
+		if reflect.TypeOf(component) == typ {
+			reflect.ValueOf(target).Elem().Set(reflect.ValueOf(component))
+			return true
+		}
+	}
+	return false
 }
 
 func (o *GameObject) GetTransform() *Transform {
@@ -107,6 +119,11 @@ func (tr *Transform) GetChildren() []*Transform {
 	return children
 }
 
+func (tr *Transform) GetParent() *Transform {
+	t, _ := tr.Scene.GetElement(&tr.Father).(*Transform)
+	return t
+}
+
 type MeshFilter struct {
 	Component `yaml:",inline"`
 	Mesh      *Ref `yaml:"m_Mesh"`
@@ -114,8 +131,7 @@ type MeshFilter struct {
 
 type MeshRenderer struct {
 	Component `yaml:",inline"`
-
-	Enabled int `yaml:"m_Enabled"`
+	Enabled   int `yaml:"m_Enabled"`
 
 	CastShadows          int `yaml:"m_CastShadows"`
 	ReceiveShadows       int `yaml:"m_ReceiveShadows"`
@@ -127,17 +143,12 @@ type MeshRenderer struct {
 	Materials []*Ref `yaml:"m_Materials"`
 }
 
-func (r *MeshRenderer) GetMeshFilter() *MeshFilter {
-	o := r.GetGameObject()
-	if o == nil {
-		return nil
-	}
-	for _, c := range o.Components {
-		if t, ok := o.Scene.GetElement(&c.Ref).(*MeshFilter); ok {
-			return t
-		}
-	}
-	return nil
+type MonoBehaviour struct {
+	Component `yaml:",inline"`
+	Enabled   int  `yaml:"m_Enabled"`
+	Script    *Ref `yaml:"m_Script"`
+
+	RawData map[string]interface{} `yaml:",inline"`
 }
 
 type PrefabInstance struct {
@@ -148,10 +159,4 @@ type PrefabInstance struct {
 	} `yaml:"m_Modification"`
 
 	SourcePrefab *Ref `yaml:"m_SourcePrefab"`
-}
-
-type MetaFile struct {
-	FileFormatVersion int         `yaml:"fileFormatVersion"`
-	GUID              string      `yaml:"guid"`
-	ModelImporter     interface{} `yaml:"ModelImporter"`
 }
