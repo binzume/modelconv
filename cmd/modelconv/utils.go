@@ -11,6 +11,7 @@ import (
 	"github.com/binzume/modelconv/fbx"
 	"github.com/binzume/modelconv/mmd"
 	"github.com/binzume/modelconv/mqo"
+	"github.com/binzume/modelconv/unity"
 	"github.com/qmuntal/gltf"
 )
 
@@ -44,6 +45,21 @@ func loadDocument(input string) (*mqo.Document, error) {
 		log.Println("Name: ", pmx.Name)
 		log.Println("Comment: ", pmx.Comment)
 		return converter.NewMMDToMQOConverter(nil).Convert(pmx), nil
+	} else if ext == ".unity" || ext == ".prefab" {
+		names := strings.Split(input, "#")
+		var assets unity.Assets
+		var err error
+		if strings.HasSuffix(names[0], ".unitypackage") {
+			assets, err = unity.OpenPackage(names[0])
+		} else {
+			assets, err = unity.OpenAssets(names[0])
+		}
+		if err != nil {
+			return nil, err
+		}
+		defer assets.Close()
+		scene, err := unity.LoadScene(assets, names[1])
+		return converter.NewUnityToMQOConverter(nil).Convert(scene)
 	}
 
 	if ext == ".fbx" {
