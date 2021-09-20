@@ -330,7 +330,7 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 		if len(f.UVs) > 0 {
 			useTexcood0 = true
 			for i, index := range verts {
-				if (texcood0[index][0] != 0 || texcood0[index][1] != 0) && (texcood0[index][0] != f.UVs[i].X || texcood0[index][1] != f.UVs[i].Y) {
+				if texcood0[index][0] != f.UVs[i].X || texcood0[index][1] != f.UVs[i].Y {
 					if ii, ok := indicesMap[vertexKey{index, f.UVs[i]}]; ok {
 						verts[i] = ii
 					} else {
