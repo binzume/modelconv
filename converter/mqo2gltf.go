@@ -481,17 +481,28 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 			continue
 		}
 		mm := m.convertMaterial(textureDir, mat)
-		if mat.Texture != "" {
-			if _, exist := textures[mat.Texture]; !exist {
-				tex, err := m.addTexture(textureDir, mat.Texture)
+		convertTexture := func(path string) (uint32, error) {
+			if _, exist := textures[path]; !exist {
+				tex, err := m.addTexture(textureDir, path)
 				if err != nil {
 					log.Print("Texture read error:", err)
+					return 0, err
 				}
-				textures[mat.Texture] = tex
+				textures[path] = tex
 			}
-			if tex, exist := textures[mat.Texture]; exist {
+			return textures[path], nil
+		}
+		if mat.Texture != "" {
+			if tex, err := convertTexture(mat.Texture); err == nil {
 				mm.PBRMetallicRoughness.BaseColorTexture = &gltf.TextureInfo{
 					Index: tex,
+				}
+			}
+		}
+		if mat.BumpTexture != "" {
+			if tex, err := convertTexture(mat.BumpTexture); err == nil {
+				mm.NormalTexture = &gltf.NormalTexture{
+					Index: gltf.Index(tex),
 				}
 			}
 		}

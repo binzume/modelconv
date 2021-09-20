@@ -61,7 +61,10 @@ type Material struct {
 	Emission float32
 	Specular float32
 	Power    float32
-	Texture  string
+
+	Texture      string
+	BumpTexture  string
+	AlphaTexture string
 
 	EmissionColor *Vector3
 

@@ -88,6 +88,12 @@ func (writer *Writer) WriteMQO(mqo *Document, ww io.Writer) error {
 		if mat.Texture != "" {
 			fmt.Fprintf(w, " tex(\"%v\")", strings.Replace(mat.Texture, "\\", "/", -1))
 		}
+		if mat.AlphaTexture != "" {
+			fmt.Fprintf(w, " aplane(\"%v\")", strings.Replace(mat.AlphaTexture, "\\", "/", -1))
+		}
+		if mat.BumpTexture != "" {
+			fmt.Fprintf(w, " bump(\"%v\")", strings.Replace(mat.BumpTexture, "\\", "/", -1))
+		}
 		w.WriteString("\n")
 
 		if mat.Ex2 != nil {

@@ -176,6 +176,8 @@ func (p *Parser) readMaterial() *Material {
 		"spc":     func() { m.Specular = p.readFloat() },
 		"power":   func() { m.Power = p.readFloat() },
 		"tex":     func() { m.Texture = p.readStr() },
+		"aplane":  func() { m.AlphaTexture = p.readStr() },
+		"bump":    func() { m.BumpTexture = p.readStr() },
 		"dbls":    func() { m.DoubleSided = p.readInt() != 0 },
 		"uid":     func() { m.UID = p.readInt() },
 		"shader":  func() { m.Shader = p.readInt() },
