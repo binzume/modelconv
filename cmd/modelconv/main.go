@@ -30,6 +30,10 @@ func isMQO(ext string) bool {
 	return ext == ".mqo" || ext == ".mqoz"
 }
 
+func isUnity(ext string) bool {
+	return ext == ".unity" || ext == ".prefab"
+}
+
 func defaultOutputExt(inputExt string) string {
 	if isMQO(inputExt) {
 		return ".glb"
@@ -284,8 +288,13 @@ func main() {
 		}
 	}
 
+	if isUnity(inputExt) {
+		input = strings.Split(input, "#")[0]
+	}
+	baseDir := filepath.Dir(input)
+
 	log.Print("out: ", output)
-	if err = saveDocument(doc, output, outputExt, filepath.Dir(input), *vrmconf, flag.Args()[0:inputN]); err != nil {
+	if err = saveDocument(doc, output, outputExt, baseDir, *vrmconf, flag.Args()[0:inputN]); err != nil {
 		log.Fatal(err)
 	}
 }

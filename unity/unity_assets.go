@@ -27,12 +27,14 @@ type Asset struct {
 }
 
 type MetaFile struct {
-	FileFormatVersion int    `yaml:"fileFormatVersion"`
-	GUID              string `yaml:"guid"`
-	ModelImporter     struct {
-		FileIDToRecycleName map[int64]string       `yaml:"fileIDToRecycleName"`
-		RawData             map[string]interface{} `yaml:",inline"`
+	FileFormatVersion    int                    `yaml:"fileFormatVersion"`
+	GUID                 string                 `yaml:"guid"`
+	NativeFormatImporter map[string]interface{} `yaml:"NativeFormatImporter"`
+	TextureImporter      map[string]interface{} `yaml:"TextureImporter"`
+	ModelImporter        struct {
+		FileIDToRecycleName map[int64]string `yaml:"fileIDToRecycleName"`
 	} `yaml:"ModelImporter"`
+	RawData map[string]interface{} `yaml:",inline"`
 }
 
 func (m *MetaFile) GetRecycleNameByFileID(fileID int64) string {
