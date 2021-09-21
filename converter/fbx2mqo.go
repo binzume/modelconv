@@ -71,9 +71,11 @@ func (conv *FBXToMQOConverter) ConvertTo(dst *mqo.Document, src *fbx.Document) (
 }
 
 func (c *fbxToMqoState) convert() {
-	for _, mat := range c.src.Materials {
-		c.materialIDMap[mat] = len(c.dst.Materials)
-		c.dst.Materials = append(c.dst.Materials, c.convertMaterial(mat))
+	if c.MaterialOverride == nil {
+		for _, mat := range c.src.Materials {
+			c.materialIDMap[mat] = len(c.dst.Materials)
+			c.dst.Materials = append(c.dst.Materials, c.convertMaterial(mat))
+		}
 	}
 
 	transform := c.coordMat.Mul(c.src.Scene.GetMatrix())
