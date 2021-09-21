@@ -59,6 +59,9 @@ func loadDocument(input string) (*mqo.Document, error) {
 		}
 		defer assets.Close()
 		scene, err := unity.LoadScene(assets, names[1])
+		if err != nil {
+			return nil, err
+		}
 		return converter.NewUnityToMQOConverter(nil).Convert(scene)
 	}
 

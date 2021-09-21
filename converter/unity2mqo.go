@@ -56,11 +56,12 @@ func (conv *UnityToMQOConverter) Convert(secne *unity.Scene) (*mqo.Document, err
 		}{},
 	}
 
-	// TODO
-	state.dst.Materials = append(state.dst.Materials, &mqo.Material{Name: "dummy", Color: geom.Vector4{X: 1, Y: 1, Z: 1, W: 1}})
-
 	for _, o := range secne.Objects {
 		state.convertObject(o, 0, true)
+	}
+
+	if len(state.dst.Materials) == 0 {
+		state.dst.Materials = append(state.dst.Materials, &mqo.Material{Name: "dummy", Color: geom.Vector4{X: 1, Y: 1, Z: 1, W: 1}})
 	}
 
 	return state.dst, nil
@@ -103,6 +104,12 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, active bool)
 				if c := material.GetColorProperty("_Color"); c != nil {
 					m.Color = geom.Vector4{X: c.R, Y: c.G, Z: c.B, W: c.A}
 				}
+				if c := material.GetColorProperty("_EmissionColor"); c != nil {
+					emmision := &geom.Vector3{X: c.R, Y: c.G, Z: c.B}
+					if emmision.Len() > 0 {
+						m.EmissionColor = emmision
+					}
+				}
 				m.Name = matGUID + "_" + material.Name
 
 				if t := material.GetTextureProperty("_MainTex"); t != nil && t.Texture.IsValid() {
@@ -128,9 +135,9 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, active bool)
 			dst.Materials = append(dst.Materials, m)
 			c.mat[matGUID] = mat
 		}
+
 		s := c.ConvertScale
 		trmat := geom.NewScaleMatrix4(s, s, s).Mul(tr.GetWorldMatrix())
-
 		if name, ok := unity.UnityMeshes[*meshFilter.Mesh]; ok {
 			mat := struct {
 				index   int
@@ -158,7 +165,12 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, active bool)
 	}
 
 	for _, child := range tr.GetChildren() {
-		c.convertObject(child.GetGameObject(), d+1, active)
+		childObj := child.GetGameObject()
+		if childObj == nil {
+			log.Println("GameObject not found", child.GameObject)
+			continue
+		}
+		c.convertObject(childObj, d+1, active)
 	}
 }
 
