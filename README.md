@@ -10,6 +10,7 @@ Goで3Dモデルファイルを読み書きするライブラリ＆変換ツー�
 | .pmx       |  ○  |  ○   | Physics未対応                    |
 | .pmd       |  ○  |       | Read only                        |
 | .fbx       |  ○  |       | 暫定実装                         |
+| .unity     |  △  |       | 暫定実装                         |
 | .vmd       |  △  |       | 暫定実装                         |
 
 glTFの読み書きには https://github.com/qmuntal/gltf を使っています．
@@ -50,6 +51,12 @@ modelconv -vrmconfig "model.vrmconfig.json" "model.pmx" "model.vrm"
 ```bash
 modelconv "model.gltf" "model.glb"
 modelconv -format glb "model.gltf"
+```
+
+### Unity to glb (WIP)
+
+```bash
+modelconv  "test.unitypackage#Assets/scene.unity" "scene.glb"
 ```
 
 ### Scaling
