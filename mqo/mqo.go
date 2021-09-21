@@ -1,6 +1,10 @@
 package mqo
 
-import "github.com/binzume/modelconv/geom"
+import (
+	"fmt"
+
+	"github.com/binzume/modelconv/geom"
+)
 
 type Vector2 = geom.Vector2
 type Vector3 = geom.Vector3
@@ -37,6 +41,31 @@ func (doc *Document) GetObjectByID(id int) *Object {
 		}
 	}
 	return nil
+}
+
+func (doc *Document) FixNames() {
+	objNames := map[string]bool{}
+	for _, obj := range doc.Objects {
+		if objNames[obj.Name] {
+			n := 2
+			for objNames[fmt.Sprintf("%s_%d", obj.Name, n)] {
+				n++
+			}
+			obj.Name = fmt.Sprintf("%s_%d", obj.Name, n)
+		}
+		objNames[obj.Name] = true
+	}
+	matNames := map[string]bool{}
+	for _, mat := range doc.Materials {
+		if matNames[mat.Name] {
+			n := 2
+			for matNames[fmt.Sprintf("%s_%d", mat.Name, n)] {
+				n++
+			}
+			mat.Name = fmt.Sprintf("%s_%d", mat.Name, n)
+		}
+		matNames[mat.Name] = true
+	}
 }
 
 type Scene struct {

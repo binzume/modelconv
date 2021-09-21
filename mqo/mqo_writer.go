@@ -275,5 +275,6 @@ func Save(doc *Document, path string) error {
 		return err
 	}
 	defer w.Close()
+	doc.FixNames()
 	return NewWriter(path).WriteMQO(doc, w)
 }
