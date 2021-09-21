@@ -10,9 +10,13 @@ import (
 )
 
 type FBXToMQOOption struct {
-	disableBlendShape bool
-	disableBone       bool
-	convertWholeNode  bool
+	DisableBlendShape bool
+	DisableBone       bool
+	ConvertWholeNode  bool
+	ObjectDepth       int
+	RootTransform     *geom.Matrix4
+	TargetModelName   string
+	MaterialOverride  []int
 }
 
 type FBXToMQOConverter struct {
@@ -40,9 +44,11 @@ func NewFBXToMQOConverter(options *FBXToMQOOption) *FBXToMQOConverter {
 }
 
 func (conv *FBXToMQOConverter) Convert(src *fbx.Document) (*mqo.Document, error) {
-	dst := mqo.NewDocument()
-	gs := src.GlobalSettings
+	return conv.ConvertTo(mqo.NewDocument(), src)
+}
 
+func (conv *FBXToMQOConverter) ConvertTo(dst *mqo.Document, src *fbx.Document) (*mqo.Document, error) {
+	gs := src.GlobalSettings
 	mat := geom.Matrix4{
 		0, 0, 0, 0,
 		0, 0, 0, 0,
@@ -52,7 +58,6 @@ func (conv *FBXToMQOConverter) Convert(src *fbx.Document) (*mqo.Document, error)
 	mat[gs.GetProperty70("CoordAxis").ToInt(0)*4] = gs.GetProperty70("CoordAxisSign").ToFloat32(1)
 	mat[gs.GetProperty70("UpAxis").ToInt(1)*4+1] = gs.GetProperty70("UpAxisSign").ToFloat32(1)
 	mat[gs.GetProperty70("FrontAxis").ToInt(2)*4+2] = gs.GetProperty70("FrontAxisSign").ToFloat32(1)
-
 	c := &fbxToMqoState{
 		FBXToMQOOption: conv.options,
 		src:            src,
@@ -61,22 +66,27 @@ func (conv *FBXToMQOConverter) Convert(src *fbx.Document) (*mqo.Document, error)
 		materialIDMap:  map[*fbx.Material]int{},
 		coordMat:       &mat,
 	}
+	c.convert()
+	return c.dst, nil
+}
 
-	for _, mat := range src.Materials {
-		c.materialIDMap[mat] = len(dst.Materials)
-		dst.Materials = append(dst.Materials, c.convertMaterial(mat))
+func (c *fbxToMqoState) convert() {
+	for _, mat := range c.src.Materials {
+		c.materialIDMap[mat] = len(c.dst.Materials)
+		c.dst.Materials = append(c.dst.Materials, c.convertMaterial(mat))
 	}
 
-	transform := c.coordMat.Mul(src.Scene.GetMatrix())
-	for _, m := range src.Scene.GetChildModels() {
-		if c.convertWholeNode || (m.Kind() != "LimbNode" && hasGeometryNode(m)) {
-			c.convertModel(m, 0, transform)
+	transform := c.coordMat.Mul(c.src.Scene.GetMatrix())
+	for _, m := range c.src.Scene.GetChildModels() {
+		if c.TargetModelName != "" && c.TargetModelName+"::Model" != m.Name() {
+			continue
+		}
+		if c.ConvertWholeNode || (m.Kind() != "LimbNode" && hasGeometryNode(m)) {
+			c.convertModel(m, c.ObjectDepth, transform)
 		}
 	}
 
-	mqo.GetBonePlugin(dst).SetBones(c.bones)
-
-	return dst, nil
+	mqo.GetBonePlugin(c.dst).SetBones(c.bones)
 }
 
 func (c *fbxToMqoState) convertMaterial(m *fbx.Material) *mqo.Material {
@@ -110,6 +120,15 @@ func (c *fbxToMqoState) convertModel(m *fbx.Model, d int, parentTransform *geom.
 	}
 
 	transform := parentTransform.Mul(m.GetMatrix())
+	if c.ObjectDepth > 0 && d == c.ObjectDepth {
+		// FIXME
+		if c.RootTransform != nil {
+			transform = c.RootTransform.Mul(c.coordMat)
+		}
+		if len(c.MaterialOverride) > 0 && len(materialIDs) > 0 {
+			copy(materialIDs, c.MaterialOverride)
+		}
+	}
 	geometry := m.GetGeometry()
 	if geometry != nil {
 		shapes := c.convertGeometry(geometry, obj, transform, materialIDs)
@@ -128,7 +147,7 @@ func (c *fbxToMqoState) convertModel(m *fbx.Model, d int, parentTransform *geom.
 		}
 	}
 	for _, m := range m.GetChildModels() {
-		if c.convertWholeNode || m.Kind() != "LimbNode" {
+		if c.ConvertWholeNode || m.Kind() != "LimbNode" {
 			c.convertModel(m, d+1, transform)
 		}
 	}
@@ -208,19 +227,19 @@ func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transf
 	for _, deformer := range g.GetDeformers() {
 		if deformer.Kind() == "BlendShapeChannel" {
 			// TODO: Apply deformer.FullWeights
-			if !c.disableBlendShape {
+			if !c.DisableBlendShape {
 				for _, shape := range deformer.GetShapes() {
 					shapes = append(shapes, c.convertShape(shape, obj, g, transform))
 				}
 			}
 		} else {
-			if !c.disableBone {
+			if !c.DisableBone {
 				c.convertDeformer(deformer, obj.UID)
 			}
 		}
 	}
 
-	if !c.disableBlendShape {
+	if !c.DisableBlendShape {
 		for _, shape := range g.GetShapes() {
 			shapes = append(shapes, c.convertShape(shape, obj, g, transform))
 		}

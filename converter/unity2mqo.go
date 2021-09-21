@@ -1,11 +1,14 @@
 package converter
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"path"
+	"strings"
 
+	"github.com/binzume/modelconv/fbx"
 	"github.com/binzume/modelconv/geom"
 	"github.com/binzume/modelconv/mqo"
 	"github.com/binzume/modelconv/unity"
@@ -82,49 +85,49 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, active bool)
 	if o.GetComponent(&meshFilter) && o.GetComponent(&meshRenderer) && meshFilter.Mesh.IsValid() {
 		s := c.ConvertScale
 		trmat := geom.NewScaleMatrix4(s, s, s).Mul(tr.GetWorldMatrix())
-		if name, ok := unity.UnityMeshes[*meshFilter.Mesh]; ok {
-			mat := struct {
-				index   int
-				uvScale *geom.Vector2
-			}{}
-			if len(meshRenderer.Materials) > 0 {
-				matGUID := meshRenderer.Materials[0].GUID
-				mat = c.mat[matGUID]
-				if mat.index == 0 {
-					mat.index = len(dst.Materials)
-					m := &mqo.Material{Name: matGUID, Color: geom.Vector4{X: 1, Y: 1, Z: 1, W: 1}, Diffuse: 0.8}
-					material, err := unity.LoadMaterial(o.Scene.Assets, matGUID)
-					log.Println(material)
-					if err == nil {
-						if c := material.GetColorProperty("_Color"); c != nil {
-							m.Color = geom.Vector4{X: c.R, Y: c.G, Z: c.B, W: c.A}
-						}
-						m.Name = matGUID + "_" + material.Name
-						if t := material.GetTextureProperty("_MainTex"); t != nil && t.Texture.IsValid() {
-							texAsset := o.Scene.Assets.GetAsset(t.Texture.GUID)
-							if c.SaveTexrure && texAsset != nil {
-								m.Texture, err = c.saveTexrure(texAsset)
-								if err != nil {
-									log.Println(err)
-								}
+		mat := struct {
+			index   int
+			uvScale *geom.Vector2
+		}{}
+		if len(meshRenderer.Materials) > 0 {
+			// TODO: multi-material
+			matGUID := meshRenderer.Materials[0].GUID
+			mat = c.mat[matGUID]
+			if mat.index == 0 {
+				mat.index = len(dst.Materials)
+				m := &mqo.Material{Name: matGUID, Color: geom.Vector4{X: 1, Y: 1, Z: 1, W: 1}, Diffuse: 0.8}
+				material, err := unity.LoadMaterial(o.Scene.Assets, matGUID)
+				if err == nil {
+					if c := material.GetColorProperty("_Color"); c != nil {
+						m.Color = geom.Vector4{X: c.R, Y: c.G, Z: c.B, W: c.A}
+					}
+					m.Name = matGUID + "_" + material.Name
+					if t := material.GetTextureProperty("_MainTex"); t != nil && t.Texture.IsValid() {
+						texAsset := o.Scene.Assets.GetAsset(t.Texture.GUID)
+						if c.SaveTexrure && texAsset != nil {
+							m.Texture, err = c.saveTexrure(texAsset)
+							if err != nil {
+								log.Println(err)
 							}
-							mat.uvScale = &t.Scale
 						}
-						if t := material.GetTextureProperty("_BumpMap"); t != nil && t.Texture.IsValid() {
-							texAsset := o.Scene.Assets.GetAsset(t.Texture.GUID)
-							if c.SaveTexrure && texAsset != nil {
-								m.BumpTexture, err = c.saveTexrure(texAsset)
-								if err != nil {
-									log.Println(err)
-								}
+						mat.uvScale = &t.Scale
+					}
+					if t := material.GetTextureProperty("_BumpMap"); t != nil && t.Texture.IsValid() {
+						texAsset := o.Scene.Assets.GetAsset(t.Texture.GUID)
+						if c.SaveTexrure && texAsset != nil {
+							m.BumpTexture, err = c.saveTexrure(texAsset)
+							if err != nil {
+								log.Println(err)
 							}
 						}
 					}
-					dst.Materials = append(dst.Materials, m)
-					c.mat[matGUID] = mat
 				}
+				dst.Materials = append(dst.Materials, m)
+				c.mat[matGUID] = mat
 			}
+		}
 
+		if name, ok := unity.UnityMeshes[*meshFilter.Mesh]; ok {
 			obj.Name += name
 			if name == "Cube" {
 				Cube(obj, trmat, mat.index, mat.uvScale)
@@ -136,11 +139,9 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, active bool)
 				log.Println("TODO:", name)
 			}
 		} else {
-			asset := c.src.Assets.GetAsset(meshFilter.Mesh.GUID)
-			if asset != nil {
-				meta, _ := c.src.Assets.GetMetaFile(asset)
-
-				log.Println("TODO:", asset.Path, meta.GetRecycleNameByFileID(meshFilter.Mesh.FileID))
+			err := c.importMesh(meshFilter.Mesh, obj, []int{mat.index}, trmat)
+			if err != nil {
+				log.Println("Can not import mesh: ", obj.Name, err)
 			}
 		}
 	}
@@ -168,6 +169,41 @@ func (c *unityToMqoState) saveTexrure(texAsset *unity.Asset) (string, error) {
 	defer w.Close()
 	_, err = io.Copy(w, r)
 	return fileName, err
+}
+
+func (c *unityToMqoState) importMesh(mesh *unity.Ref, obj *mqo.Object, materials []int, transform *geom.Matrix4) error {
+	asset := c.src.Assets.GetAsset(mesh.GUID)
+	if asset == nil {
+		return fmt.Errorf("asset not found %s", mesh.GUID)
+	}
+	if !strings.HasSuffix(asset.Path, ".fbx") {
+		return fmt.Errorf("not supported: %s", asset.Path)
+	}
+
+	obj.Name += "(FBX)"
+	meta, err := c.src.Assets.GetMetaFile(asset)
+	if err != nil {
+		return err
+	}
+	log.Println("Import mesh:", asset, meta.GetRecycleNameByFileID(mesh.FileID))
+
+	r, err := c.src.Assets.Open(asset.Path)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	doc, err := fbx.Parse(r)
+	if err != nil {
+		return err
+	}
+	scale := doc.GlobalSettings.GetProperty70("UnitScaleFactor").ToFloat32(1) * 0.01
+	_, err = NewFBXToMQOConverter(&FBXToMQOOption{
+		ObjectDepth:      obj.Depth + 1,
+		TargetModelName:  meta.GetRecycleNameByFileID(mesh.FileID),
+		MaterialOverride: materials,
+		RootTransform:    transform.Mul(geom.NewScaleMatrix4(-scale, scale, -scale)),
+	}).ConvertTo(c.dst, doc)
+	return err
 }
 
 func AddGeometry(o *mqo.Object, tr *geom.Matrix4, mat int, vs []*geom.Vector3, faces [][]int, uvs [][]geom.Vector2, uvScale *geom.Vector2) {

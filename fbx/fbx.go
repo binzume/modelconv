@@ -2,6 +2,7 @@ package fbx
 
 import (
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -11,7 +12,10 @@ func Load(path string) (*Document, error) {
 		return nil, err
 	}
 	defer r.Close()
+	return Parse(r)
+}
 
+func Parse(r io.Reader) (*Document, error) {
 	p := binaryParser{r: &positionReader{r: r}}
 	root, err := p.Parse()
 	if err != nil {
