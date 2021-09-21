@@ -79,55 +79,66 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, active bool)
 	if tr == nil {
 		return
 	}
+	obj.Translation = tr.LocalPosition.Scale(c.ConvertScale)
+	obj.Scale = &tr.LocalScale
 
 	var meshFilter *unity.MeshFilter
 	var meshRenderer *unity.MeshRenderer
 	if o.GetComponent(&meshFilter) && o.GetComponent(&meshRenderer) && meshFilter.Mesh.IsValid() {
-		s := c.ConvertScale
-		trmat := geom.NewScaleMatrix4(s, s, s).Mul(tr.GetWorldMatrix())
-		mat := struct {
-			index   int
-			uvScale *geom.Vector2
-		}{}
-		if len(meshRenderer.Materials) > 0 {
-			// TODO: multi-material
-			matGUID := meshRenderer.Materials[0].GUID
-			mat = c.mat[matGUID]
-			if mat.index == 0 {
-				mat.index = len(dst.Materials)
-				m := &mqo.Material{Name: matGUID, Color: geom.Vector4{X: 1, Y: 1, Z: 1, W: 1}, Diffuse: 0.8}
-				material, err := unity.LoadMaterial(o.Scene.Assets, matGUID)
-				if err == nil {
-					if c := material.GetColorProperty("_Color"); c != nil {
-						m.Color = geom.Vector4{X: c.R, Y: c.G, Z: c.B, W: c.A}
-					}
-					m.Name = matGUID + "_" + material.Name
-					if t := material.GetTextureProperty("_MainTex"); t != nil && t.Texture.IsValid() {
-						texAsset := o.Scene.Assets.GetAsset(t.Texture.GUID)
-						if c.SaveTexrure && texAsset != nil {
-							m.Texture, err = c.saveTexrure(texAsset)
-							if err != nil {
-								log.Println(err)
-							}
+		var materials []int
+		for _, materialRef := range meshRenderer.Materials {
+			matGUID := materialRef.GUID
+			if m, ok := c.mat[matGUID]; ok {
+				materials = append(materials, m.index)
+				continue
+			}
+			mat := struct {
+				index   int
+				uvScale *geom.Vector2
+			}{len(dst.Materials), nil}
+			materials = append(materials, mat.index)
+			m := &mqo.Material{Name: matGUID, Color: geom.Vector4{X: 1, Y: 1, Z: 1, W: 1}, Diffuse: 0.8}
+			material, err := unity.LoadMaterial(o.Scene.Assets, matGUID)
+			if err == nil {
+				if c := material.GetColorProperty("_Color"); c != nil {
+					m.Color = geom.Vector4{X: c.R, Y: c.G, Z: c.B, W: c.A}
+				}
+				m.Name = matGUID + "_" + material.Name
+
+				if t := material.GetTextureProperty("_MainTex"); t != nil && t.Texture.IsValid() {
+					texAsset := o.Scene.Assets.GetAsset(t.Texture.GUID)
+					if c.SaveTexrure && texAsset != nil {
+						m.Texture, err = c.saveTexrure(texAsset)
+						if err != nil {
+							log.Println(err)
 						}
-						mat.uvScale = &t.Scale
 					}
-					if t := material.GetTextureProperty("_BumpMap"); t != nil && t.Texture.IsValid() {
-						texAsset := o.Scene.Assets.GetAsset(t.Texture.GUID)
-						if c.SaveTexrure && texAsset != nil {
-							m.BumpTexture, err = c.saveTexrure(texAsset)
-							if err != nil {
-								log.Println(err)
-							}
+					mat.uvScale = &t.Scale
+				}
+				if t := material.GetTextureProperty("_BumpMap"); t != nil && t.Texture.IsValid() {
+					texAsset := o.Scene.Assets.GetAsset(t.Texture.GUID)
+					if c.SaveTexrure && texAsset != nil {
+						m.BumpTexture, err = c.saveTexrure(texAsset)
+						if err != nil {
+							log.Println(err)
 						}
 					}
 				}
-				dst.Materials = append(dst.Materials, m)
-				c.mat[matGUID] = mat
 			}
+			dst.Materials = append(dst.Materials, m)
+			c.mat[matGUID] = mat
 		}
+		s := c.ConvertScale
+		trmat := geom.NewScaleMatrix4(s, s, s).Mul(tr.GetWorldMatrix())
 
 		if name, ok := unity.UnityMeshes[*meshFilter.Mesh]; ok {
+			mat := struct {
+				index   int
+				uvScale *geom.Vector2
+			}{}
+			if len(meshRenderer.Materials) > 0 {
+				mat = c.mat[meshRenderer.Materials[0].GUID]
+			}
 			obj.Name += name
 			if name == "Cube" {
 				Cube(obj, trmat, mat.index, mat.uvScale)
@@ -139,7 +150,7 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, active bool)
 				log.Println("TODO:", name)
 			}
 		} else {
-			err := c.importMesh(meshFilter.Mesh, obj, []int{mat.index}, trmat)
+			err := c.importMesh(meshFilter.Mesh, obj, materials, trmat)
 			if err != nil {
 				log.Println("Can not import mesh: ", obj.Name, err)
 			}

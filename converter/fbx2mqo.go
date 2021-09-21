@@ -86,7 +86,9 @@ func (c *fbxToMqoState) convert() {
 		}
 	}
 
-	mqo.GetBonePlugin(c.dst).SetBones(c.bones)
+	if len(c.bones) > 0 {
+		mqo.GetBonePlugin(c.dst).SetBones(c.bones)
+	}
 }
 
 func (c *fbxToMqoState) convertMaterial(m *fbx.Material) *mqo.Material {
@@ -125,8 +127,8 @@ func (c *fbxToMqoState) convertModel(m *fbx.Model, d int, parentTransform *geom.
 		if c.RootTransform != nil {
 			transform = c.RootTransform.Mul(c.coordMat)
 		}
-		if len(c.MaterialOverride) > 0 && len(materialIDs) > 0 {
-			copy(materialIDs, c.MaterialOverride)
+		if len(c.MaterialOverride) > 0 {
+			materialIDs = c.MaterialOverride
 		}
 	}
 	geometry := m.GetGeometry()
