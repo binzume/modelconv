@@ -31,7 +31,7 @@ func isMQO(ext string) bool {
 }
 
 func isUnity(ext string) bool {
-	return ext == ".unity" || ext == ".prefab"
+	return ext == ".unity" || ext == ".prefab" || ext == ".unitypackage"
 }
 
 func defaultOutputExt(inputExt string) string {

@@ -28,16 +28,16 @@ func loadAnimation(input string) (*mmd.Animation, error) {
 
 func loadDocument(input string) (*mqo.Document, error) {
 	ext := strings.ToLower(filepath.Ext(input))
-
-	if isMQO(ext) {
+	switch {
+	case isMQO(ext):
 		return mqo.Load(input)
-	} else if isGltf(ext) {
+	case isGltf(ext):
 		doc, err := gltf.Open(input)
 		if err != nil {
 			return nil, err
 		}
 		return converter.NewGLTFToMQOConverter(nil).Convert(doc)
-	} else if isMMD(ext) {
+	case isMMD(ext):
 		pmx, err := mmd.Load(input)
 		if err != nil {
 			return nil, err
@@ -45,8 +45,15 @@ func loadDocument(input string) (*mqo.Document, error) {
 		log.Println("Name: ", pmx.Name)
 		log.Println("Comment: ", pmx.Comment)
 		return converter.NewMMDToMQOConverter(nil).Convert(pmx), nil
-	} else if ext == ".unity" || ext == ".prefab" {
-		names := strings.Split(input, "#")
+	case isUnity(ext):
+		names := strings.SplitN(input, "#", 2)
+		if len(names) == 1 {
+			if ext != ".unitypackage" && strings.HasSuffix(input, "Assets") {
+				names = []string{"Assets", input}
+			} else {
+				names = append(names, "")
+			}
+		}
 		var assets unity.Assets
 		var err error
 		if strings.HasSuffix(names[0], ".unitypackage") {
@@ -63,17 +70,15 @@ func loadDocument(input string) (*mqo.Document, error) {
 			return nil, err
 		}
 		return converter.NewUnityToMQOConverter(nil).Convert(scene)
-	}
-
-	if ext == ".fbx" {
+	case ext == ".fbx":
 		doc, err := fbx.Load(input)
 		if err != nil {
 			return nil, err
 		}
 		return converter.NewFBXToMQOConverter(nil).Convert(doc)
+	default:
+		return nil, fmt.Errorf("Unspoorted input")
 	}
-
-	return nil, fmt.Errorf("Unspoorted input")
 }
 
 func saveAsPmx(doc *mqo.Document, path string) error {
