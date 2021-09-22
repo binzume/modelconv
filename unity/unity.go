@@ -110,6 +110,9 @@ type Component struct {
 	ObjectHideFlags int `yaml:"m_ObjectHideFlags"`
 	PrefabInternal  Ref `yaml:"m_PrefabInternal"`
 	GameObject      Ref `yaml:"m_GameObject"`
+
+	CorrespondingSourceObject *Ref `yaml:"m_CorrespondingSourceObject"`
+	PrefabInstance            *Ref `yaml:"m_PrefabInstance"`
 }
 
 func (c *Component) GetGameObject() *GameObject {
@@ -148,6 +151,12 @@ func (tr *Transform) GetChildren() []*Transform {
 	var children []*Transform
 	for _, c := range tr.Children {
 		if t, ok := tr.Scene.GetElement(c).(*Transform); ok {
+			// stripped. TODO: resolve while scene load
+			if !t.GameObject.IsValid() && t.CorrespondingSourceObject.IsValid() {
+				if t2, ok := tr.Scene.GetElement(t.CorrespondingSourceObject).(*Transform); ok {
+					t = t2
+				}
+			}
 			children = append(children, t)
 		}
 	}
