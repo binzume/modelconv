@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/binzume/modelconv/fbx"
@@ -56,8 +57,10 @@ func (conv *UnityToMQOConverter) Convert(secne *unity.Scene) (*mqo.Document, err
 		}{},
 	}
 
+	s := state.ConvertScale
+	transform := geom.NewScaleMatrix4(s, s, s)
 	for _, o := range secne.Objects {
-		state.convertObject(o, 0, true)
+		state.convertObject(o, 0, transform, true)
 	}
 
 	if len(state.dst.Materials) == 0 {
@@ -67,7 +70,7 @@ func (conv *UnityToMQOConverter) Convert(secne *unity.Scene) (*mqo.Document, err
 	return state.dst, nil
 }
 
-func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, active bool) {
+func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransform *geom.Matrix4, active bool) {
 	dst := c.dst
 	obj := mqo.NewObject(o.Name)
 	active = active && o.IsActive != 0
@@ -82,6 +85,7 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, active bool)
 	}
 	obj.Translation = tr.LocalPosition.Scale(c.ConvertScale)
 	obj.Scale = &tr.LocalScale
+	transform := parentTransform.Mul(tr.GetMatrix())
 
 	var meshFilter *unity.MeshFilter
 	var meshRenderer *unity.MeshRenderer
@@ -113,9 +117,9 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, active bool)
 				m.Name = matGUID + "_" + material.Name
 
 				if t := material.GetTextureProperty("_MainTex"); t != nil && t.Texture.IsValid() {
-					texAsset := o.Scene.Assets.GetAsset(t.Texture.GUID)
+					texAsset := c.src.Assets.GetAsset(t.Texture.GUID)
 					if c.SaveTexrure && texAsset != nil {
-						m.Texture, err = c.saveTexrure(texAsset)
+						m.Texture, err = c.saveTexrure(c.src.Assets, texAsset)
 						if err != nil {
 							log.Println(err)
 						}
@@ -123,9 +127,9 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, active bool)
 					mat.uvScale = &t.Scale
 				}
 				if t := material.GetTextureProperty("_BumpMap"); t != nil && t.Texture.IsValid() {
-					texAsset := o.Scene.Assets.GetAsset(t.Texture.GUID)
+					texAsset := c.src.Assets.GetAsset(t.Texture.GUID)
 					if c.SaveTexrure && texAsset != nil {
-						m.BumpTexture, err = c.saveTexrure(texAsset)
+						m.BumpTexture, err = c.saveTexrure(c.src.Assets, texAsset)
 						if err != nil {
 							log.Println(err)
 						}
@@ -136,8 +140,7 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, active bool)
 			c.mat[matGUID] = mat
 		}
 
-		s := c.ConvertScale
-		trmat := geom.NewScaleMatrix4(s, s, s).Mul(tr.GetWorldMatrix())
+		meshObjectIndex := len(dst.Objects)
 		if name, ok := unity.UnityMeshes[*meshFilter.Mesh]; ok {
 			mat := struct {
 				index   int
@@ -148,50 +151,56 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, active bool)
 			}
 			obj.Name += name
 			if name == "Cube" {
-				Cube(obj, trmat, mat.index, mat.uvScale)
+				Cube(obj, transform, mat.index, mat.uvScale)
 			} else if name == "Plane" {
-				Plane(obj, trmat, mat.index, mat.uvScale)
+				Plane(obj, transform, mat.index, mat.uvScale)
 			} else if name == "Quad" {
-				Quad(obj, trmat, mat.index, mat.uvScale)
+				Quad(obj, transform, mat.index, mat.uvScale)
 			} else {
 				log.Println("TODO:", name)
 			}
 		} else {
-			err := c.importMesh(meshFilter.Mesh, obj, materials, trmat)
+			err := c.importMesh(meshFilter.Mesh, obj, materials, transform)
 			if err != nil {
 				log.Println("Can not import mesh: ", obj.Name, err)
 			}
+		}
+		for meshObjectIndex < len(dst.Objects) {
+			dst.Objects[meshObjectIndex].Visible = active && meshRenderer.Enabled != 0
+			meshObjectIndex++
 		}
 	}
 
 	for _, child := range tr.GetChildren() {
 		childObj := child.GetGameObject()
 		if childObj == nil {
-			log.Println("GameObject not found", child.GameObject)
+			log.Println("GameObject not found", child.GameObject, tr.CorrespondingSourceObject)
 			continue
 		}
-		c.convertObject(childObj, d+1, active)
+		c.convertObject(childObj, d+1, transform, active)
 	}
 }
 
-func (c *unityToMqoState) saveTexrure(texAsset *unity.Asset) (string, error) {
-	fileName := "textures/" + texAsset.GUID + "_" + path.Base(texAsset.Path)
-	_ = os.Mkdir("textures/", 0755)
-	if _, err := os.Stat(fileName); err == nil {
-		return fileName, nil
+func (c *unityToMqoState) saveTexrure(assets unity.Assets, texAsset *unity.Asset) (string, error) {
+	texDir := filepath.Join(filepath.Dir(assets.GetSourcePath()), "saved_textures")
+	texPath := filepath.Join(texDir, texAsset.GUID+"_"+path.Base(texAsset.Path))
+	texName := "saved_textures/" + texAsset.GUID + "_" + path.Base(texAsset.Path)
+	_ = os.Mkdir(texDir, 0755)
+	if _, err := os.Stat(texPath); err == nil {
+		return texName, nil
 	}
 	r, err := c.src.Assets.Open(texAsset.Path)
 	if err != nil {
 		return "", err
 	}
 	defer r.Close()
-	w, err := os.Create(fileName)
+	w, err := os.Create(texPath)
 	if err != nil {
 		return "", err
 	}
 	defer w.Close()
 	_, err = io.Copy(w, r)
-	return fileName, err
+	return texName, err
 }
 
 func (c *unityToMqoState) importMesh(mesh *unity.Ref, obj *mqo.Object, materials []int, transform *geom.Matrix4) error {

@@ -69,11 +69,11 @@ func (s *yamlSplitter) getTag() string {
 }
 
 func (s *yamlSplitter) readToken() string {
-	for s.pos < len(s.data) && s.data[s.pos] == ' ' {
+	for s.pos < len(s.data) && (s.data[s.pos] == ' ' || s.data[s.pos] == '\r') {
 		s.pos++
 	}
 	st := s.pos
-	for s.pos < len(s.data) && s.data[s.pos] != '\n' && s.data[s.pos] != ' ' {
+	for s.pos < len(s.data) && s.data[s.pos] != '\n' && s.data[s.pos] != ' ' && s.data[s.pos] != '\r' {
 		s.pos++
 	}
 	return string(s.data[st:s.pos])

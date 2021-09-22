@@ -15,7 +15,7 @@ func LoadScene(assets Assets, scenePath string) (*Scene, error) {
 		log.Println("Scenes:")
 		for _, a := range assets.GetAllAssets() {
 			if strings.HasSuffix(a.Path, ".unity") {
-				log.Println(a.Path)
+				log.Println("  " + assets.GetSourcePath() + "#" + a.Path)
 			}
 		}
 		return nil, fmt.Errorf("Scene not found: %s", scenePath)
@@ -75,27 +75,101 @@ func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 		} else if doc.Tag == "tag:unity3d.com,2011:1001" {
 			var a struct {
 				PrefabInstance *PrefabInstance `yaml:"PrefabInstance"`
+				Prefab         *PrefabInstance `yaml:"Prefab"`
 			}
 			err = doc.Decode(&a)
+			if a.Prefab != nil {
+				continue
+			}
 			prefab := a.PrefabInstance
-			if prefab != nil && prefab.SourcePrefab != nil {
-				element = prefab
-				guid := prefab.SourcePrefab.GUID
-				if assets.GetAsset(guid) == nil {
-					continue
+			if err != nil || prefab == nil || !prefab.SourcePrefab.IsValid() {
+				log.Println("invalid prefabInstance", err, scene.GUID, fileId)
+				continue
+			}
+			prefabAsset := assets.GetAsset(prefab.SourcePrefab.GUID)
+			if prefabAsset == nil {
+				log.Println("prefab not found", prefab.SourcePrefab)
+				continue
+			}
+			s, err := LoadSceneAsset(assets, prefabAsset)
+			if err != nil {
+				log.Println("failed to loadPrefab", prefab.SourcePrefab)
+				continue
+			}
+			prefab.PrefabScene = s
+			element = prefab
+			if len(s.Objects) > 0 {
+				root := s.Objects[0]
+				if root.GetTransform() != nil {
+					root.GetTransform().Father = *prefab.Modification.TransformParent
+					root.GetTransform().Father.GUID = scene.GUID
 				}
-				s, err := LoadSceneAsset(assets, assets.GetAsset(guid))
-				if err == nil {
-					scene.PrefabInstances[guid] = s
+				objects = append(objects, root)
+			}
+			for _, mod := range prefab.Modification.Modifications {
+				target := s.GetElement(mod.Target)
+				var flaotValue float32
+				if v, ok := mod.Value.(float32); ok {
+					flaotValue = v
+				} else if v, ok := mod.Value.(float64); ok {
+					flaotValue = float32(v)
+				} else if v, ok := mod.Value.(int64); ok {
+					flaotValue = float32(v)
+				} else if v, ok := mod.Value.(int); ok {
+					flaotValue = float32(v)
 				}
-				if len(s.Objects) > 0 {
-					root := s.Objects[0]
-					// TODO: apply qll modifications
-					if root.GetTransform() != nil {
-						root.GetTransform().Father = *prefab.Modification.TransformParent
-						root.GetTransform().Father.GUID = scene.GUID
+				if t, ok := target.(*Transform); ok {
+					switch mod.PropertyPath {
+					case "m_LocalPosition.x":
+						t.LocalPosition.X = flaotValue
+						break
+					case "m_LocalPosition.y":
+						t.LocalPosition.Y = flaotValue
+						break
+					case "m_LocalPosition.z":
+						t.LocalPosition.Z = flaotValue
+						break
+					case "m_LocalScale.x":
+						t.LocalScale.X = flaotValue
+						break
+					case "m_LocalScale.y":
+						t.LocalScale.Y = flaotValue
+						break
+					case "m_LocalScale.z":
+						t.LocalScale.Z = flaotValue
+						break
+					case "m_LocalRotation.x":
+						t.LocalRotation.X = flaotValue
+						break
+					case "m_LocalRotation.y":
+						t.LocalRotation.Y = flaotValue
+						break
+					case "m_LocalRotation.z":
+						t.LocalRotation.Z = flaotValue
+						break
+					case "m_LocalRotation.w":
+						t.LocalRotation.W = flaotValue
+						break
+					case "m_RootOrder":
+						t.RootOrder = int(flaotValue)
+						break
+					case "m_LocalEulerAnglesHint.x":
+					case "m_LocalEulerAnglesHint.y":
+					case "m_LocalEulerAnglesHint.z":
+						// ignore
+						break
+					default:
+						log.Println("Unsupported modification property:", mod.PropertyPath)
 					}
-					objects = append(objects, root)
+				} else if t, ok := target.(*GameObject); ok {
+					switch mod.PropertyPath {
+					case "m_IsActive":
+						t.IsActive = int(flaotValue)
+					case "m_Name":
+						t.Name, _ = mod.Value.(string)
+					case "m_TagString":
+						t.TagString, _ = mod.Value.(string)
+					}
 				}
 			}
 		} else {

@@ -28,23 +28,25 @@ type Scene struct {
 	GUID    string
 	Objects []*GameObject
 
-	Elements        map[int64]Element
-	PrefabInstances map[string]*Scene
+	Elements map[int64]Element
 
 	Assets Assets
 }
 
 func NewScene(assets Assets, guid string) *Scene {
-	return &Scene{GUID: guid, Elements: map[int64]Element{}, PrefabInstances: map[string]*Scene{}, Assets: assets}
+	return &Scene{GUID: guid, Elements: map[int64]Element{}, Assets: assets}
 }
 
 func (s *Scene) GetElement(ref *Ref) Element {
+	return s.GetElement2(ref, nil)
+}
+func (s *Scene) GetElement2(ref *Ref, prefabInstance *Ref) Element {
 	if !ref.IsValid() {
 		return nil
 	}
-	if ref.GUID != "" && ref.GUID != s.GUID {
-		if p, ok := s.PrefabInstances[ref.GUID]; ok {
-			return p.GetElement(ref)
+	if ref.GUID != "" && ref.GUID != s.GUID && prefabInstance.IsValid() {
+		if prefab, ok := s.Elements[prefabInstance.FileID].(*PrefabInstance); ok {
+			return prefab.PrefabScene.GetElement(ref)
 		}
 		return nil
 	}
@@ -86,7 +88,7 @@ type GameObject struct {
 func (o *GameObject) GetComponent(target interface{}) bool {
 	typ := reflect.TypeOf(target).Elem()
 	for _, c := range o.Components {
-		component := o.Scene.GetElement(&c.Ref)
+		component := o.Scene.GetElement2(&c.Ref, o.PrefabInstance)
 		if reflect.TypeOf(component) == typ {
 			reflect.ValueOf(target).Elem().Set(reflect.ValueOf(component))
 			return true
@@ -97,7 +99,7 @@ func (o *GameObject) GetComponent(target interface{}) bool {
 
 func (o *GameObject) GetTransform() *Transform {
 	for _, c := range o.Components {
-		if t, ok := o.Scene.GetElement(&c.Ref).(*Transform); ok {
+		if t, ok := o.Scene.GetElement2(&c.Ref, o.PrefabInstance).(*Transform); ok {
 			return t
 		}
 	}
@@ -116,7 +118,7 @@ type Component struct {
 }
 
 func (c *Component) GetGameObject() *GameObject {
-	obj, _ := c.Scene.GetElement(&c.GameObject).(*GameObject)
+	obj, _ := c.Scene.GetElement2(&c.GameObject, c.PrefabInstance).(*GameObject)
 	return obj
 }
 
@@ -150,10 +152,10 @@ func (tr *Transform) GetWorldMatrix() *geom.Matrix4 {
 func (tr *Transform) GetChildren() []*Transform {
 	var children []*Transform
 	for _, c := range tr.Children {
-		if t, ok := tr.Scene.GetElement(c).(*Transform); ok {
-			// stripped. TODO: resolve while scene load
+		if t, ok := tr.Scene.GetElement2(c, tr.PrefabInstance).(*Transform); ok {
+			// stripped.
 			if !t.GameObject.IsValid() && t.CorrespondingSourceObject.IsValid() {
-				if t2, ok := tr.Scene.GetElement(t.CorrespondingSourceObject).(*Transform); ok {
+				if t2, ok := t.Scene.GetElement2(t.CorrespondingSourceObject, t.PrefabInstance).(*Transform); ok {
 					t = t2
 				}
 			}
@@ -164,6 +166,7 @@ func (tr *Transform) GetChildren() []*Transform {
 }
 
 func (tr *Transform) GetParent() *Transform {
+	// TODO: prefab parent
 	t, _ := tr.Scene.GetElement(&tr.Father).(*Transform)
 	return t
 }
@@ -197,10 +200,16 @@ type MonoBehaviour struct {
 
 type PrefabInstance struct {
 	Modification struct {
-		Modifications     []interface{} `yaml:"m_Modifications"`
+		Modifications []struct {
+			Target          *Ref        `yaml:"target"`
+			PropertyPath    string      `yaml:"propertyPath"`
+			Value           interface{} `yaml:"value"`
+			ObjectReference *Ref        `yaml:"objectReference"`
+		} `yaml:"m_Modifications"`
 		TransformParent   *Ref          `yaml:"m_TransformParent"`
 		RemovedComponents []interface{} `yaml:"m_RemovedComponents"`
 	} `yaml:"m_Modification"`
 
-	SourcePrefab *Ref `yaml:"m_SourcePrefab"`
+	SourcePrefab *Ref   `yaml:"m_SourcePrefab"`
+	PrefabScene  *Scene `yaml:"-"`
 }

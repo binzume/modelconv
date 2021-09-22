@@ -14,6 +14,7 @@ import (
 )
 
 type Assets interface {
+	GetSourcePath() string
 	GetAsset(guid string) *Asset
 	GetAssetByPath(assetPath string) *Asset
 	GetAllAssets() []*Asset
@@ -53,7 +54,7 @@ func OpenPackage(packagePath string) (Assets, error) {
 		return nil, err
 	}
 	if stat.IsDir() {
-		return scanPackage(packagePath, false)
+		return scanPackage(packagePath, false, packagePath)
 	}
 	tmpDir, err := ioutil.TempDir("", "modelconv_assets_")
 	if err != nil {
@@ -63,7 +64,7 @@ func OpenPackage(packagePath string) (Assets, error) {
 	if err != nil {
 		return nil, err
 	}
-	return scanPackage(tmpDir, true)
+	return scanPackage(tmpDir, true, packagePath)
 }
 
 type assets struct {
@@ -89,9 +90,14 @@ func (a *assets) GetAllAssets() []*Asset {
 
 type packageFs struct {
 	assets
-	PackageDir   string
-	Temp         bool
-	HideMetaFile bool
+	OriginalPackagePath string
+	PackageDir          string
+	Temp                bool
+	HideMetaFile        bool
+}
+
+func (a *packageFs) GetSourcePath() string {
+	return a.OriginalPackagePath
 }
 
 func (a *packageFs) Open(path string) (fs.File, error) {
@@ -121,7 +127,7 @@ func (a *packageFs) Close() error {
 	return nil
 }
 
-func scanPackage(packageDir string, tmp bool) (*packageFs, error) {
+func scanPackage(packageDir string, tmp bool, originalPath string) (*packageFs, error) {
 	ent, err := os.ReadDir(packageDir)
 	if err != nil {
 		return nil, err
@@ -132,8 +138,9 @@ func scanPackage(packageDir string, tmp bool) (*packageFs, error) {
 			Assets:       map[string]*Asset{},
 			AssetsByPath: map[string]*Asset{},
 		},
-		Temp:       tmp,
-		PackageDir: packageDir,
+		Temp:                tmp,
+		PackageDir:          packageDir,
+		OriginalPackagePath: originalPath,
 	}
 	for _, f := range ent {
 		if !f.IsDir() {
@@ -220,6 +227,10 @@ type assetsFs struct {
 	assets
 	AssetsDir    string
 	HideMetaFile bool
+}
+
+func (a *assetsFs) GetSourcePath() string {
+	return a.AssetsDir
 }
 
 func (a *assetsFs) Open(path string) (fs.File, error) {
