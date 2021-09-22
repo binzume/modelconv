@@ -32,6 +32,7 @@ type unityToMqoState struct {
 		index   int
 		uvScale *geom.Vector2
 	}
+	matToGUID map[int]string
 }
 
 func NewUnityToMQOConverter(options *UnityToMQOOption) *UnityToMQOConverter {
@@ -55,6 +56,7 @@ func (conv *UnityToMQOConverter) Convert(secne *unity.Scene) (*mqo.Document, err
 			index   int
 			uvScale *geom.Vector2
 		}{},
+		matToGUID: map[int]string{},
 	}
 
 	s := state.ConvertScale
@@ -101,6 +103,7 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 				index   int
 				uvScale *geom.Vector2
 			}{len(dst.Materials), nil}
+			c.matToGUID[len(dst.Materials)] = matGUID
 			materials = append(materials, mat.index)
 			m := &mqo.Material{Name: matGUID, Color: geom.Vector4{X: 1, Y: 1, Z: 1, W: 1}, Diffuse: 0.8}
 			material, err := unity.LoadMaterial(o.Scene.Assets, matGUID)
@@ -142,20 +145,18 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 
 		meshObjectIndex := len(dst.Objects)
 		if name, ok := unity.UnityMeshes[*meshFilter.Mesh]; ok {
-			mat := struct {
-				index   int
-				uvScale *geom.Vector2
-			}{}
-			if len(meshRenderer.Materials) > 0 {
-				mat = c.mat[meshRenderer.Materials[0].GUID]
+			meshObjectIndex--
+			mat := 0
+			if len(materials) > 0 {
+				mat = materials[0]
 			}
-			obj.Name += name
+			obj.Name += "(" + name + ")"
 			if name == "Cube" {
-				Cube(obj, transform, mat.index, mat.uvScale)
+				Cube(obj, transform, mat)
 			} else if name == "Plane" {
-				Plane(obj, transform, mat.index, mat.uvScale)
+				Plane(obj, transform, mat)
 			} else if name == "Quad" {
-				Quad(obj, transform, mat.index, mat.uvScale)
+				Quad(obj, transform, mat)
 			} else {
 				log.Println("TODO:", name)
 			}
@@ -166,7 +167,17 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 			}
 		}
 		for meshObjectIndex < len(dst.Objects) {
-			dst.Objects[meshObjectIndex].Visible = active && meshRenderer.Enabled != 0
+			obj := dst.Objects[meshObjectIndex]
+			obj.Visible = active && meshRenderer.Enabled != 0
+			for _, face := range obj.Faces {
+				scale := c.mat[c.matToGUID[face.Material]].uvScale
+				if scale != nil {
+					for i := range face.UVs {
+						face.UVs[i].X *= scale.X
+						face.UVs[i].Y *= scale.Y
+					}
+				}
+			}
 			meshObjectIndex++
 		}
 	}
@@ -238,7 +249,7 @@ func (c *unityToMqoState) importMesh(mesh *unity.Ref, obj *mqo.Object, materials
 	return err
 }
 
-func AddGeometry(o *mqo.Object, tr *geom.Matrix4, mat int, vs []*geom.Vector3, faces [][]int, uvs [][]geom.Vector2, uvScale *geom.Vector2) {
+func AddGeometry(o *mqo.Object, tr *geom.Matrix4, mat int, vs []*geom.Vector3, faces [][]int, uvs [][]geom.Vector2) {
 	voffset := len(o.Vertexes)
 	for _, v := range vs {
 		o.Vertexes = append(o.Vertexes, tr.ApplyTo(v))
@@ -250,18 +261,12 @@ func AddGeometry(o *mqo.Object, tr *geom.Matrix4, mat int, vs []*geom.Vector3, f
 		face := &mqo.Face{Material: mat, Verts: f}
 		if len(uvs) > n {
 			face.UVs = uvs[n]
-			if uvScale != nil {
-				for i := range face.UVs {
-					face.UVs[i].X *= uvScale.X
-					face.UVs[i].Y *= uvScale.Y
-				}
-			}
 		}
 		o.Faces = append(o.Faces, face)
 	}
 }
 
-func Cube(o *mqo.Object, tr *geom.Matrix4, mat int, uvScale *geom.Vector2) {
+func Cube(o *mqo.Object, tr *geom.Matrix4, mat int) {
 	vs := []*geom.Vector3{
 		{X: -0.5, Y: -0.5, Z: -0.5},
 		{X: 0.5, Y: -0.5, Z: -0.5},
@@ -285,10 +290,10 @@ func Cube(o *mqo.Object, tr *geom.Matrix4, mat int, uvScale *geom.Vector2) {
 		{{X: 1, Y: 1}, {X: 1, Y: 0}, {X: 0, Y: 0}, {X: 0, Y: 1}},
 		{{X: 1, Y: 1}, {X: 1, Y: 0}, {X: 0, Y: 0}, {X: 0, Y: 1}},
 	}
-	AddGeometry(o, tr, mat, vs, faces, uvs, uvScale)
+	AddGeometry(o, tr, mat, vs, faces, uvs)
 }
 
-func Quad(o *mqo.Object, tr *geom.Matrix4, mat int, uvScale *geom.Vector2) {
+func Quad(o *mqo.Object, tr *geom.Matrix4, mat int) {
 	vs := []*geom.Vector3{
 		{X: -0.5, Y: -0.5},
 		{X: 0.5, Y: -0.5},
@@ -301,10 +306,10 @@ func Quad(o *mqo.Object, tr *geom.Matrix4, mat int, uvScale *geom.Vector2) {
 	uvs := [][]geom.Vector2{
 		{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 0, Y: 1}, {X: 1, Y: 1}},
 	}
-	AddGeometry(o, tr, mat, vs, faces, uvs, uvScale)
+	AddGeometry(o, tr, mat, vs, faces, uvs)
 }
 
-func Plane(o *mqo.Object, tr *geom.Matrix4, mat int, uvScale *geom.Vector2) {
+func Plane(o *mqo.Object, tr *geom.Matrix4, mat int) {
 	vs := []*geom.Vector3{
 		{X: -5, Y: 0, Z: -5},
 		{X: 5, Y: 0, Z: -5},
@@ -317,5 +322,5 @@ func Plane(o *mqo.Object, tr *geom.Matrix4, mat int, uvScale *geom.Vector2) {
 	uvs := [][]geom.Vector2{
 		{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}, {X: 0, Y: 1}},
 	}
-	AddGeometry(o, tr, mat, vs, faces, uvs, uvScale)
+	AddGeometry(o, tr, mat, vs, faces, uvs)
 }
