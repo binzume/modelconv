@@ -124,16 +124,37 @@ func (c *fbxToMqoState) convertModel(m *fbx.Model, d int, parentTransform *geom.
 	}
 
 	transform := parentTransform.Mul(m.GetMatrix())
+	geometry := m.GetGeometry()
 	if c.ObjectDepth > 0 && d == c.ObjectDepth {
-		// FIXME
+		// Unity: FIXME
 		if c.RootTransform != nil {
 			transform = c.RootTransform.Mul(c.coordMat)
 		}
 		if len(c.MaterialOverride) > 0 {
 			materialIDs = c.MaterialOverride
+			if geometry != nil && len(materialIDs) > 1 {
+				// Unity: material order depends material array in geometry????
+				matnode := geometry.GetLayerElementMaterial()
+				matArray := matnode.GetIndexes()
+				if len(matArray) > 1 {
+					matMap := map[int32]bool{}
+					materialIDs = make([]int, len(c.MaterialOverride))
+					n := 0
+					for _, m := range matArray {
+						if matMap[m] || m >= int32(len(materialIDs)) {
+							continue
+						}
+						matMap[m] = true
+						materialIDs[m] = c.MaterialOverride[n]
+						n++
+						if n >= len(c.MaterialOverride) {
+							break
+						}
+					}
+				}
+			}
 		}
 	}
-	geometry := m.GetGeometry()
 	if geometry != nil {
 		shapes := c.convertGeometry(geometry, obj, transform, materialIDs)
 		if len(shapes) > 0 {
