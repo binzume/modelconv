@@ -170,6 +170,15 @@ func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 					case "m_TagString":
 						t.TagString, _ = mod.Value.(string)
 					}
+				} else if t, ok := target.(*MeshRenderer); ok {
+					if strings.HasPrefix(mod.PropertyPath, "m_Materials.Array.data[") {
+						i := int(mod.PropertyPath[23] - '0')
+						if i < len(t.Materials) {
+							t.Materials[i] = mod.ObjectReference
+						}
+					}
+				} else {
+					// log.Printf("%T, %v, %v\n", target, mod.PropertyPath, mod.ObjectReference)
 				}
 			}
 		} else {
