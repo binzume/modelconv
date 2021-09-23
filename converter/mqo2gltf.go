@@ -20,8 +20,9 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 
-	_ "github.com/ftrvxmtrx/tga"
-	"golang.org/x/image/bmp"
+	"github.com/blezek/tga"
+	_ "github.com/oov/psd"
+	_ "golang.org/x/image/bmp"
 )
 
 type MQOToGLTFOption struct {
@@ -225,10 +226,10 @@ func (m *mqoToGltf) addTexture(textureDir string, texture string) (uint32, error
 		mimeType = "image/png"
 		img, _, err := image.Decode(r)
 		if err != nil {
-			if ext == ".bmp" {
+			if ext == ".tga" {
 				// retry
 				f.Seek(0, io.SeekStart)
-				img, err = bmp.Decode(r)
+				img, err = tga.Decode(r)
 			}
 			if err != nil {
 				return 0, err
