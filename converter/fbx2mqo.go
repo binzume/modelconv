@@ -200,6 +200,10 @@ func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transf
 	matType := matnode.GetMappingInformationType()
 	matByPolygon := matType == "ByPolygon" && len(matArray) >= len(g.Polygons)
 	matAllSame := matType == "AllSame" && len(matArray) > 0
+	normalNode := g.GetLayerElementNormal()
+	normArray := normalNode.Array.GetVec3Array()
+	normByVertex := normalNode.GetMappingInformationType() == "ByControlPoint" && len(normArray) >= len(g.Vertices)
+	normByPolygonVertex := normalNode.GetMappingInformationType() == "ByPolygonVertex"
 
 	uvnode := g.GetLayerElementUV()
 	var uv []*geom.Vector2
@@ -230,6 +234,14 @@ func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transf
 		}
 		if matIdx < len(materialIDs) {
 			face.Material = materialIDs[matIdx]
+		}
+		for n, v := range f {
+			// TODO: normal transformation
+			if normByVertex && v < len(normArray) {
+				face.Normals = append(face.Normals, transform.ApplyTo(normArray[v]).Sub(transform.ApplyTo(&geom.Vector3{})).Normalize())
+			} else if normByPolygonVertex && vcount+n < len(normArray) {
+				face.Normals = append(face.Normals, transform.ApplyTo(normArray[vcount+n]).Sub(transform.ApplyTo(&geom.Vector3{})).Normalize())
+			}
 		}
 		if uvIndex != nil { // Indexed
 			for n := range f {
