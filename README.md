@@ -10,7 +10,7 @@ Goで3Dモデルファイルを読み書きするライブラリ＆変換ツー�
 | .pmx       |  ○  |  ○   | Physics未対応                    |
 | .pmd       |  ○  |       | Read only                        |
 | .fbx       |  ○  |       | 暫定実装                         |
-| .unity     |  △  |       | 暫定実装                         |
+| .unity     |  △  |       | Unity 2018以降のシーンに対応     |
 | .vmd       |  △  |       | 暫定実装                         |
 
 glTFの読み書きには https://github.com/qmuntal/gltf を使っています．
@@ -23,7 +23,7 @@ package: [cmd/modelconv](cmd/modelconv)
 
 以下の組み合わせの変換が可能です．
 
-- (.pmd | .pmx | .mqo | .mqoz | .fbx) → (.pmx | .mqo| .mqoz | .glb | .gltf | .vrm)
+- (.pmd | .pmx | .mqo | .mqoz | .fbx | .unity) → (.pmx | .mqo| .mqoz | .glb | .gltf | .vrm)
 - (.glb | .gltf | .vrm) → (.glb | .gltf | .vrm) (※1)
 
 ※1: glTF同士の変換は特別扱いをしているため，モデルに変更を加えるオプションは未対応です．(scaleは可能)
@@ -34,7 +34,7 @@ package: [cmd/modelconv](cmd/modelconv)
 [Releases](https://github.com/binzume/modelconv/releases/latest)にビルド済みのWindows用の実行ファイルを置いてあります．
 
 ```bash
-go install github.com/binzume/modelconv/cmd/modelconv@v0.3.1
+go install github.com/binzume/modelconv/cmd/modelconv@v0.3.2
 ```
 
 ## Usage examples
@@ -53,10 +53,11 @@ modelconv "model.gltf" "model.glb"
 modelconv -format glb "model.gltf"
 ```
 
-### Unity to glb (WIP)
+### Unity to glb
 
 ```bash
 modelconv  "test.unitypackage#Assets/scene.unity" "scene.glb"
+modelconv  "Assets/scenes/scene.unity" "scene.glb"
 ```
 
 ### Scaling
