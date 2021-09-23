@@ -299,6 +299,7 @@ func (m *mqoToGltf) convertMaterial(textureDir string, mat *mqo.Material) *gltf.
 func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJoint map[int]uint32,
 	morphObjs []*mqo.Object, materialMap map[int]int) (*gltf.Mesh, []uint32) {
 	scale := m.scale
+	obj.Triangulate()
 
 	var vertexes [][3]float32
 	var srcIndices []int
@@ -350,10 +351,7 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 				texcood0[verts[i]] = [2]float32{f.UVs[i].X, f.UVs[i].Y}
 			}
 		}
-		// convex polygon only. TODO: triangulation.
-		for n := 0; n < len(verts)-2; n++ {
-			indices[mat] = append(indices[mat], uint32(verts[0]), uint32(verts[n+2]), uint32(verts[n+1]))
-		}
+		indices[mat] = append(indices[mat], uint32(verts[2]), uint32(verts[1]), uint32(verts[0]))
 	}
 
 	attributes := map[string]uint32{
