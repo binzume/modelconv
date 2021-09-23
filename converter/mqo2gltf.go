@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/binzume/modelconv/geom"
 	"github.com/binzume/modelconv/mqo"
 	"github.com/qmuntal/gltf"
 	"github.com/qmuntal/gltf/modeler"
@@ -299,6 +300,7 @@ func (m *mqoToGltf) convertMaterial(textureDir string, mat *mqo.Material) *gltf.
 func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJoint map[int]uint32,
 	morphObjs []*mqo.Object, materialMap map[int]int) (*gltf.Mesh, []uint32) {
 	scale := m.scale
+	obj.FixhNormals()
 	obj.Triangulate()
 
 	var vertexes [][3]float32
@@ -310,13 +312,9 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 
 	joints, joints0, weights0 := m.getWeights(bones, obj, boneIDToJoint)
 	indices := map[int][]uint32{}
-	normal := m.getNormal(obj)
+	normals := make([][3]float32, len(vertexes))
 	texcood0 := make([][2]float32, len(vertexes))
-	type vertexKey struct {
-		i  int
-		uv mqo.Vector2
-	}
-	indicesMap := map[vertexKey]int{}
+	indicesMap := map[int][]int{}
 	useTexcood0 := false
 	for _, f := range obj.Faces {
 		if len(f.Verts) < 3 {
@@ -331,24 +329,36 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 		if len(f.UVs) > 0 {
 			useTexcood0 = true
 			for i, index := range verts {
-				if texcood0[index][0] != f.UVs[i].X || texcood0[index][1] != f.UVs[i].Y {
-					if ii, ok := indicesMap[vertexKey{index, f.UVs[i]}]; ok {
-						verts[i] = ii
-					} else {
-						// copy attrs.
-						verts[i] = len(vertexes)
-						srcIndices = append(srcIndices, index)
-						vertexes = append(vertexes, vertexes[index])
-						texcood0 = append(texcood0, texcood0[index])
-						normal = append(normal, normal[index])
-						if len(joints) > 0 {
-							joints0 = append(joints0, joints0[index])
-							weights0 = append(weights0, weights0[index])
+				assigned := indicesMap[index]
+				normal := f.Normals[i]
+				if assigned != nil {
+					vi := -1
+					for _, v := range assigned {
+						if f.UVs[i].Sub(&geom.Vector2{X: texcood0[v][0], Y: texcood0[v][1]}).LenSqr() < 0.0001 {
+							verts[i] = v
+							vi = v
 						}
-						indicesMap[vertexKey{index, f.UVs[i]}] = verts[i]
+					}
+					if vi >= 0 {
+						continue
+					}
+					verts[i] = len(vertexes)
+					srcIndices = append(srcIndices, index)
+					vertexes = append(vertexes, vertexes[index])
+					texcood0 = append(texcood0, [2]float32{})
+					normals = append(normals, [3]float32{})
+					if len(joints) > 0 {
+						joints0 = append(joints0, joints0[index])
+						weights0 = append(weights0, weights0[index])
 					}
 				}
+				indicesMap[index] = append(indicesMap[index], verts[i])
 				texcood0[verts[i]] = [2]float32{f.UVs[i].X, f.UVs[i].Y}
+				normal.ToArray(normals[verts[i]][:])
+			}
+		} else {
+			for i, index := range verts {
+				f.Normals[i].ToArray(normals[index][:])
 			}
 		}
 		indices[mat] = append(indices[mat], uint32(verts[2]), uint32(verts[1]), uint32(verts[0]))
@@ -361,7 +371,7 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 		attributes["TEXCOORD_0"] = modeler.WriteTextureCoord(m.Document, texcood0)
 	}
 	if obj.Shading > 0 && !m.options.ForceUnlit {
-		attributes["NORMAL"] = modeler.WriteNormal(m.Document, normal)
+		attributes["NORMAL"] = modeler.WriteNormal(m.Document, normals)
 	}
 	if len(joints) > 0 {
 		attributes["JOINTS_0"] = modeler.WriteJoints(m.Document, joints0)

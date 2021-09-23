@@ -223,6 +223,10 @@ func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transf
 		}
 	}
 
+	rs := transform.Clone()
+	rs[12], rs[13], rs[14] = 0, 0, 0
+	normalTransform := rs.Inverse().Transposed()
+
 	vcount := 0
 	for i, f := range g.Polygons {
 		face := &mqo.Face{Verts: f}
@@ -238,9 +242,9 @@ func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transf
 		for n, v := range f {
 			// TODO: normal transformation
 			if normByVertex && v < len(normArray) {
-				face.Normals = append(face.Normals, transform.ApplyTo(normArray[v]).Sub(transform.ApplyTo(&geom.Vector3{})).Normalize())
+				face.Normals = append(face.Normals, normalTransform.ApplyTo(normArray[v]).Normalize())
 			} else if normByPolygonVertex && vcount+n < len(normArray) {
-				face.Normals = append(face.Normals, transform.ApplyTo(normArray[vcount+n]).Sub(transform.ApplyTo(&geom.Vector3{})).Normalize())
+				face.Normals = append(face.Normals, normalTransform.ApplyTo(normArray[vcount+n]).Normalize())
 			}
 		}
 		if uvIndex != nil { // Indexed

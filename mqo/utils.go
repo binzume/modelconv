@@ -52,6 +52,22 @@ func (obj *Object) GetSmoothNormals() []Vector3 {
 	return normal
 }
 
+func (obj *Object) FixhNormals() {
+	var normals []Vector3
+	for _, f := range obj.Faces {
+		if len(f.Normals) == len(f.Verts) {
+			continue
+		}
+		if normals == nil {
+			normals = obj.GetSmoothNormals()
+		}
+		f.Normals = make([]*Vector3, len(f.Verts))
+		for i, v := range f.Verts {
+			f.Normals[i] = &normals[v]
+		}
+	}
+}
+
 func IsInTriangle(p, a, b, c *Vector3) bool {
 	ab, bc, ca := b.Sub(a), c.Sub(b), a.Sub(c)
 	c1, c2, c3 := ab.Cross(p.Sub(a)), bc.Cross(p.Sub(b)), ca.Cross(p.Sub(c))
