@@ -18,6 +18,26 @@ import (
 	"github.com/qmuntal/gltf"
 )
 
+var (
+	format    = flag.String("format", "", "output file format")
+	rot180    = flag.Bool("rot180", false, "rotate 180 degrees around Y (.mqo)")
+	autoTpose = flag.String("autotpose", "", "Arm bone names(.mqo)")
+	scale     = flag.Float64("scale", 0, "0:auto")
+	scaleX    = flag.Float64("scaleX", 1, "scale-x")
+	scaleY    = flag.Float64("scaleY", 1, "scale-y")
+	scaleZ    = flag.Float64("scaleZ", 1, "scale-z")
+	vrmconf   = flag.String("vrmconfig", "", "config file for VRM")
+	unlit     = flag.String("unlit", "", "unlit materials (MAT1,MAT2,...)")
+	hides     = flag.String("hide", "", "hide objects (OBJ1,OBJ2,...)")
+	hidemats  = flag.String("hidemat", "", "hide materials (MAT1,MAT2,...)")
+	chparent  = flag.String("chparent", "", "ch bone parent (BONE1:PARENT1,BONE2:PARENT2,...)")
+
+	texReCompress      = flag.Bool("texReCompress", false, "re-compress all textures (gltf)")
+	texBytesThreshold  = flag.Int64("texBytesThreshold", 0, "resize large textures (gltf)")
+	texResolutionLimit = flag.Int("texResolutionLimit", 4096, "resize large textures (gltf)")
+	texResizeScale     = flag.Float64("texResizeScale", 1.0, "resize large textures (gltf)")
+)
+
 func isGltf(ext string) bool {
 	return ext == ".glb" || ext == ".gltf" || ext == ".vrm"
 }
@@ -71,7 +91,13 @@ func saveGltfDocument(doc *gltf.Document, output, ext, srcDir, vrmConf string) e
 
 func saveDocument(doc *mqo.Document, output, ext, srcDir, vrmConf string, inputs []string) error {
 	if isGltf(ext) {
-		conv := converter.NewMQOToGLTFConverter(&converter.MQOToGLTFOption{})
+		opt := &converter.MQOToGLTFOption{
+			TextureReCompress:      *texReCompress,
+			TextureBytesThreshold:  *texBytesThreshold,
+			TextureResolutionLimit: *texResolutionLimit,
+			TextureScale:           float32(*texResizeScale),
+		}
+		conv := converter.NewMQOToGLTFConverter(opt)
 		gltfdoc, err := conv.Convert(doc, srcDir)
 		if err != nil {
 			return err
@@ -100,18 +126,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] input.pmx [output.mqo]\n", os.Args[0])
 		flag.PrintDefaults()
 	}
-	format := flag.String("format", "", "output file format")
-	rot180 := flag.Bool("rot180", false, "rotate 180 degrees around Y (.mqo)")
-	autoTpose := flag.String("autotpose", "", "Arm bone names(.mqo)")
-	scale := flag.Float64("scale", 0, "0:auto")
-	scaleX := flag.Float64("scaleX", 1, "scale-x")
-	scaleY := flag.Float64("scaleY", 1, "scale-y")
-	scaleZ := flag.Float64("scaleZ", 1, "scale-z")
-	vrmconf := flag.String("vrmconfig", "", "config file for VRM")
-	unlit := flag.String("unlit", "", "unlit materials (MAT1,MAT2,...)")
-	hides := flag.String("hide", "", "hide objects (OBJ1,OBJ2,...)")
-	hidemats := flag.String("hidemat", "", "hide materials (MAT1,MAT2,...)")
-	chparent := flag.String("chparent", "", "ch bone parent (BONE1:PARENT1,BONE2:PARENT2,...)")
+
 	flag.Parse()
 
 	if flag.NArg() == 0 {

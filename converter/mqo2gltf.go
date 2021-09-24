@@ -15,6 +15,7 @@ import (
 
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 
 	_ "image/gif"
@@ -23,31 +24,85 @@ import (
 	"github.com/blezek/tga"
 	_ "github.com/oov/psd"
 	_ "golang.org/x/image/bmp"
+	"golang.org/x/image/draw"
 )
+
+var TextureUVEpsilon float32 = 0.0001
 
 type MQOToGLTFOption struct {
 	ForceUnlit bool
+
+	TextureReCompress      bool
+	TextureBytesThreshold  int64 // 0: unlimited
+	TextureResolutionLimit int   // 0: unlimited
+	TextureScale           float32
 }
 
 type mqoToGltf struct {
+	*MQOToGLTFOption
 	*gltf.Document
-	options         *MQOToGLTFOption
 	scale           float32
 	convertBone     bool
 	convertMorph    bool
 	JointNodeToBone map[uint32]*mqo.Bone
 }
 
+type textureCache struct {
+	srcDir   string
+	textures map[string]*textureInfo
+}
+
+type textureInfo struct {
+	name string
+	id   *uint32
+	img  image.Image
+	err  error
+}
+
+func (c *textureCache) get(name string) *textureInfo {
+	if t, ok := c.textures[name]; ok {
+		return t
+	}
+	t := &textureInfo{name: name}
+	c.textures[name] = t
+	return t
+}
+
+func (c *textureCache) getImage(name string) (image.Image, error) {
+	t := c.get(name)
+	if t.img != nil || t.err != nil {
+		return t.img, t.err
+	}
+
+	f, err := os.Open(filepath.Join(c.srcDir, t.name))
+	if err != nil {
+		t.err = err
+		return nil, err
+	}
+	defer f.Close()
+
+	t.img, _, t.err = image.Decode(f)
+	if t.err != nil && strings.ToLower(filepath.Ext(t.name)) == ".tga" {
+		// retry
+		f.Seek(0, io.SeekStart)
+		t.img, t.err = tga.Decode(f)
+	}
+	return t.img, t.err
+}
+
 func NewMQOToGLTFConverter(options *MQOToGLTFOption) *mqoToGltf {
 	if options == nil {
 		options = &MQOToGLTFOption{}
 	}
+	if options.TextureScale == 0 {
+		options.TextureScale = 1.0
+	}
 	return &mqoToGltf{
-		Document:     gltf.NewDocument(),
-		scale:        0.001,
-		convertBone:  true,
-		convertMorph: true,
-		options:      options,
+		MQOToGLTFOption: options,
+		Document:        gltf.NewDocument(),
+		scale:           0.001,
+		convertBone:     true,
+		convertMorph:    true,
 	}
 }
 
@@ -187,16 +242,11 @@ func (m *mqoToGltf) addSkin(joints []uint32, jointToBone map[uint32]*mqo.Bone) u
 	return uint32(len(m.Skins) - 1)
 }
 
-func (m *mqoToGltf) hasAlpha(textureDir string, texture string) bool {
-	if strings.HasSuffix(texture, ".jpg") || strings.HasSuffix(texture, ".bmp") {
+func (m *mqoToGltf) hasAlpha(texture string, textures *textureCache) bool {
+	if texture == "" || strings.HasSuffix(texture, ".jpg") || strings.HasSuffix(texture, ".bmp") {
 		return false
 	}
-	f, err := os.Open(filepath.Join(textureDir, texture))
-	if err != nil {
-		return false
-	}
-	defer f.Close()
-	img, _, err := image.Decode(f)
+	img, err := textures.getImage(texture)
 	if err != nil {
 		return false
 	}
@@ -209,51 +259,95 @@ func (m *mqoToGltf) hasAlpha(textureDir string, texture string) bool {
 	return false
 }
 
-func (m *mqoToGltf) addTexture(textureDir string, texture string) (uint32, error) {
-	f, err := os.Open(filepath.Join(textureDir, texture))
+func scaleTexture(texture string, mime string, textures *textureCache, scale float32, limit int) (io.Reader, error) {
+	img, err := textures.getImage(texture)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	defer f.Close()
-	var r io.Reader = f
-	var mimeType string
+	rect := img.Bounds()
+
+	if limit > 0 {
+		sz := int(float32(rect.Dx()) * scale)
+		if sz > limit {
+			scale *= float32(limit) / float32(sz)
+		}
+	}
+
+	if scale != 1.0 {
+		dst := image.NewRGBA(image.Rect(0, 0, int(float32(rect.Dx())*scale), int(float32(rect.Dy())*scale)))
+		draw.CatmullRom.Scale(dst, dst.Bounds(), img, rect, draw.Over, nil)
+		img = dst
+	}
+
+	w := new(bytes.Buffer)
+	if mime == "image/png" {
+		err = png.Encode(w, img)
+	} else {
+		err = jpeg.Encode(w, img, nil)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return w, nil
+}
+
+func (m *mqoToGltf) addTexture(texture string, textures *textureCache) (*uint32, error) {
+	t := textures.get(texture)
+	if t.id != nil {
+		return t.id, nil
+	}
 	ext := strings.ToLower(filepath.Ext(texture))
+
+	encode := m.TextureReCompress
+	if m.TextureBytesThreshold > 0 {
+		stat, err := os.Stat(filepath.Join(textures.srcDir, texture))
+		if err != nil {
+			return nil, err
+		}
+		if stat.Size() > m.TextureBytesThreshold {
+			encode = true
+		}
+	}
+
+	var mimeType string
 	if ext == ".jpg" || ext == ".jpeg" {
 		mimeType = "image/jpeg"
 	} else if ext == ".png" {
 		mimeType = "image/png"
 	} else {
 		mimeType = "image/png"
-		img, _, err := image.Decode(r)
+		encode = true
+	}
+
+	var r io.Reader
+	if encode {
+		r2, err := scaleTexture(texture, mimeType, textures, m.TextureScale, m.TextureResolutionLimit)
 		if err != nil {
-			if ext == ".tga" {
-				// retry
-				f.Seek(0, io.SeekStart)
-				img, err = tga.Decode(r)
-			}
-			if err != nil {
-				return 0, err
-			}
+			return nil, err
 		}
-		w := new(bytes.Buffer)
-		err = png.Encode(w, img)
+		r = r2
+	} else {
+		f, err := os.Open(filepath.Join(textures.srcDir, texture))
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
-		r = w
+		defer f.Close()
+		r = f
 	}
 	img, err := modeler.WriteImage(m.Document, filepath.Base(texture), mimeType, r)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	m.Buffers[0].ByteLength = uint32(len(m.Buffers[0].Data)) // avoid AddImage bug
 	m.Textures = append(m.Textures,
 		&gltf.Texture{Sampler: gltf.Index(0), Source: gltf.Index(img)})
 
-	return uint32(len(m.Textures)) - 1, nil
+	t.id = gltf.Index(uint32(len(m.Textures)) - 1)
+
+	return t.id, nil
 }
 
-func (m *mqoToGltf) convertMaterial(textureDir string, mat *mqo.Material) *gltf.Material {
+func (m *mqoToGltf) convertMaterial(mat *mqo.Material, textures *textureCache) *gltf.Material {
 	var unlitMaterialExt = "KHR_materials_unlit"
 	var rf float32 = 0.4
 	var mf = mat.Specular
@@ -289,11 +383,30 @@ func (m *mqoToGltf) convertMaterial(textureDir string, mat *mqo.Material) *gltf.
 		if metallicFactor == 0 && roughnessFactor == 1 {
 			mm.Extensions = map[string]interface{}{unlitMaterialExt: map[string]string{}}
 		}
-	} else if mat.Color.W < 0.99 || m.hasAlpha(textureDir, mat.Texture) {
+	} else if mat.Color.W < 0.99 || m.hasAlpha(mat.Texture, textures) {
 		mm.AlphaMode = gltf.AlphaBlend
 	}
-	if m.options.ForceUnlit || mat.GetShaderName() == "Constant" {
+	if m.ForceUnlit || mat.GetShaderName() == "Constant" {
 		mm.Extensions = map[string]interface{}{unlitMaterialExt: map[string]string{}}
+	}
+
+	if mat.Texture != "" {
+		if tex, err := m.addTexture(mat.Texture, textures); err == nil {
+			mm.PBRMetallicRoughness.BaseColorTexture = &gltf.TextureInfo{
+				Index: *tex,
+			}
+		} else {
+			log.Print("Texture read error:", err)
+		}
+	}
+	if mat.BumpTexture != "" {
+		if tex, err := m.addTexture(mat.BumpTexture, textures); err == nil {
+			mm.NormalTexture = &gltf.NormalTexture{
+				Index: tex,
+			}
+		} else {
+			log.Print("Texture read error:", err)
+		}
 	}
 	return mm
 }
@@ -335,7 +448,7 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 				if assigned != nil {
 					vi := -1
 					for _, v := range assigned {
-						if f.UVs[i].Sub(&geom.Vector2{X: texcood0[v][0], Y: texcood0[v][1]}).LenSqr() < 0.0001 {
+						if f.UVs[i].Sub(&geom.Vector2{X: texcood0[v][0], Y: texcood0[v][1]}).LenSqr() < TextureUVEpsilon {
 							verts[i] = v
 							vi = v
 						}
@@ -371,7 +484,7 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 	if useTexcood0 {
 		attributes["TEXCOORD_0"] = modeler.WriteTextureCoord(m.Document, texcood0)
 	}
-	if obj.Shading > 0 && !m.options.ForceUnlit {
+	if obj.Shading > 0 && !m.ForceUnlit {
 		attributes["NORMAL"] = modeler.WriteNormal(m.Document, normals)
 	}
 	if len(joints) > 0 {
@@ -413,6 +526,12 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 	}, joints
 }
 
+func (m *mqoToGltf) checkMaterials(obj *mqo.Object, materials map[int]bool) {
+	for _, f := range obj.Faces {
+		materials[f.Material] = true
+	}
+}
+
 func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Document, error) {
 	objectByName := map[string]*mqo.Object{}
 	morphTargets := map[string]*mqo.Object{}
@@ -431,15 +550,20 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 
 	doc.FixObjectID()
 	var targetObjects []*mqo.Object
+	materialUsed := map[int]bool{}
 	for _, obj := range doc.Objects {
 		if obj.Visible && len(obj.Faces) > 0 && morphTargets[obj.Name] == nil {
 			targetObjects = append(targetObjects, obj)
+			m.checkMaterials(obj, materialUsed)
 		}
 	}
 
 	materialMap := map[int]int{}
 	materialCount := 0
 	for i, mat := range doc.Materials {
+		if !materialUsed[i] {
+			continue
+		}
 		if !strings.HasSuffix(mat.Name, "$IGNORE") && !strings.HasPrefix(mat.Name, "$MORPH:") {
 			materialMap[i] = materialCount
 			materialCount++
@@ -483,38 +607,14 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		m.Scenes[0].Nodes = append(m.Scenes[0].Nodes, uint32(i))
 	}
 
-	textures := map[string]uint32{}
+	textures := &textureCache{srcDir: textureDir, textures: map[string]*textureInfo{}}
 	useUnlit := false
 	for i, mat := range doc.Materials {
 		if _, ok := materialMap[i]; !ok {
 			continue
 		}
-		mm := m.convertMaterial(textureDir, mat)
-		convertTexture := func(path string) (uint32, error) {
-			if _, exist := textures[path]; !exist {
-				tex, err := m.addTexture(textureDir, path)
-				if err != nil {
-					log.Print("Texture read error:", err)
-					return 0, err
-				}
-				textures[path] = tex
-			}
-			return textures[path], nil
-		}
-		if mat.Texture != "" {
-			if tex, err := convertTexture(mat.Texture); err == nil {
-				mm.PBRMetallicRoughness.BaseColorTexture = &gltf.TextureInfo{
-					Index: tex,
-				}
-			}
-		}
-		if mat.BumpTexture != "" {
-			if tex, err := convertTexture(mat.BumpTexture); err == nil {
-				mm.NormalTexture = &gltf.NormalTexture{
-					Index: gltf.Index(tex),
-				}
-			}
-		}
+		mm := m.convertMaterial(mat, textures)
+
 		if mm.Extensions["KHR_materials_unlit"] != nil {
 			useUnlit = true
 		}
