@@ -33,6 +33,10 @@ type unityToMqoState struct {
 		uvScale *geom.Vector2
 	}
 	matToGUID map[int]string
+
+	// TODL: LRU cache
+	lastFbx   *fbx.Document
+	lastFbxID string
 }
 
 func NewUnityToMQOConverter(options *UnityToMQOOption) *UnityToMQOConverter {
@@ -117,7 +121,7 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 						m.EmissionColor = emmision
 					}
 				}
-				m.Name = matGUID + "_" + material.Name
+				m.Name = material.Name
 
 				if t := material.GetTextureProperty("_MainTex"); t != nil && t.Texture.IsValid() {
 					texAsset := c.src.Assets.GetAsset(t.Texture.GUID)
@@ -219,26 +223,32 @@ func (c *unityToMqoState) importMesh(mesh *unity.Ref, obj *mqo.Object, materials
 	if asset == nil {
 		return fmt.Errorf("asset not found %s", mesh.GUID)
 	}
-	if !strings.HasSuffix(asset.Path, ".fbx") {
-		return fmt.Errorf("not supported: %s", asset.Path)
-	}
-
-	obj.Name += "(FBX)"
 	meta, err := c.src.Assets.GetMetaFile(asset)
 	if err != nil {
 		return err
 	}
 	log.Println("Import mesh:", asset, meta.GetRecycleNameByFileID(mesh.FileID))
 
-	r, err := c.src.Assets.Open(asset.Path)
-	if err != nil {
-		return err
+	if c.lastFbxID != mesh.GUID { // TODO
+		if !strings.HasSuffix(asset.Path, ".fbx") {
+			return fmt.Errorf("not supported: %s", asset.Path)
+		}
+
+		r, err := c.src.Assets.Open(asset.Path)
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+		doc, err := fbx.Parse(r)
+		if err != nil {
+			return err
+		}
+		c.lastFbx = doc
+		c.lastFbxID = mesh.GUID
 	}
-	defer r.Close()
-	doc, err := fbx.Parse(r)
-	if err != nil {
-		return err
-	}
+	doc := c.lastFbx
+
+	obj.Name += "(FBX)"
 	scale := doc.GlobalSettings.GetProperty70("UnitScaleFactor").ToFloat32(1) * 0.01
 	_, err = NewFBXToMQOConverter(&FBXToMQOOption{
 		ObjectDepth:      obj.Depth + 1,
@@ -301,7 +311,7 @@ func Quad(o *mqo.Object, tr *geom.Matrix4, mat int) {
 		{X: 0.5, Y: 0.5},
 	}
 	faces := [][]int{
-		{0, 1, 3, 2},
+		{1, 0, 2, 3},
 	}
 	uvs := [][]geom.Vector2{
 		{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 0, Y: 1}, {X: 1, Y: 1}},

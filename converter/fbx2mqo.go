@@ -229,7 +229,7 @@ func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transf
 
 	vcount := 0
 	for i, f := range g.Polygons {
-		face := &mqo.Face{Verts: f}
+		face := &mqo.Face{}
 		var matIdx int
 		if matByPolygon {
 			matIdx = int(matArray[i])
@@ -240,6 +240,7 @@ func (c *fbxToMqoState) convertGeometry(g *fbx.Geometry, obj *mqo.Object, transf
 			face.Material = materialIDs[matIdx]
 		}
 		for n, v := range f {
+			face.Verts = append(face.Verts, v)
 			// TODO: normal transformation
 			if normByVertex && v < len(normArray) {
 				face.Normals = append(face.Normals, normalTransform.ApplyTo(normArray[v]).Normalize())
