@@ -189,8 +189,6 @@ func main() {
 	}
 	if scaleVec.X == 1 && scaleVec.Y == 1 && scaleVec.Z == 1 {
 		scaleVec = nil
-	} else {
-		*reuseGeometry = false
 	}
 
 	// glTF to glTF
@@ -199,7 +197,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		gltfutil.Transform(doc, scaleVec, nil)
+		gltfutil.ApplyTransform(doc, geom.NewScaleMatrix4(scaleVec.X, scaleVec.Y, scaleVec.Z))
 		err = saveGltfDocument(doc, output, outputExt, filepath.Dir(input), *vrmconf)
 		if err != nil {
 			log.Fatal(err)
@@ -227,11 +225,7 @@ func main() {
 
 	// transform
 	if scaleVec != nil {
-		doc.Transform(func(v *mqo.Vector3) {
-			v.X *= scaleVec.X
-			v.Y *= scaleVec.Y
-			v.Z *= scaleVec.Z
-		})
+		doc.ApplyTransform(geom.NewScaleMatrix4(scaleVec.X, scaleVec.Y, scaleVec.Z))
 		if *rot180 {
 			for _, b := range mqo.GetBonePlugin(doc).Bones() {
 				b.RotationOffset.Y = math.Pi

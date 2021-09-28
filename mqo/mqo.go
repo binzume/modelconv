@@ -9,6 +9,7 @@ import (
 type Vector2 = geom.Vector2
 type Vector3 = geom.Vector3
 type Vector4 = geom.Vector4
+type Matrix4 = geom.Matrix4
 
 type Document struct {
 	Scene     *Scene

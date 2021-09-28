@@ -50,18 +50,12 @@ func ToSingleFile(doc *gltf.Document, srcDir string) error {
 	return nil
 }
 
-func Transform(doc *gltf.Document, scale *geom.Vector3, offset *geom.Vector3) {
-	if scale == nil && offset == nil {
+func ApplyTransform(doc *gltf.Document, transformMat *geom.Matrix4) {
+	if transformMat == nil {
 		return
 	}
-	scaleMat := geom.NewMatrix4()
-	if scale != nil {
-		scaleMat = geom.NewScaleMatrix4(scale.X, scale.Y, scale.Z)
-	}
-	scaleOffsetMat := scaleMat
-	if offset != nil {
-		scaleOffsetMat = geom.NewTranslateMatrix4(offset.X, offset.Y, offset.Z).Mul(scaleMat)
-	}
+	scaleMat := geom.NewMatrix4().Clone()
+	scaleMat[12], scaleMat[13], scaleMat[14] = 0, 0, 0 // remove translate
 
 	accs := map[uint32]bool{}
 	for _, m := range doc.Meshes {
@@ -93,7 +87,7 @@ func Transform(doc *gltf.Document, scale *geom.Vector3, offset *geom.Vector3) {
 			if diff {
 				scaleMat.ApplyTo(geom.NewVector3FromArray(pos[i])).ToArray(pos[i][:])
 			} else {
-				scaleOffsetMat.ApplyTo(geom.NewVector3FromArray(pos[i])).ToArray(pos[i][:])
+				transformMat.ApplyTo(geom.NewVector3FromArray(pos[i])).ToArray(pos[i][:])
 			}
 			for t, v := range pos[i] {
 				acr.Min[t] = float32(math.Min(float64(acr.Min[t]), float64(v)))

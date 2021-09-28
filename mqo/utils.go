@@ -1,31 +1,38 @@
 package mqo
 
 type transformable interface {
-	Transform(func(v *Vector3))
+	ApplyTransform(transform *Matrix4)
 }
 
 // Transform object
-func (o *Object) Transform(transform func(v *Vector3)) {
-	for _, v := range o.Vertexes {
-		transform(v)
+func (o *Object) ApplyTransform(transform *Matrix4) {
+	for i, v := range o.Vertexes {
+		o.Vertexes[i] = transform.ApplyTo(v)
 	}
+	if o.SharedGeometryHint != nil {
+		o.SharedGeometryHint.Transform = transform.Mul(o.SharedGeometryHint.Transform)
+	}
+
+	rsmat := transform.Clone()
+	rsmat[12], rsmat[13], rsmat[14] = 0, 0, 0 // remove translate
+	normalTransform := rsmat.Inverse().Transposed()
 	for _, f := range o.Faces {
-		for _, n := range f.Normals {
+		for i, n := range f.Normals {
 			if n != nil {
-				transform(n)
+				f.Normals[i] = normalTransform.ApplyTo(n)
 			}
 		}
 	}
 }
 
 // Transform all objects and plugins
-func (doc *Document) Transform(transform func(v *Vector3)) {
+func (doc *Document) ApplyTransform(transform *Matrix4) {
 	for _, o := range doc.Objects {
-		o.Transform(transform)
+		o.ApplyTransform(transform)
 	}
 	for _, p := range doc.Plugins {
 		if tr, ok := p.(transformable); ok {
-			tr.Transform(transform)
+			tr.ApplyTransform(transform)
 		}
 	}
 }

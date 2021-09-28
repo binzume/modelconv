@@ -234,9 +234,9 @@ func (p *BonePlugin) PreSerialize(mqo *Document) {
 func (p *BonePlugin) PostDeserialize(mqo *Document) {
 }
 
-func (p *BonePlugin) Transform(transform func(v *Vector3)) {
+func (p *BonePlugin) ApplyTransform(transform *Matrix4) {
 	for _, b := range p.BoneSet2.Bones {
-		transform(&b.Pos.Vector3)
+		b.Pos.Vector3 = *transform.ApplyTo(&b.Pos.Vector3)
 	}
 }
 
