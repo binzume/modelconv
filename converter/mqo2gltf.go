@@ -30,18 +30,20 @@ import (
 var TextureUVEpsilon float32 = 0.0001
 
 type MQOToGLTFOption struct {
+	Scale      float32 // Default: 0.001
 	ForceUnlit bool
 
 	TextureReCompress      bool
 	TextureBytesThreshold  int64 // 0: unlimited
 	TextureResolutionLimit int   // 0: unlimited
 	TextureScale           float32
+
+	ReuseGeometry bool // experimental
 }
 
 type mqoToGltf struct {
 	*MQOToGLTFOption
 	*gltf.Document
-	scale           float32
 	convertBone     bool
 	convertMorph    bool
 	JointNodeToBone map[uint32]*mqo.Bone
@@ -90,9 +92,19 @@ func (c *textureCache) getImage(name string) (image.Image, error) {
 	return t.img, t.err
 }
 
+type geomCache struct {
+	count      int
+	attributes map[string]uint32
+	indices    []uint32
+	matrix     *geom.Matrix4
+}
+
 func NewMQOToGLTFConverter(options *MQOToGLTFOption) *mqoToGltf {
 	if options == nil {
 		options = &MQOToGLTFOption{}
+	}
+	if options.Scale == 0 {
+		options.Scale = 0.001
 	}
 	if options.TextureScale == 0 {
 		options.TextureScale = 1.0
@@ -100,7 +112,6 @@ func NewMQOToGLTFConverter(options *MQOToGLTFOption) *mqoToGltf {
 	return &mqoToGltf{
 		MQOToGLTFOption: options,
 		Document:        gltf.NewDocument(),
-		scale:           0.001,
 		convertBone:     true,
 		convertMorph:    true,
 	}
@@ -122,7 +133,7 @@ func (m *mqoToGltf) addMatrices(mat [][4][4]float32) uint32 {
 }
 
 func (m *mqoToGltf) addBoneNodes(bones []*mqo.Bone) (map[int]uint32, map[uint32]*mqo.Bone) {
-	scale := m.scale
+	scale := m.Scale
 	idmap := map[int]uint32{}
 	idmapr := map[uint32]*mqo.Bone{}
 	bonemap := map[int]*mqo.Bone{}
@@ -225,7 +236,7 @@ func (m *mqoToGltf) getWeights(bones []*mqo.Bone, obj *mqo.Object, boneIDToJoint
 
 func (m *mqoToGltf) addSkin(joints []uint32, jointToBone map[uint32]*mqo.Bone) uint32 {
 	invmats := make([][4][4]float32, len(joints))
-	scale := m.scale
+	scale := m.Scale
 	for i, j := range joints {
 		b := jointToBone[j]
 		invmats[i] = [4][4]float32{
@@ -412,8 +423,8 @@ func (m *mqoToGltf) convertMaterial(mat *mqo.Material, textures *textureCache) *
 }
 
 func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJoint map[int]uint32,
-	morphObjs []*mqo.Object, materialMap map[int]int) (*gltf.Mesh, []uint32) {
-	scale := m.scale
+	morphObjs []*mqo.Object, materialMap map[int]int, shared *geomCache) (*gltf.Mesh, []uint32) {
+	scale := m.Scale
 	obj.FixhNormals()
 	obj.Triangulate()
 
@@ -425,17 +436,20 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 	}
 
 	joints, joints0, weights0 := m.getWeights(bones, obj, boneIDToJoint)
+	var materials []int
 	indices := map[int][]uint32{}
 	normals := make([][3]float32, len(vertexes))
 	texcood0 := make([][2]float32, len(vertexes))
 	indicesMap := map[int][]int{}
 	useTexcood0 := false
+	partial := false
 	for _, f := range obj.Faces {
 		if len(f.Verts) < 3 {
 			continue
 		}
 		mat, ok := materialMap[f.Material]
 		if !ok {
+			partial = true
 			continue
 		}
 		verts := make([]int, len(f.Verts))
@@ -475,21 +489,42 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 				f.Normals[i].ToArray(normals[index][:])
 			}
 		}
+		if _, exists := indices[mat]; !exists {
+			materials = append(materials, mat)
+		}
 		indices[mat] = append(indices[mat], uint32(verts[2]), uint32(verts[1]), uint32(verts[0]))
 	}
 
-	attributes := map[string]uint32{
-		"POSITION": modeler.WritePosition(m.Document, vertexes),
+	attributes := map[string]uint32{}
+
+	if !partial && shared != nil && shared.attributes != nil {
+		attributes["POSITION"] = shared.attributes["POSITION"]
+		if useTexcood0 {
+			attributes["TEXCOORD_0"] = shared.attributes["TEXCOORD_0"]
+		}
+		if obj.Shading > 0 && !m.ForceUnlit {
+			attributes["NORMAL"] = shared.attributes["NORMAL"]
+		}
+	} else {
+		attributes["POSITION"] = modeler.WritePosition(m.Document, vertexes)
+		if useTexcood0 {
+			attributes["TEXCOORD_0"] = modeler.WriteTextureCoord(m.Document, texcood0)
+		}
+		if obj.Shading > 0 && !m.ForceUnlit {
+			attributes["NORMAL"] = modeler.WriteNormal(m.Document, normals)
+		}
 	}
-	if useTexcood0 {
-		attributes["TEXCOORD_0"] = modeler.WriteTextureCoord(m.Document, texcood0)
-	}
-	if obj.Shading > 0 && !m.ForceUnlit {
-		attributes["NORMAL"] = modeler.WriteNormal(m.Document, normals)
-	}
+
 	if len(joints) > 0 {
 		attributes["JOINTS_0"] = modeler.WriteJoints(m.Document, joints0)
 		attributes["WEIGHTS_0"] = modeler.WriteWeights(m.Document, weights0)
+	}
+
+	if !partial && shared != nil && shared.attributes == nil {
+		shared.attributes = attributes
+		for _, mat := range materials {
+			shared.indices = append(shared.indices, modeler.WriteIndices(m.Document, indices[mat]))
+		}
 	}
 
 	// morph
@@ -508,12 +543,20 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 		targetNames = append(targetNames, morphObj.Name)
 	}
 
+	var indicesAccessors []uint32
+	if !partial && shared != nil {
+		indicesAccessors = shared.indices
+	} else {
+		for _, mat := range materials {
+			indicesAccessors = append(indicesAccessors, modeler.WriteIndices(m.Document, indices[mat]))
+		}
+	}
+
 	// make primitive for each materials
 	var primitives []*gltf.Primitive
-	for mat, ind := range indices {
-		indicesAccessor := modeler.WriteIndices(m.Document, ind)
+	for i, mat := range materials {
 		primitives = append(primitives, &gltf.Primitive{
-			Indices:    gltf.Index(indicesAccessor),
+			Indices:    gltf.Index(indicesAccessors[i]),
 			Attributes: attributes,
 			Material:   gltf.Index(uint32(mat)),
 			Targets:    targets,
@@ -581,6 +624,16 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		m.JointNodeToBone = jointToBone
 	}
 
+	sharedGeoms := map[string]*geomCache{}
+	for _, obj := range targetObjects {
+		if hint := obj.SharedGeometryHint; hint != nil {
+			if sharedGeoms[hint.Key] == nil {
+				sharedGeoms[hint.Key] = &geomCache{}
+			}
+			sharedGeoms[hint.Key].count++
+		}
+	}
+
 	for i, obj := range targetObjects {
 		var morphTargets []*mqo.Object
 		if m.convertMorph {
@@ -594,7 +647,17 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 				}
 			}
 		}
-		mesh, joints := m.ConvertObject(obj, bones, boneIDToJoint, morphTargets, materialMap)
+
+		var shared *geomCache
+		if hint := obj.SharedGeometryHint; m.ReuseGeometry && hint != nil {
+			if sharedGeoms[hint.Key] != nil && sharedGeoms[hint.Key].count > 1 {
+				shared = sharedGeoms[hint.Key]
+				if shared.matrix == nil {
+					shared.matrix = geom.NewScaleMatrix4(m.Scale, m.Scale, m.Scale).Mul(hint.Transform).Inverse()
+				}
+			}
+		}
+		mesh, joints := m.ConvertObject(obj, bones, boneIDToJoint, morphTargets, materialMap, shared)
 		node := &gltf.Node{Name: obj.Name}
 		if len(mesh.Primitives) > 0 {
 			node.Mesh = gltf.Index(uint32(len(m.Document.Meshes)))
@@ -604,6 +667,9 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 			node.Skin = gltf.Index(m.addSkin(joints, jointToBone))
 		}
 		m.Nodes[i] = node
+		if shared != nil {
+			geom.NewScaleMatrix4(m.Scale, m.Scale, m.Scale).Mul(obj.SharedGeometryHint.Transform).Mul(shared.matrix).ToArray(node.Matrix[:])
+		}
 		m.Scenes[0].Nodes = append(m.Scenes[0].Nodes, uint32(i))
 	}
 

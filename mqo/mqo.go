@@ -193,6 +193,14 @@ type Object struct {
 	Color *Vector3
 
 	VertexByUID map[int]int
+
+	// Internal use
+	SharedGeometryHint *SharedGeometryHint
+}
+
+type SharedGeometryHint struct {
+	Key       string
+	Transform *geom.Matrix4
 }
 
 func NewObject(name string) *Object {

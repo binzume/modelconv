@@ -249,6 +249,7 @@ func (c *unityToMqoState) importMesh(mesh *unity.Ref, obj *mqo.Object, materials
 	doc := c.lastFbx
 
 	obj.Name += "(FBX)"
+	objectIdx := len(c.dst.Objects)
 	scale := doc.GlobalSettings.GetProperty70("UnitScaleFactor").ToFloat32(1) * 0.01
 	_, err = NewFBXToMQOConverter(&FBXToMQOOption{
 		ObjectDepth:      obj.Depth + 1,
@@ -256,6 +257,12 @@ func (c *unityToMqoState) importMesh(mesh *unity.Ref, obj *mqo.Object, materials
 		MaterialOverride: materials,
 		RootTransform:    transform.Mul(geom.NewScaleMatrix4(-scale, scale, -scale)),
 	}).ConvertTo(c.dst, doc)
+	if len(c.dst.Objects) == objectIdx+1 {
+		c.dst.Objects[objectIdx].SharedGeometryHint = &mqo.SharedGeometryHint{
+			Key:       mesh.GUID + fmt.Sprint(mesh.FileID),
+			Transform: transform.Mul(geom.NewScaleMatrix4(-scale, scale, -scale)),
+		}
+	}
 	return err
 }
 

@@ -36,6 +36,7 @@ var (
 	texBytesThreshold  = flag.Int64("texBytesThreshold", 0, "resize large textures (gltf)")
 	texResolutionLimit = flag.Int("texResolutionLimit", 4096, "resize large textures (gltf)")
 	texResizeScale     = flag.Float64("texResizeScale", 1.0, "resize large textures (gltf)")
+	reuseGeometry      = flag.Bool("reuseGeometry", false, "use shared geometry data (gltf, experimental)")
 )
 
 func isGltf(ext string) bool {
@@ -96,6 +97,7 @@ func saveDocument(doc *mqo.Document, output, ext, srcDir, vrmConf string, inputs
 			TextureBytesThreshold:  *texBytesThreshold,
 			TextureResolutionLimit: *texResolutionLimit,
 			TextureScale:           float32(*texResizeScale),
+			ReuseGeometry:          *reuseGeometry,
 		}
 		conv := converter.NewMQOToGLTFConverter(opt)
 		gltfdoc, err := conv.Convert(doc, srcDir)
@@ -187,6 +189,8 @@ func main() {
 	}
 	if scaleVec.X == 1 && scaleVec.Y == 1 && scaleVec.Z == 1 {
 		scaleVec = nil
+	} else {
+		*reuseGeometry = false
 	}
 
 	// glTF to glTF
@@ -265,6 +269,7 @@ func main() {
 		patterns := strings.Split(*autoTpose, ",")
 		for _, b := range mqo.GetBonePlugin(doc).Bones() {
 			if match(patterns, b.Name) {
+				*reuseGeometry = false
 				doc.BoneAdjustX(b)
 			}
 		}
