@@ -38,6 +38,8 @@ func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 	scene := NewScene(assets, sceneAsset.GUID)
 	var objects []*GameObject
 
+	addedChildren := map[Ref][]*Transform{}
+
 	for _, doc := range ParseYamlDocuments(b) {
 		var element Element
 		fileId, _ := strconv.ParseInt(doc.refID, 10, 64)
@@ -100,9 +102,15 @@ func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 			element = prefab
 			if len(s.Objects) > 0 {
 				root := s.Objects[0]
-				if root.GetTransform() != nil {
-					root.GetTransform().Father = *prefab.Modification.TransformParent
-					root.GetTransform().Father.GUID = scene.GUID
+				tr := root.GetTransform()
+				if tr != nil {
+					tr.Father = *prefab.Modification.TransformParent
+					tr.Father.GUID = scene.GUID
+					for _, c := range root.Components {
+						if _, ok := s.GetElement2(&c.Ref, root.PrefabInstance).(*Transform); ok {
+							addedChildren[tr.Father] = append(addedChildren[tr.Father], tr)
+						}
+					}
 				}
 				objects = append(objects, root)
 			}
@@ -195,6 +203,16 @@ func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 		tr := obj.GetTransform()
 		if tr != nil && !tr.Father.IsValid() && !obj.CorrespondingSourceObject.IsValid() {
 			scene.Objects = append(scene.Objects, objects[i])
+		}
+	}
+
+	for pref, children := range addedChildren {
+		parent := scene.GetTransform(&pref, nil)
+		if parent == nil {
+			continue
+		}
+		for _, child := range children {
+			parent.AddChild(child)
 		}
 	}
 	return scene, nil

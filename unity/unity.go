@@ -30,7 +30,7 @@ type Scene struct {
 
 	Elements map[int64]Element
 
-	Assets Assets
+	Assets       Assets
 }
 
 func NewScene(assets Assets, guid string) *Scene {
@@ -56,6 +56,19 @@ func (s *Scene) GetElement2(ref *Ref, prefabInstance *Ref) Element {
 func (s *Scene) GetGameObject(ref *Ref) *GameObject {
 	t, _ := s.GetElement(ref).(*GameObject)
 	return t
+}
+
+func (s *Scene) GetTransform(ref *Ref, prefabInstance *Ref) *Transform {
+	if t, ok := s.GetElement2(ref, prefabInstance).(*Transform); ok {
+		// stripped.
+		if !t.GameObject.IsValid() && t.CorrespondingSourceObject.IsValid() {
+			if t2, ok := t.Scene.GetElement2(t.CorrespondingSourceObject, t.PrefabInstance).(*Transform); ok {
+				return t2
+			}
+		}
+		return t
+	}
+	return nil
 }
 
 type Ref struct {
@@ -132,6 +145,8 @@ type Transform struct {
 	LocalScale    geom.Vector3 `yaml:"m_LocalScale"`
 
 	RootOrder int `yaml:"m_RootOrder"`
+
+	children []*Transform
 }
 
 func (tr *Transform) GetMatrix() *geom.Matrix4 {
@@ -150,19 +165,30 @@ func (tr *Transform) GetWorldMatrix() *geom.Matrix4 {
 }
 
 func (tr *Transform) GetChildren() []*Transform {
+	if tr.children != nil {
+		return tr.children
+	}
 	var children []*Transform
 	for _, c := range tr.Children {
-		if t, ok := tr.Scene.GetElement2(c, tr.PrefabInstance).(*Transform); ok {
-			// stripped.
-			if !t.GameObject.IsValid() && t.CorrespondingSourceObject.IsValid() {
-				if t2, ok := t.Scene.GetElement2(t.CorrespondingSourceObject, t.PrefabInstance).(*Transform); ok {
-					t = t2
-				}
-			}
+		if t := tr.Scene.GetTransform(c, tr.PrefabInstance); t != nil {
 			children = append(children, t)
 		}
 	}
+	tr.children = children
 	return children
+}
+
+func (tr *Transform) AddChild(child *Transform) bool {
+	if tr.children == nil {
+		tr.GetChildren()
+	}
+	for _, c := range tr.children {
+		if child == c {
+			return false
+		}
+	}
+	tr.children = append(tr.children, child)
+	return true
 }
 
 func (tr *Transform) GetParent() *Transform {
