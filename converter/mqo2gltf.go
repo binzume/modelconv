@@ -669,6 +669,14 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		m.Nodes[i] = node
 		if shared != nil {
 			geom.NewScaleMatrix4(m.Scale, m.Scale, m.Scale).Mul(obj.SharedGeometryHint.Transform).Mul(shared.matrix).ToArray(node.Matrix[:])
+			// workaround: avoid missing mesh issue in Windows 3D viewer?
+			const e = 10e-8
+			if node.Matrix[15] > 1-e && node.Matrix[15] < 1+e {
+				if node.Matrix[15] != 1 {
+					log.Println(obj.Name, node.Matrix)
+				}
+				node.Matrix[15] = 1
+			}
 		}
 		m.Scenes[0].Nodes = append(m.Scenes[0].Nodes, uint32(i))
 	}

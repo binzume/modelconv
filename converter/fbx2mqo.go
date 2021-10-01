@@ -113,7 +113,7 @@ func (c *fbxToMqoState) convertMaterial(m *fbx.Material) *mqo.Material {
 
 func (c *fbxToMqoState) convertModel(m *fbx.Model, d int, parentTransform *geom.Matrix4) {
 	dst := c.dst
-	obj := mqo.NewObject(strings.TrimPrefix(m.Name(), "Model::"))
+	obj := mqo.NewObject(strings.TrimSuffix(strings.TrimPrefix(m.Name(), "Model::"), "::Model"))
 	dst.Objects = append(dst.Objects, obj)
 	obj.UID = len(dst.Objects)
 	obj.Depth = d

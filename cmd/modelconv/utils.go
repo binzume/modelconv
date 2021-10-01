@@ -48,8 +48,9 @@ func loadDocument(input string) (*mqo.Document, error) {
 	case isUnity(ext):
 		names := strings.SplitN(input, "#", 2)
 		if len(names) == 1 {
-			if ext != ".unitypackage" && strings.HasSuffix(input, "Assets") {
-				names = []string{"Assets", input}
+			p := strings.Index(input, "Assets/")
+			if p >= 0 && ext != ".unitypackage" {
+				names = []string{input[:p+6], input[p:]}
 			} else {
 				names = append(names, "")
 			}
