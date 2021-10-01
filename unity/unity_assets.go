@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,13 +33,16 @@ type MetaFile struct {
 	GUID                 string                 `yaml:"guid"`
 	NativeFormatImporter map[string]interface{} `yaml:"NativeFormatImporter"`
 	TextureImporter      map[string]interface{} `yaml:"TextureImporter"`
-	ModelImporter        struct {
+	ModelImporter        *struct {
 		FileIDToRecycleName map[int64]string `yaml:"fileIDToRecycleName"`
 	} `yaml:"ModelImporter"`
 	RawData map[string]interface{} `yaml:",inline"`
 }
 
 func (m *MetaFile) GetRecycleNameByFileID(fileID int64) string {
+	if m.ModelImporter == nil || m.ModelImporter.FileIDToRecycleName == nil {
+		return ""
+	}
 	return m.ModelImporter.FileIDToRecycleName[fileID]
 }
 
@@ -225,6 +229,7 @@ func extractPackage(pacakage, dst string) error {
 
 type assetsFs struct {
 	assets
+	ProjectDir   string
 	AssetsDir    string
 	HideMetaFile bool
 }
@@ -234,11 +239,15 @@ func (a *assetsFs) GetSourcePath() string {
 }
 
 func (a *assetsFs) Open(path string) (fs.File, error) {
-	return os.Open(filepath.Join(a.AssetsDir, path))
+	return os.Open(filepath.Join(a.ProjectDir, path))
 }
 
 func (a *assetsFs) GetMetaFile(asset *Asset) (*MetaFile, error) {
-	r, err := os.Open(filepath.Join(a.AssetsDir, asset.Path, ".meta"))
+	return a.loadMetaFile(asset.Path)
+}
+
+func (a *assetsFs) loadMetaFile(assetPath string) (*MetaFile, error) {
+	r, err := os.Open(filepath.Join(a.ProjectDir, assetPath+".meta"))
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +268,8 @@ func scanAssets(assetsDir string) (*assetsFs, error) {
 			Assets:       map[string]*Asset{},
 			AssetsByPath: map[string]*Asset{},
 		},
-		AssetsDir: assetsDir,
+		ProjectDir: filepath.Dir(assetsDir),
+		AssetsDir:  assetsDir,
 	}
 	err := filepath.Walk(assetsDir, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
@@ -268,16 +278,12 @@ func scanAssets(assetsDir string) (*assetsFs, error) {
 		if !strings.HasSuffix(path, ".meta") {
 			return nil
 		}
-		r, err := assets.Open(path)
+		path, _ = filepath.Rel(assets.ProjectDir, strings.TrimSuffix(path, ".meta"))
+		meta, err := assets.loadMetaFile(path)
 		if err != nil {
-			return err
-		}
-		defer r.Close()
-
-		var meta MetaFile
-		yaml.NewDecoder(r).Decode(&meta)
-		guid := meta.GUID
-		if guid != "" {
+			log.Println(path, err)
+		} else {
+			guid := meta.GUID
 			asset := &Asset{
 				GUID: guid,
 				Path: path,
