@@ -247,7 +247,11 @@ func (p *Attribute) ToFloat32Array() []float32 {
 func (p *Attribute) String() string {
 	switch v := p.Value.(type) {
 	case string:
-		return fmt.Sprintf("%q", v)
+		segments := strings.SplitN(v, "\x00\x01", 2)
+		if len(segments) == 2 {
+			segments[0], segments[1] = segments[1], segments[0]
+		}
+		return fmt.Sprintf("%q", strings.Join(segments, "::"))
 	case []byte:
 		return fmt.Sprintf("\"%v\"", v)
 	default:
@@ -257,7 +261,7 @@ func (p *Attribute) String() string {
 
 func (n *Node) Dump(w io.Writer, d int, full bool) {
 	fmt.Fprint(w, strings.Repeat("  ", d), n.Name, ":")
-	var arrayReplacer = strings.NewReplacer("[", "{ a:", "]", "}", " ", ", ")
+	var arrayReplacer = strings.NewReplacer("[", "{\n      a:", "]", "\n    }", " ", ", ")
 	for i, p := range n.Attributes {
 		if !full && p.ArraySize > 16 {
 			fmt.Fprintf(w, " *%d { SKIPPED }", p.ArraySize)

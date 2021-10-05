@@ -9,7 +9,7 @@ Goで3Dモデルファイルを読み書きするライブラリ＆変換ツー�
 | .vrm       |  △  |  ○   | glTF 用のエクステンション        |
 | .pmx       |  ○  |  ○   | Physics未対応                    |
 | .pmd       |  ○  |       | Read only                        |
-| .fbx       |  ○  |       | 暫定実装                         |
+| .fbx       |  ○  |  △   | 暫定実装                         |
 | .unity     |  △  |       | Unity 2018以降のシーンに対応     |
 | .vmd       |  △  |       | 暫定実装                         |
 
@@ -34,7 +34,7 @@ package: [cmd/modelconv](cmd/modelconv)
 [Releases](https://github.com/binzume/modelconv/releases/latest)にビルド済みのWindows用の実行ファイルを置いてあります．
 
 ```bash
-go install github.com/binzume/modelconv/cmd/modelconv@v0.3.3
+go install github.com/binzume/modelconv/cmd/modelconv@latest
 ```
 
 ## Usage examples

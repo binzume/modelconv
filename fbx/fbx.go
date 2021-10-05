@@ -30,7 +30,7 @@ func Save(doc *Document, path string) error {
 		return err
 	}
 
-	fmt.Fprintln(w, "; FBX project file")
+	fmt.Fprintln(w, "; FBX 7.5.0 project file")
 	fmt.Fprintln(w, "; Generator: https://github.com/binzume/modelconv")
 	fmt.Fprintln(w, "; -----------------------------------------------")
 	for _, n := range doc.RawNode.Children {
