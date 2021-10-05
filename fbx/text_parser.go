@@ -168,11 +168,14 @@ func (p *textParser) parseNodeList() []*Node {
 			p.Skip(Colon)
 			node := &Node{Name: s}
 			nodes = append(nodes, node)
+			prev := Colon
 			for p.err == nil {
 				typ, s := p.getToken()
-				if typ == EOL {
+				if typ == EOL && prev != Comma {
 					break
-				} else if typ == BlockStart {
+				}
+				prev = typ
+				if typ == BlockStart {
 					node.Children = p.parseNodeList()
 					break
 				} else if typ == Number {
