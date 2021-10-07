@@ -3,6 +3,7 @@ package fbx
 import (
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 
 	"github.com/binzume/modelconv/geom"
@@ -12,6 +13,14 @@ type Node struct {
 	Name       string
 	Attributes AttributeList
 	Children   []*Node
+}
+
+func NewNode(name string, values ...interface{}) *Node {
+	var attrs []*Attribute
+	for _, v := range values {
+		attrs = append(attrs, &Attribute{Value: v})
+	}
+	return &Node{Name: name, Attributes: attrs}
 }
 
 func (n *Node) AddChild(node *Node) {
@@ -87,8 +96,7 @@ func (n *Node) GetVec3Array() []*geom.Vector3 {
 }
 
 type Attribute struct {
-	Value     interface{}
-	ArraySize uint
+	Value interface{}
 }
 
 type AttributeList []*Attribute
@@ -114,6 +122,14 @@ func (p AttributeList) ToString() string {
 
 func (p AttributeList) ToVector3(x, y, z float32) *geom.Vector3 {
 	return &geom.Vector3{X: p.Get(0).ToFloat32(x), Y: p.Get(1).ToFloat32(y), Z: p.Get(2).ToFloat32(z)}
+}
+
+func (p Attribute) Len() uint {
+	rv := reflect.ValueOf(p.Value)
+	if rv.Kind() == reflect.Slice {
+		return uint(rv.Len())
+	}
+	return 0
 }
 
 func (p *Attribute) ToInt(defvalue int) int {
@@ -263,13 +279,13 @@ func (n *Node) Dump(w io.Writer, d int, full bool) {
 	fmt.Fprint(w, strings.Repeat("  ", d), n.Name, ":")
 	var arrayReplacer = strings.NewReplacer("[", "{\n      a:", "]", "\n    }", " ", ", ")
 	for i, p := range n.Attributes {
-		if !full && p.ArraySize > 16 {
-			fmt.Fprintf(w, " *%d { SKIPPED }", p.ArraySize)
+		if !full && p.Len() > 16 {
+			fmt.Fprintf(w, " *%d { SKIPPED }", p.Len())
 			continue
 		}
 		s := p.String()
-		if p.ArraySize > 0 {
-			s = fmt.Sprint("*", p.ArraySize, " ", arrayReplacer.Replace(s))
+		if p.Len() > 0 {
+			s = fmt.Sprint("*", p.Len(), " ", arrayReplacer.Replace(s))
 		}
 		if i == 0 {
 			fmt.Fprint(w, " ", s)

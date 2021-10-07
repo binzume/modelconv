@@ -29,15 +29,20 @@ func Save(doc *Document, path string) error {
 	if err != nil {
 		return err
 	}
+	defer w.Close()
 
+	return Write(w, doc)
+}
+
+func Write(w io.Writer, doc *Document) error {
 	fmt.Fprintln(w, "; FBX 7.5.0 project file")
 	fmt.Fprintln(w, "; Generator: https://github.com/binzume/modelconv")
 	fmt.Fprintln(w, "; -----------------------------------------------")
+	fmt.Fprintln(w, "")
 	for _, n := range doc.RawNode.Children {
 		if n.Name != "FileId" {
 			n.Dump(w, 0, true)
 		}
 	}
-
 	return nil
 }

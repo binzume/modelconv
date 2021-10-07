@@ -128,7 +128,7 @@ func (p *binaryParser) readPropArray(typ uint8) *Attribute {
 		r, err := zlib.NewReader(io.LimitReader(p.r, int64(sz)))
 		if err != nil {
 			p.err = err
-			return &Attribute{buf, count}
+			return &Attribute{buf}
 		}
 		defer r.Close()
 		err = binary.Read(r, binary.LittleEndian, buf)
@@ -137,7 +137,7 @@ func (p *binaryParser) readPropArray(typ uint8) *Attribute {
 		}
 		p.r.SkipTo(next)
 	}
-	return &Attribute{buf, count}
+	return &Attribute{buf}
 }
 
 func (p *binaryParser) readProp() *Attribute {
@@ -147,33 +147,33 @@ func (p *binaryParser) readProp() *Attribute {
 	case 'B':
 		var v int8
 		p.read(&v)
-		return &Attribute{v, 0}
+		return &Attribute{v}
 	case 'C':
 		var v byte
 		p.read(&v)
-		return &Attribute{v, 0}
+		return &Attribute{v}
 	case 'Y':
 		var v int16
 		p.read(&v)
-		return &Attribute{v, 0}
+		return &Attribute{v}
 	case 'I':
 		var v int32
 		p.read(&v)
-		return &Attribute{v, 0}
+		return &Attribute{v}
 	case 'L':
 		var v int64
 		p.read(&v)
-		return &Attribute{v, 0}
+		return &Attribute{v}
 	case 'F':
-		return &Attribute{p.readFloat(), 0}
+		return &Attribute{p.readFloat()}
 	case 'D':
-		return &Attribute{p.readFloat64(), 0}
+		return &Attribute{p.readFloat64()}
 	case 'S':
-		return &Attribute{p.readString(uint(p.readUint32())), 0}
+		return &Attribute{p.readString(uint(p.readUint32()))}
 	case 'R':
 		buf := make([]byte, p.readUint32())
 		p.read(buf)
-		return &Attribute{buf, 0}
+		return &Attribute{buf}
 	case 'b', 'y', 'i', 'l', 'f', 'd':
 		return p.readPropArray(typ)
 	}

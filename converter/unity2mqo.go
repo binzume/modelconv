@@ -250,7 +250,7 @@ func (c *unityToMqoState) importMesh(mesh *unity.Ref, obj *mqo.Object, materials
 
 	obj.Name += "(FBX)"
 	objectIdx := len(c.dst.Objects)
-	scale := doc.GlobalSettings.GetProperty70("UnitScaleFactor").ToFloat32(1) * 0.01
+	scale := doc.GlobalSettings.GetProperty("UnitScaleFactor").ToFloat32(1) * 0.01
 	_, err = NewFBXToMQOConverter(&FBXToMQOOption{
 		ObjectDepth:      obj.Depth + 1,
 		TargetModelName:  meta.GetRecycleNameByFileID(mesh.FileID),

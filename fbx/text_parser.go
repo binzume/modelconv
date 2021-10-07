@@ -153,7 +153,7 @@ func (p *textParser) parseArrayProp() *Attribute {
 		}
 		values = i32values
 	}
-	return &Attribute{Value: values, ArraySize: uint(size)}
+	return &Attribute{Value: values}
 }
 
 func (p *textParser) parseNodeList() []*Node {

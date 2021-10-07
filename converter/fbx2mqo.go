@@ -55,9 +55,9 @@ func (conv *FBXToMQOConverter) ConvertTo(dst *mqo.Document, src *fbx.Document) (
 		0, 0, 0, 0,
 		0, 0, 0, 1,
 	}
-	mat[gs.GetProperty70("CoordAxis").ToInt(0)*4] = gs.GetProperty70("CoordAxisSign").ToFloat32(1)
-	mat[gs.GetProperty70("UpAxis").ToInt(1)*4+1] = gs.GetProperty70("UpAxisSign").ToFloat32(1)
-	mat[gs.GetProperty70("FrontAxis").ToInt(2)*4+2] = gs.GetProperty70("FrontAxisSign").ToFloat32(1)
+	mat[gs.GetProperty("CoordAxis").ToInt(0)*4] = gs.GetProperty("CoordAxisSign").ToFloat32(1)
+	mat[gs.GetProperty("UpAxis").ToInt(1)*4+1] = gs.GetProperty("UpAxisSign").ToFloat32(1)
+	mat[gs.GetProperty("FrontAxis").ToInt(2)*4+2] = gs.GetProperty("FrontAxisSign").ToFloat32(1)
 	c := &fbxToMqoState{
 		FBXToMQOOption: conv.options,
 		src:            src,
