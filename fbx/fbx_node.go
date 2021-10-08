@@ -275,9 +275,10 @@ func (p *Attribute) String() string {
 	}
 }
 
+// Dump node as fbx ASCII format.
 func (n *Node) Dump(w io.Writer, d int, full bool) {
 	fmt.Fprint(w, strings.Repeat("  ", d), n.Name, ":")
-	var arrayReplacer = strings.NewReplacer("[", "{\n      a:", "]", "\n    }", " ", ", ")
+	var arrayReplacer = strings.NewReplacer("[", "{\n      a:", "]", "\n"+strings.Repeat("  ", d)+"}", " ", ", ")
 	for i, p := range n.Attributes {
 		if !full && p.Len() > 16 {
 			fmt.Fprintf(w, " *%d { SKIPPED }", p.Len())
