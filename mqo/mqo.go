@@ -169,6 +169,9 @@ func (f *Face) Flip() {
 	for i, j := 0, len(f.UVs)-1; i < j; i, j = i+1, j-1 {
 		f.UVs[i], f.UVs[j] = f.UVs[j], f.UVs[i]
 	}
+	for i, j := 0, len(f.Normals)-1; i < j; i, j = i+1, j-1 {
+		f.Normals[i], f.Normals[j] = f.Normals[j], f.Normals[i]
+	}
 }
 
 type Object struct {
