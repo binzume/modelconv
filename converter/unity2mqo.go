@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -161,6 +162,8 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 				Plane(obj, transform, mat)
 			} else if name == "Quad" {
 				Quad(obj, transform, mat)
+			} else if name == "Sphere" {
+				Sphere(obj, transform, 16, 8, mat)
 			} else {
 				log.Println("TODO:", name)
 			}
@@ -307,6 +310,59 @@ func Cube(o *mqo.Object, tr *geom.Matrix4, mat int) {
 		{{X: 1, Y: 1}, {X: 1, Y: 0}, {X: 0, Y: 0}, {X: 0, Y: 1}},
 		{{X: 1, Y: 1}, {X: 1, Y: 0}, {X: 0, Y: 0}, {X: 0, Y: 1}},
 	}
+	AddGeometry(o, tr, mat, vs, faces, uvs)
+}
+
+func Sphere(o *mqo.Object, tr *geom.Matrix4, sh, sv, mat int) {
+	const r = 1
+	vs := []*geom.Vector3{
+		{X: 0, Y: r, Z: 0},
+		{X: 0, Y: -r, Z: 0},
+	}
+	var faces [][]int
+	var uvs [][]geom.Vector2
+
+	for i := 1; i < sv; i++ {
+		t := float64(i) / float64(sv) * math.Pi
+		y := math.Cos(t) * r
+		r2 := math.Sin(t) * r
+		for j := 0; j < sh; j++ {
+			t2 := float64(j) / float64(sh) * 2 * math.Pi
+			vs = append(vs, &geom.Vector3{X: float32(math.Cos(t2) * r2), Y: float32(y), Z: float32(math.Sin(t2) * r2)})
+		}
+	}
+	ofs := 2
+	for i := 0; i < sv; i++ {
+		i1 := (i - 1) * sh
+		i2 := (i) * sh
+		for j := 0; j < sh; j++ {
+			j2 := (j + 1) % sh
+			if i == 0 {
+				faces = append(faces, []int{ofs - 2, i2 + j + ofs, i2 + j2 + ofs})
+				uvs = append(uvs, []geom.Vector2{
+					{X: float32(j) / float32(sh), Y: float32(i) / float32(sv)},
+					{X: float32(j) / float32(sh), Y: float32(i+1) / float32(sv)},
+					{X: float32(j+1) / float32(sh), Y: float32(i+1) / float32(sv)},
+				})
+			} else if i == sv-1 {
+				faces = append(faces, []int{i1 + j + ofs, ofs - 1, i1 + j2 + ofs})
+				uvs = append(uvs, []geom.Vector2{
+					{X: float32(j) / float32(sh), Y: float32(i) / float32(sv)},
+					{X: float32(j) / float32(sh), Y: float32(i+1) / float32(sv)},
+					{X: float32(j+1) / float32(sh), Y: float32(i) / float32(sv)},
+				})
+			} else {
+				faces = append(faces, []int{i1 + j + ofs, i2 + j + ofs, i2 + j2 + ofs, i1 + j2 + ofs})
+				uvs = append(uvs, []geom.Vector2{
+					{X: float32(j) / float32(sh), Y: float32(i) / float32(sv)},
+					{X: float32(j) / float32(sh), Y: float32(i+1) / float32(sv)},
+					{X: float32(j+1) / float32(sh), Y: float32(i+1) / float32(sv)},
+					{X: float32(j+1) / float32(sh), Y: float32(i) / float32(sv)},
+				})
+			}
+		}
+	}
+
 	AddGeometry(o, tr, mat, vs, faces, uvs)
 }
 
