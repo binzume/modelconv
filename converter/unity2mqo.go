@@ -163,7 +163,9 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 			} else if name == "Quad" {
 				Quad(obj, transform, mat)
 			} else if name == "Sphere" {
-				Sphere(obj, transform, 16, 8, mat)
+				Sphere(obj, transform, 32, 16, mat)
+			} else if name == "Cylinder" {
+				Cylinder(obj, transform, 32, mat)
 			} else {
 				log.Println("TODO:", name)
 			}
@@ -303,18 +305,18 @@ func Cube(o *mqo.Object, tr *geom.Matrix4, mat int) {
 		{2, 1, 5, 6}, {0, 3, 7, 4},
 	}
 	uvs := [][]geom.Vector2{
-		{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}, {X: 0, Y: 1}},
-		{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}, {X: 0, Y: 1}},
-		{{X: 0, Y: 1}, {X: 1, Y: 1}, {X: 1, Y: 0}, {X: 0, Y: 0}},
-		{{X: 0, Y: 1}, {X: 1, Y: 1}, {X: 1, Y: 0}, {X: 0, Y: 0}},
-		{{X: 1, Y: 1}, {X: 1, Y: 0}, {X: 0, Y: 0}, {X: 0, Y: 1}},
-		{{X: 1, Y: 1}, {X: 1, Y: 0}, {X: 0, Y: 0}, {X: 0, Y: 1}},
+		{{X: 1, Y: 1}, {X: 0, Y: 1}, {X: 0, Y: 0}, {X: 1, Y: 0}},
+		{{X: 1, Y: 1}, {X: 0, Y: 1}, {X: 0, Y: 0}, {X: 1, Y: 0}},
+		{{X: 1, Y: 1}, {X: 0, Y: 1}, {X: 0, Y: 0}, {X: 1, Y: 0}},
+		{{X: 1, Y: 1}, {X: 0, Y: 1}, {X: 0, Y: 0}, {X: 1, Y: 0}},
+		{{X: 1, Y: 0}, {X: 1, Y: 1}, {X: 0, Y: 1}, {X: 0, Y: 0}},
+		{{X: 0, Y: 1}, {X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}},
 	}
 	AddGeometry(o, tr, mat, vs, faces, uvs)
 }
 
 func Sphere(o *mqo.Object, tr *geom.Matrix4, sh, sv, mat int) {
-	const r = 1
+	const r = 0.5
 	vs := []*geom.Vector3{
 		{X: 0, Y: r, Z: 0},
 		{X: 0, Y: -r, Z: 0},
@@ -366,6 +368,37 @@ func Sphere(o *mqo.Object, tr *geom.Matrix4, sh, sv, mat int) {
 	AddGeometry(o, tr, mat, vs, faces, uvs)
 }
 
+func Cylinder(o *mqo.Object, tr *geom.Matrix4, s, mat int) {
+	const r = 0.5
+	var vs []*geom.Vector3
+	var faces [][]int
+	var uvs [][]geom.Vector2
+	var top []int
+	var bottom []int
+	var topuv []geom.Vector2
+
+	for i := 0; i < s; i++ {
+		t := float64(i) / float64(s) * math.Pi * 2
+		vs = append(vs,
+			&geom.Vector3{X: float32(math.Cos(t) * r), Y: 1, Z: float32(math.Sin(t) * r)},
+			&geom.Vector3{X: float32(math.Cos(t) * r), Y: -1, Z: float32(math.Sin(t) * r)})
+		top = append(top, i*2)
+		bottom = append(bottom, (s-i-1)*2+1)
+		faces = append(faces, []int{i * 2, i*2 + 1, ((i+1)%s)*2 + 1, ((i + 1) % s) * 2})
+		uvs = append(uvs, []geom.Vector2{
+			{X: 1 - float32(i)/float32(s), Y: 0},
+			{X: 1 - float32(i)/float32(s), Y: 1},
+			{X: 1 - float32(i+1)/float32(s), Y: 1},
+			{X: 1 - float32(i+1)/float32(s), Y: 0},
+		})
+		topuv = append(topuv, geom.Vector2{X: float32(i) / float32(s), Y: 1})
+	}
+	faces = append(faces, top, bottom)
+	uvs = append(uvs, topuv, topuv)
+
+	AddGeometry(o, tr, mat, vs, faces, uvs)
+}
+
 func Quad(o *mqo.Object, tr *geom.Matrix4, mat int) {
 	vs := []*geom.Vector3{
 		{X: -0.5, Y: -0.5},
@@ -377,7 +410,7 @@ func Quad(o *mqo.Object, tr *geom.Matrix4, mat int) {
 		{1, 0, 2, 3},
 	}
 	uvs := [][]geom.Vector2{
-		{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 0, Y: 1}, {X: 1, Y: 1}},
+		{{X: 1, Y: 1}, {X: 0, Y: 1}, {X: 0, Y: 0}, {X: 1, Y: 0}},
 	}
 	AddGeometry(o, tr, mat, vs, faces, uvs)
 }
@@ -393,7 +426,7 @@ func Plane(o *mqo.Object, tr *geom.Matrix4, mat int) {
 		{0, 1, 2, 3},
 	}
 	uvs := [][]geom.Vector2{
-		{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}, {X: 0, Y: 1}},
+		{{X: 1, Y: 1}, {X: 0, Y: 1}, {X: 0, Y: 0}, {X: 1, Y: 0}},
 	}
 	AddGeometry(o, tr, mat, vs, faces, uvs)
 }
