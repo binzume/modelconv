@@ -56,6 +56,23 @@ func NewGeometry(name string, verts []*geom.Vector3, faces [][]int) *Geometry {
 	return geom
 }
 
+func (g *Geometry) Init() {
+	g.Vertices = g.GetVertices()
+	polygonVertices := g.FindChild("PolygonVertexIndex").GetInt32Array()
+	g.PolygonVertexCount = len(polygonVertices)
+	if v := polygonVertices; v != nil {
+		var face []int
+		for _, index := range v {
+			if index < 0 {
+				face = append(face, int(^index))
+				g.Polygons = append(g.Polygons, face)
+				face = nil
+				continue
+			}
+			face = append(face, int(index))
+		}
+	}
+}
 func (g *Geometry) GetVertices() []*geom.Vector3 {
 	return g.FindChild("Vertices").GetVec3Array()
 }
@@ -222,19 +239,19 @@ func (d *Deformer) GetTransformLink() *geom.Matrix4 {
 }
 
 func (d *Deformer) GetTarget() *Model {
-	nodes := d.FindRefs("Model")
-	if len(nodes) == 0 {
-		return nil
+	for _, o := range d.Refs {
+		if m, ok := o.(*Model); ok {
+			return m
+		}
 	}
-	m, _ := nodes[0].(*Model)
-	return m
+	return nil
 }
 
 func (d *Deformer) GetShapes() []*GeometryShape {
 	var shapes []*GeometryShape
-	for _, node := range d.FindRefs("Geometry") {
-		if node.Kind() == "Shape" {
-			shapes = append(shapes, &GeometryShape{Node: node.(*Geometry).Node})
+	for _, o := range d.Refs {
+		if g, ok := o.(*Geometry); ok && g.Kind() == "Shape" {
+			shapes = append(shapes, &GeometryShape{Node: g.Node})
 		}
 	}
 	return shapes

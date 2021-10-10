@@ -76,19 +76,19 @@ func (m *Model) GetWorldMatrix() *geom.Matrix4 {
 
 func (m *Model) GetChildModels() []*Model {
 	var r []*Model
-	for _, o := range m.FindRefs("Model") {
-		if c, ok := o.(*Model); ok {
-			r = append(r, c)
+	for _, o := range m.Refs {
+		if m, ok := o.(*Model); ok {
+			r = append(r, m)
 		}
 	}
 	return r
 }
 
 func (m *Model) GetGeometry() *Geometry {
-	geometries := m.FindRefs("Geometry")
-	if len(geometries) == 0 {
-		return nil
+	for _, o := range m.Refs {
+		if g, ok := o.(*Geometry); ok {
+			return g
+		}
 	}
-	g, _ := geometries[0].(*Geometry)
-	return g
+	return nil
 }

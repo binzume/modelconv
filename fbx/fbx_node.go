@@ -80,19 +80,41 @@ func (n *Node) GetString() string {
 }
 
 func (n *Node) GetInt32Array() []int32 {
-	return n.Attr(0).ToInt32Array()
+	array := n.Attr(0).ToInt32Array()
+	if array == nil && n.Attr(0) != nil {
+		for _, attr := range n.Attributes {
+			array = append(array, int32(attr.ToInt(0)))
+		}
+	}
+	return array
 }
 
 func (n *Node) GetFloat32Array() []float32 {
-	return n.Attr(0).ToFloat32Array()
+	array := n.Attr(0).ToFloat32Array()
+	if array == nil && n.Attr(0) != nil {
+		for _, attr := range n.Attributes {
+			array = append(array, attr.ToFloat32(0))
+		}
+	}
+	return array
 }
 
 func (n *Node) GetVec2Array() []*geom.Vector2 {
-	return n.Attr(0).ToVec2Array()
+	farray := n.GetFloat32Array()
+	var vv []*geom.Vector2
+	for i := 0; i < len(farray)/2; i++ {
+		vv = append(vv, &geom.Vector2{X: farray[i*2], Y: farray[i*2+1]})
+	}
+	return vv
 }
 
 func (n *Node) GetVec3Array() []*geom.Vector3 {
-	return n.Attr(0).ToVec3Array()
+	farray := n.GetFloat32Array()
+	var vv []*geom.Vector3
+	for i := 0; i < len(farray)/3; i++ {
+		vv = append(vv, &geom.Vector3{X: farray[i*3], Y: farray[i*3+1], Z: farray[i*3+2]})
+	}
+	return vv
 }
 
 type Attribute struct {
@@ -186,30 +208,6 @@ func (p *Attribute) ToString() string {
 		return string(v)
 	}
 	return ""
-}
-
-func (p *Attribute) ToVec3Array() []*geom.Vector3 {
-	if p == nil {
-		return nil
-	}
-	farray := p.ToFloat32Array()
-	var vv []*geom.Vector3
-	for i := 0; i < len(farray)/3; i++ {
-		vv = append(vv, &geom.Vector3{X: farray[i*3], Y: farray[i*3+1], Z: farray[i*3+2]})
-	}
-	return vv
-}
-
-func (p *Attribute) ToVec2Array() []*geom.Vector2 {
-	if p == nil {
-		return nil
-	}
-	farray := p.ToFloat32Array()
-	var vv []*geom.Vector2
-	for i := 0; i < len(farray)/2; i++ {
-		vv = append(vv, &geom.Vector2{X: farray[i*2], Y: farray[i*2+1]})
-	}
-	return vv
 }
 
 func (p *Attribute) ToInt32Array() []int32 {

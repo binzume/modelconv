@@ -6,11 +6,11 @@ type Document struct {
 	CreationTime string
 
 	GlobalSettings Object
-	Objects        map[int64]Object
 	Scene          *Model
 
 	Materials []*Material
 
+	ObjectByID   map[int64]Object
 	RawNode      *Node
 	NextObjectID int64
 }
@@ -52,47 +52,25 @@ func NewDocument() *Document {
 	return doc
 }
 
-func parseGeometry(base *Obj) *Geometry {
-	geometry := &Geometry{Obj: *base}
-	geometry.Vertices = geometry.GetVertices()
-	polygonVertices := base.FindChild("PolygonVertexIndex").GetInt32Array()
-	geometry.PolygonVertexCount = len(polygonVertices)
-	if v := polygonVertices; v != nil {
-		var face []int
-		for _, index := range v {
-			if index < 0 {
-				face = append(face, int(^index))
-				geometry.Polygons = append(geometry.Polygons, face)
-				face = nil
-				continue
-			}
-			face = append(face, int(index))
-		}
+func (doc *Document) newID() int64 {
+	for doc.ObjectByID[doc.NextObjectID] != nil {
+		doc.NextObjectID++
 	}
-	return geometry
-}
-
-func parseConnection(node *Node) *Connection {
-	c := &Connection{
-		Type: node.Attr(0).ToString(),
-		From: node.Attr(1).ToInt64(0),
-		To:   node.Attr(2).ToInt64(0),
-	}
-	if c.Type == "OP" {
-		c.Prop = node.Attr(3).ToString()
-	}
-	return c
+	doc.NextObjectID++
+	return doc.NextObjectID - 1
 }
 
 func BuildDocument(root *Node) (*Document, error) {
-	doc := &Document{RawNode: root, Scene: &Model{Obj: Obj{}}}
-	doc.Objects = map[int64]Object{0: doc.Scene}
+	doc := &Document{RawNode: root, Scene: &Model{Obj: Obj{Node: NewNode("Scene\x00\x01Model")}}}
+	doc.ObjectByID = map[int64]Object{0: doc.Scene}
 
 	doc.Creator = root.FindChild("Creator").GetString()
 	doc.CreationTime = root.FindChild("CreationTime").GetString()
 	if fileId := root.FindChild("FileId").Attr(0); fileId != nil {
 		doc.FileId, _ = fileId.Value.([]byte)
 	}
+
+	fbxVersion := root.FindChild("FBXHeaderExtension").FindChild("FBXVersion").Attr(0).ToInt(0)
 
 	templates := map[string]*Obj{}
 	for _, node := range root.FindChild("Definitions").GetChildren() {
@@ -102,38 +80,55 @@ func BuildDocument(root *Node) (*Document, error) {
 		templates[node.GetString()] = &Obj{Node: node.FindChild("PropertyTemplate")}
 	}
 	doc.GlobalSettings = &Obj{Node: root.FindChild("GlobalSettings"), Template: templates["GlobalSettings"]}
-
+	objectByName := map[string]Object{"Scene\x00\x01Model": doc.Scene}
 	for _, node := range root.FindChild("Objects").GetChildren() {
+		if fbxVersion == 6100 {
+			// TODO: clone
+			node2 := *node
+			node = &node2
+			node.Attributes = append([]*Attribute{{Value: doc.newID()}}, node.Attributes...)
+		}
 		base := &Obj{Node: node, Template: templates[node.Name]}
 		var obj Object = base
 		switch node.Name {
 		case "Deformer":
 			obj = &Deformer{*base}
 		case "Geometry":
-			obj = parseGeometry(base)
+			geometry := &Geometry{Obj: *base}
+			geometry.Init()
+			obj = geometry
 		case "Material":
 			doc.Materials = append(doc.Materials, &Material{*base})
 			obj = doc.Materials[len(doc.Materials)-1]
 		case "Model":
 			obj = &Model{Obj: *base}
+			if fbxVersion == 6100 && base.FindChild("Vertices") != nil {
+				// TODO
+				g := &Geometry{Obj: *base}
+				g.Init()
+				obj.AddRef(g)
+			}
 		}
-		doc.Objects[obj.ID()] = obj
+		doc.ObjectByID[obj.ID()] = obj
+		objectByName[obj.GetNode().Attr(1).ToString()] = obj
 	}
 
 	for _, node := range root.FindChild("Connections").GetChildren() {
-		if node.Name == "C" {
-			c := parseConnection(node)
-			if c.Type == "OO" || c.Type == "OP" {
-				from := doc.Objects[c.From]
-				to := doc.Objects[c.To]
-				if to != nil && from != nil {
-					to.AddRef(from)
+		ctype := node.Attr(0).ToString()
+		if (ctype == "OO" || ctype == "OP") && len(node.Attributes) >= 3 {
+			from := doc.ObjectByID[node.Attr(1).ToInt64(0)]
+			to := doc.ObjectByID[node.Attr(2).ToInt64(0)]
+			if fbxVersion == 6100 {
+				from = objectByName[node.Attr(1).ToString()]
+				to = objectByName[node.Attr(2).ToString()]
+			}
+			if to != nil && from != nil {
+				to.AddRef(from)
 
-					// build model tree
-					if toModel, ok := to.(*Model); ok {
-						if fromModel, ok := from.(*Model); ok {
-							fromModel.Parent = toModel
-						}
+				// build model tree
+				if toModel, ok := to.(*Model); ok {
+					if fromModel, ok := from.(*Model); ok {
+						fromModel.Parent = toModel
 					}
 				}
 			}
@@ -144,18 +139,14 @@ func BuildDocument(root *Node) (*Document, error) {
 }
 
 func (doc *Document) AddObject(obj Object) int64 {
-	existing := doc.Objects[obj.ID()]
+	existing := doc.ObjectByID[obj.ID()]
 	if existing == obj {
 		return obj.ID()
 	}
 	if obj.ID() == 0 || existing != nil {
-		for doc.Objects[doc.NextObjectID] != nil {
-			doc.NextObjectID++
-		}
-		obj.GetNode().Attributes[0].Value = doc.NextObjectID
-		doc.NextObjectID++
+		obj.GetNode().Attributes[0].Value = doc.newID()
 	}
-	doc.Objects[obj.ID()] = obj
+	doc.ObjectByID[obj.ID()] = obj
 	objs := doc.RawNode.FindChild("Objects")
 	objs.Children = append(objs.Children, obj.GetNode())
 	return obj.ID()

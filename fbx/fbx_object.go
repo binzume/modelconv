@@ -11,12 +11,6 @@ type Property struct {
 	Flag  string
 }
 
-type Connection struct {
-	Type string
-	To   int64
-	From int64
-	Prop string
-}
 type Object interface {
 	GetNode() *Node
 	NodeName() string
