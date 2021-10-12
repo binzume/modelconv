@@ -32,11 +32,12 @@ var (
 	hidemats  = flag.String("hidemat", "", "hide materials (MAT1,MAT2,...)")
 	chparent  = flag.String("chparent", "", "ch bone parent (BONE1:PARENT1,BONE2:PARENT2,...)")
 
-	texReCompress      = flag.Bool("texReCompress", false, "re-compress all textures (gltf)")
-	texBytesThreshold  = flag.Int64("texBytesThreshold", 0, "resize large textures (gltf)")
-	texResolutionLimit = flag.Int("texResolutionLimit", 4096, "resize large textures (gltf)")
-	texResizeScale     = flag.Float64("texResizeScale", 1.0, "resize large textures (gltf)")
-	reuseGeometry      = flag.Bool("reuseGeometry", false, "use shared geometry data (gltf, experimental)")
+	texReCompress       = flag.Bool("texReCompress", false, "re-compress all textures (gltf)")
+	texBytesThreshold   = flag.Int64("texBytesThreshold", 0, "resize large textures (gltf)")
+	texResolutionLimit  = flag.Int("texResolutionLimit", 4096, "resize large textures (gltf)")
+	texResizeScale      = flag.Float64("texResizeScale", 1.0, "resize large textures (gltf)")
+	reuseGeometry       = flag.Bool("reuseGeometry", false, "use shared geometry data (gltf, experimental)")
+	gltfIgnoreHierarchy = flag.Bool("ignoreHierarchy", false, "ignore object tree (gltf)")
 )
 
 func isGltf(ext string) bool {
@@ -98,6 +99,7 @@ func saveDocument(doc *mqo.Document, output, ext, srcDir, vrmConf string, inputs
 			TextureResolutionLimit: *texResolutionLimit,
 			TextureScale:           float32(*texResizeScale),
 			ReuseGeometry:          *reuseGeometry,
+			IgnoreObjectHierarchy:  *gltfIgnoreHierarchy,
 		}
 		conv := converter.NewMQOToGLTFConverter(opt)
 		gltfdoc, err := conv.Convert(doc, srcDir)
@@ -124,6 +126,7 @@ func saveDocument(doc *mqo.Document, output, ext, srcDir, vrmConf string, inputs
 }
 
 func main() {
+	// defer profile.Start(profile.ProfilePath(".")).Stop()
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] input.pmx [output.mqo]\n", os.Args[0])
 		flag.PrintDefaults()

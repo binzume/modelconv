@@ -37,6 +37,7 @@ type MQOToGLTFOption struct {
 	TextureBytesThreshold  int64 // 0: unlimited
 	TextureResolutionLimit int   // 0: unlimited
 	TextureScale           float32
+	IgnoreObjectHierarchy  bool
 
 	ReuseGeometry bool // experimental
 }
@@ -595,7 +596,7 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 	var targetObjects []*mqo.Object
 	materialUsed := map[int]bool{}
 	for _, obj := range doc.Objects {
-		if obj.Visible && len(obj.Faces) > 0 && morphTargets[obj.Name] == nil {
+		if (!m.IgnoreObjectHierarchy || obj.Visible && len(obj.Faces) > 0) && morphTargets[obj.Name] == nil {
 			targetObjects = append(targetObjects, obj)
 			m.checkMaterials(obj, materialUsed)
 		}
@@ -634,6 +635,7 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		}
 	}
 
+	var nodePath []*gltf.Node
 	for i, obj := range targetObjects {
 		var morphTargets []*mqo.Object
 		if m.convertMorph {
@@ -648,34 +650,48 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 			}
 		}
 
-		var shared *geomCache
-		if hint := obj.SharedGeometryHint; m.ReuseGeometry && hint != nil {
-			if sharedGeoms[hint.Key] != nil && sharedGeoms[hint.Key].count > 1 {
-				shared = sharedGeoms[hint.Key]
-				if shared.matrix == nil {
-					shared.matrix = geom.NewScaleMatrix4(m.Scale, m.Scale, m.Scale).Mul(hint.Transform).Inverse()
+		node := &gltf.Node{Name: obj.Name}
+		if obj.Visible {
+			var shared *geomCache
+			if hint := obj.SharedGeometryHint; m.ReuseGeometry && hint != nil {
+				if sharedGeoms[hint.Key] != nil && sharedGeoms[hint.Key].count > 1 {
+					shared = sharedGeoms[hint.Key]
+					if shared.matrix == nil {
+						shared.matrix = geom.NewScaleMatrix4(m.Scale, m.Scale, m.Scale).Mul(hint.Transform).Inverse()
+					}
 				}
 			}
-		}
-		mesh, joints := m.ConvertObject(obj, bones, boneIDToJoint, morphTargets, materialMap, shared)
-		node := &gltf.Node{Name: obj.Name}
-		if len(mesh.Primitives) > 0 {
-			node.Mesh = gltf.Index(uint32(len(m.Document.Meshes)))
-			m.Document.Meshes = append(m.Document.Meshes, mesh)
-		}
-		if len(joints) > 0 {
-			node.Skin = gltf.Index(m.addSkin(joints, jointToBone))
+			mesh, joints := m.ConvertObject(obj, bones, boneIDToJoint, morphTargets, materialMap, shared)
+			if len(mesh.Primitives) > 0 {
+				node.Mesh = gltf.Index(uint32(len(m.Document.Meshes)))
+				m.Document.Meshes = append(m.Document.Meshes, mesh)
+			}
+			if len(joints) > 0 {
+				node.Skin = gltf.Index(m.addSkin(joints, jointToBone))
+			}
+			if shared != nil {
+				geom.NewScaleMatrix4(m.Scale, m.Scale, m.Scale).Mul(obj.SharedGeometryHint.Transform).Mul(shared.matrix).ToArray(node.Matrix[:])
+				// workaround: avoid missing mesh issue in Windows 3D viewer?
+				node.Matrix[3] = 0
+				node.Matrix[7] = 0
+				node.Matrix[11] = 0
+				node.Matrix[15] = 1
+			}
 		}
 		m.Nodes[i] = node
-		if shared != nil {
-			geom.NewScaleMatrix4(m.Scale, m.Scale, m.Scale).Mul(obj.SharedGeometryHint.Transform).Mul(shared.matrix).ToArray(node.Matrix[:])
-			// workaround: avoid missing mesh issue in Windows 3D viewer?
-			node.Matrix[3] = 0
-			node.Matrix[7] = 0
-			node.Matrix[11] = 0
-			node.Matrix[15] = 1
+		// node.AddChild()
+		if len(nodePath) > obj.Depth {
+			nodePath = nodePath[:obj.Depth]
 		}
-		m.Scenes[0].Nodes = append(m.Scenes[0].Nodes, uint32(i))
+		if !m.IgnoreObjectHierarchy && len(nodePath) > 0 {
+			parent := nodePath[len(nodePath)-1]
+			parent.Children = append(parent.Children, uint32(i))
+		} else {
+			m.Scenes[0].Nodes = append(m.Scenes[0].Nodes, uint32(i))
+		}
+		if node.MatrixOrDefault() == gltf.DefaultMatrix {
+			nodePath = append(nodePath, node)
+		}
 	}
 
 	textures := &textureCache{srcDir: textureDir, textures: map[string]*textureInfo{}}
