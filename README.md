@@ -1,5 +1,10 @@
 # Experimental 3D model converter
 
+[![Build Status](https://app.travis-ci.com/binzume/modelconv.svg?branch=master)](https://app.travis-ci.com/binzume/modelconv)
+[![Go Reference](https://pkg.go.dev/badge/github.com/binzume/modelconv.svg)](https://pkg.go.dev/github.com/binzume/modelconv)
+[![license](https://img.shields.io/badge/license-MIT-4183c4.svg)](https://github.com/binzume/modelconv/blob/master/LICENSE)
+
+
 Goで3Dモデルファイルを読み書きするライブラリ＆変換ツールです．
 
 | Format     | Read | Write | Comment                          |
