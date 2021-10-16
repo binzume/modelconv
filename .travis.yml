@@ -1,0 +1,10 @@
+language: go
+
+go:
+  - 1.16
+
+script:
+  - go test -v -cover -coverprofile=cover.out ./fbx
+
+# after_success:
+#  - bash <(curl -s https://codecov.io/bash)

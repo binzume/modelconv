@@ -28,6 +28,7 @@ func TestNewDocument(t *testing.T) {
 	doc.AddConnection(model, g)         // set geometry to model
 	doc.AddConnection(model, mat)       // set material to model
 
+	_ = os.Mkdir("../testdata", 0777)
 	w, _ := os.Create("../testdata/test01.fbx")
 	//w := os.Stdout
 	Write(w, doc)
