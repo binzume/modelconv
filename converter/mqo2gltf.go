@@ -506,7 +506,7 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 		if obj.Shading > 0 && !m.ForceUnlit {
 			attributes["NORMAL"] = shared.attributes["NORMAL"]
 		}
-	} else {
+	} else if len(vertexes) > 0 {
 		attributes["POSITION"] = modeler.WritePosition(m.Document, vertexes)
 		if useTexcood0 {
 			attributes["TEXCOORD_0"] = modeler.WriteTextureCoord(m.Document, texcood0)
@@ -598,7 +598,9 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 	for _, obj := range doc.Objects {
 		if (!m.IgnoreObjectHierarchy || obj.Visible && len(obj.Faces) > 0) && morphTargets[obj.Name] == nil {
 			targetObjects = append(targetObjects, obj)
-			m.checkMaterials(obj, materialUsed)
+			if obj.Visible {
+				m.checkMaterials(obj, materialUsed)
+			}
 		}
 	}
 
