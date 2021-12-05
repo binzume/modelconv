@@ -200,7 +200,9 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		gltfutil.ApplyTransform(doc, geom.NewScaleMatrix4(scaleVec.X, scaleVec.Y, scaleVec.Z))
+		if scaleVec != nil {
+			gltfutil.ApplyTransform(doc, geom.NewScaleMatrix4(scaleVec.X, scaleVec.Y, scaleVec.Z))
+		}
 		err = saveGltfDocument(doc, output, outputExt, filepath.Dir(input), *vrmconf)
 		if err != nil {
 			log.Fatal(err)
