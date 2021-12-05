@@ -1,0 +1,70 @@
+package mqo
+
+import (
+	"encoding/xml"
+
+	"github.com/binzume/modelconv/geom"
+)
+
+// Fake plugin for keep physics params
+type PhysicsPlugin struct {
+	XMLName xml.Name `xml:"Plugin.7A6E6962.12345678"`
+	Name    string   `xml:"name,attr"`
+
+	Bodies      []*PhysicsBody            `xml:"Bodies>Body"`
+	Constraints []*PhysicsJointConstraint `xml:"Constraints>Joint"`
+}
+
+type Vector3XmlAttr struct {
+	X geom.Element `xml:"x,attr"`
+	Y geom.Element `xml:"y,attr"`
+	Z geom.Element `xml:"z,attr"`
+}
+
+type PhysicsBody struct {
+	Shape    string // sphere, cylinder, box
+	Size     Vector3XmlAttr
+	Position Vector3XmlAttr
+	Rotation Vector3XmlAttr
+
+	Mass           float32 `xml:"mass,attr"`
+	Kinematic      bool    `xml:"kinematic,attr,omitempty"`
+	CollisionGroup int
+	CollisionMask  int
+
+	// TODO: PhysicsMaterial
+	Restitution    float32
+	Friction       float32
+	LinearDamping  float32
+	AngularDamping float32
+
+	// optional
+	Name         string `xml:"name,attr,omitempty"`
+	TargetBoneID int    `xml:"targetBone,attr,omitempty"`
+	TargetObjID  int    `xml:"targetObj,attr,omitempty"`
+}
+
+type PhysicsJointConstraint struct {
+	Type  string `xml:"type,attr,omitempty"`
+	Body1 int    `xml:"body1,attr,omitempty"`
+	Body2 int    `xml:"body2,attr,omitempty"`
+
+	Name string `xml:"name,attr,omitempty"` // optional
+}
+
+func GetPhysicsPlugin(mqo *Document) *PhysicsPlugin {
+	for _, p := range mqo.Plugins {
+		if plugin, ok := p.(*PhysicsPlugin); ok {
+			return plugin
+		}
+	}
+	plugin := &PhysicsPlugin{Name: "Physics Plugin"}
+	mqo.Plugins = append(mqo.Plugins, plugin)
+	return plugin
+}
+
+func (p *PhysicsPlugin) PreSerialize(mqo *Document) {
+}
+
+func (p *PhysicsPlugin) PostDeserialize(mqo *Document) {
+}
