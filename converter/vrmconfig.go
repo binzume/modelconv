@@ -99,6 +99,20 @@ func (c *Config) MergePreset(preset *Config) {
 	c.ColliderGroups = append(c.ColliderGroups, preset.ColliderGroups...)
 }
 
+func matchNodeName(pattern string, nodeMap map[string]int) []int {
+	var result []int
+	if strings.Contains(pattern, "*") || strings.Contains(pattern, "?") {
+		for name, id := range nodeMap {
+			if m, _ := path.Match(pattern, name); m {
+				result = append(result, id)
+			}
+		}
+	} else if id, ok := nodeMap[pattern]; ok {
+		result = append(result, id)
+	}
+	return result
+}
+
 func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]int, nodeMap map[string]int, blendShapeMap map[[2]int]string) {
 	ext := doc.VRM()
 	for _, mapping := range conf.BoneMappings {
@@ -167,9 +181,9 @@ func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]
 	for _, boneGroup := range conf.AnimationBoneGroups {
 		var b = boneGroup.SecondaryAnimationBoneGroup
 		for _, nodeName := range boneGroup.NodeNames {
-			if id, ok := nodeMap[nodeName]; ok {
-				b.Bones = append(b.Bones, id)
-			} else {
+			matched := matchNodeName(nodeName, nodeMap)
+			b.Bones = append(b.Bones, matched...)
+			if len(matched) == 0 {
 				log.Println("Bone node not found:", nodeName)
 			}
 		}
