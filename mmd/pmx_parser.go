@@ -262,6 +262,79 @@ func (p *PMXParser) readMorph() *Morph {
 	return &m
 }
 
+func (p *PMXParser) readDisplayGroup() {
+	// TODO
+	type DisplayTarget struct {
+		Type   uint8
+		Target int
+	}
+	d := struct {
+		Name   string
+		NameEn string
+		Flags  uint8
+		Target []DisplayTarget
+	}{}
+	d.Name = p.readText()
+	d.NameEn = p.readText()
+	d.Flags = p.readUint8()
+	n := p.readInt()
+	for i := 0; i < n; i++ {
+		t := DisplayTarget{Type: p.readUint8()}
+		if t.Type == 0 {
+			t.Target = p.readIndex(AttrBoneIndexSz)
+		} else {
+			t.Target = p.readIndex(AttrMorphIndexSz)
+		}
+		d.Target = append(d.Target, t)
+	}
+}
+
+func (p *PMXParser) readRigidBody() *RigidBody {
+	d := &RigidBody{}
+	d.Name = p.readText()
+	d.NameEn = p.readText()
+	d.Bone = p.readIndex(AttrBoneIndexSz)
+	d.Group = p.readVInt(1)
+	d.GroupTarget = p.readVInt(2)
+	p.read(&d.Shape)
+
+	p.read(&d.Size)
+	p.read(&d.Position)
+	p.read(&d.Rotation)
+
+	p.read(&d.Mass)
+	p.read(&d.LinearDamping)
+	p.read(&d.AngularDamping)
+	p.read(&d.Restitution)
+	p.read(&d.Friction)
+
+	p.read(&d.Mode)
+
+	return d
+}
+
+func (p *PMXParser) readJoint() *Joint {
+	j := &Joint{}
+	j.Name = p.readText()
+	j.NameEn = p.readText()
+	j.Type = p.readUint8()
+	j.Body1 = p.readIndex(AttrRBIndexSz)
+	j.Body2 = p.readIndex(AttrRBIndexSz)
+
+	p.read(&j.Position)
+	p.read(&j.Rotation)
+
+	p.read(&j.PositionMin)
+	p.read(&j.PositionMax)
+	p.read(&j.RotationMin)
+	p.read(&j.RotationMax)
+
+	p.read(&j.LinerSpring)
+	p.read(&j.AngulerSpring)
+
+	return j
+}
+
 // Parse model data.
 func (p *PMXParser) Parse() (*Document, error) {
 	var pmx Document
@@ -310,6 +383,21 @@ func (p *PMXParser) Parse() (*Document, error) {
 	pmx.Morphs = make([]*Morph, pn)
 	for i := 0; i < pn; i++ {
 		pmx.Morphs[i] = p.readMorph()
+	}
+
+	gn := p.readInt()
+	for i := 0; i < gn; i++ {
+		p.readDisplayGroup() // TODO
+	}
+
+	rb := p.readInt()
+	for i := 0; i < rb; i++ {
+		pmx.Bodies = append(pmx.Bodies, p.readRigidBody())
+	}
+
+	jn := p.readInt()
+	for i := 0; i < jn; i++ {
+		pmx.Joints = append(pmx.Joints, p.readJoint())
 	}
 
 	return &pmx, nil

@@ -23,6 +23,8 @@ type Document struct {
 	Materials []*Material
 	Bones     []*Bone
 	Morphs    []*Morph
+	Bodies    []*RigidBody
+	Joints    []*Joint
 }
 
 func NewDocument() *Document {
@@ -172,6 +174,48 @@ type Morph struct {
 	Vertex   []*MorphVertex
 	UV       []*MorphUV
 	Material []*MorphMaterial
+}
+
+type RigidBody struct {
+	Name        string
+	NameEn      string
+	Bone        int
+	Group       int
+	GroupTarget int
+	Shape       uint8
+
+	Size     geom.Vector3
+	Position geom.Vector3
+	Rotation geom.Vector3
+
+	Mass float32
+
+	LinearDamping  float32
+	AngularDamping float32
+	Restitution    float32
+	Friction       float32
+
+	Mode uint8 // kinematic?
+}
+
+type Joint struct {
+	Name   string
+	NameEn string
+	Type   uint8
+	Body1  int
+	Body2  int
+
+	Position geom.Vector3
+	Rotation geom.Vector3
+
+	// Constrains
+	PositionMin geom.Vector3
+	PositionMax geom.Vector3
+	RotationMin geom.Vector3
+	RotationMax geom.Vector3
+
+	LinerSpring   geom.Vector3
+	AngulerSpring geom.Vector3
 }
 
 const (

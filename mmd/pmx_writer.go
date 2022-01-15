@@ -124,8 +124,17 @@ func (w *PMXWriter) Write(doc *Document) error {
 
 	// TODO
 	w.writeInt(0)
-	w.writeInt(0)
-	w.writeInt(0)
+
+	w.writeInt(len(doc.Bodies))
+	for _, b := range doc.Bodies {
+		w.writeBody(b)
+	}
+
+	w.writeInt(len(doc.Joints))
+	for _, j := range doc.Joints {
+		w.writeJoint(j)
+	}
+
 	w.writeInt(0)
 
 	return nil
@@ -333,6 +342,49 @@ func (w *PMXWriter) writeMorph(m *Morph) {
 		w.write(&m.EnvironmentTint)
 		w.write(&m.ToonTint)
 	}
+}
+
+func (w *PMXWriter) writeBody(b *RigidBody) {
+	w.writeText(b.Name)
+	w.writeText(b.NameEn)
+
+	w.writeIndex(AttrBoneIndexSz, b.Bone)
+	w.writeVInt(1, b.Group)
+	w.writeVInt(2, b.GroupTarget)
+	w.write(&b.Shape)
+
+	w.write(&b.Size)
+	w.write(&b.Position)
+	w.write(&b.Rotation)
+
+	w.write(&b.Mass)
+	w.write(&b.LinearDamping)
+	w.write(&b.AngularDamping)
+	w.write(&b.Restitution)
+	w.write(&b.Friction)
+
+	w.write(&b.Mode)
+}
+
+func (w *PMXWriter) writeJoint(j *Joint) {
+	w.writeText(j.Name)
+	w.writeText(j.NameEn)
+	w.writeUint8(j.Type)
+
+	w.writeIndex(AttrBoneIndexSz, j.Body1)
+	w.writeIndex(AttrBoneIndexSz, j.Body2)
+
+	w.write(&j.Position)
+	w.write(&j.Rotation)
+
+	w.write(&j.PositionMin)
+	w.write(&j.PositionMax)
+	w.write(&j.RotationMin)
+	w.write(&j.RotationMax)
+
+	w.write(&j.LinerSpring)
+	w.write(&j.AngulerSpring)
+
 }
 
 // WritePMX writes .pmx data
