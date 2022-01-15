@@ -17,8 +17,9 @@ import (
 )
 
 type UnityToMQOOption struct {
-	SaveTexrure  bool
-	ConvertScale float32
+	SaveTexrure    bool
+	ConvertScale   float32
+	ConvertPhysics bool
 }
 
 type UnityToMQOConverter struct {
@@ -188,6 +189,40 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 				}
 			}
 			meshObjectIndex++
+		}
+	}
+
+	if c.ConvertPhysics {
+		physics := mqo.GetPhysicsPlugin(dst)
+		var boxColliders []*unity.BoxCollider
+		o.GetComponents(&boxColliders)
+		for _, c := range boxColliders {
+			physics.Bodies = append(physics.Bodies, &mqo.PhysicsBody{
+				Name:     obj.Name + "_BoxCollider",
+				Shape:    "box",
+				Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&c.Center)),
+				Size:     mqo.Vector3XmlAttr(c.Size),
+			})
+		}
+		var sphereColliders []*unity.SphereCollider
+		o.GetComponents(&sphereColliders)
+		for _, c := range sphereColliders {
+			physics.Bodies = append(physics.Bodies, &mqo.PhysicsBody{
+				Name:     obj.Name + "_SphereCollider",
+				Shape:    "sphere",
+				Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&c.Center)),
+				Size:     mqo.Vector3XmlAttr{X: c.Radius, Y: c.Radius, Z: c.Radius},
+			})
+		}
+		var capsuleColliders []*unity.CapsuleCollider
+		o.GetComponents(&capsuleColliders)
+		for _, c := range capsuleColliders {
+			physics.Bodies = append(physics.Bodies, &mqo.PhysicsBody{
+				Name:     obj.Name + "_CapsuleCollider",
+				Shape:    "capsule",
+				Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&c.Center)),
+				Size:     mqo.Vector3XmlAttr{X: c.Radius * c.Height, Y: c.Radius, Z: c.Radius},
+			})
 		}
 	}
 

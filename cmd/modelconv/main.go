@@ -38,6 +38,8 @@ var (
 	texResizeScale      = flag.Float64("texResizeScale", 1.0, "resize large textures (gltf)")
 	reuseGeometry       = flag.Bool("reuseGeometry", false, "use shared geometry data (gltf, experimental)")
 	gltfIgnoreHierarchy = flag.Bool("ignoreHierarchy", false, "ignore object tree (gltf)")
+
+	convertPhysics = flag.Bool("physics", false, "convert physics (unity)")
 )
 
 func isGltf(ext string) bool {

@@ -30,7 +30,7 @@ type Scene struct {
 
 	Elements map[int64]Element
 
-	Assets       Assets
+	Assets Assets
 }
 
 func NewScene(assets Assets, guid string) *Scene {
@@ -108,6 +108,17 @@ func (o *GameObject) GetComponent(target interface{}) bool {
 		}
 	}
 	return false
+}
+
+func (o *GameObject) GetComponents(target interface{}) {
+	typ := reflect.TypeOf(target).Elem().Elem()
+	value := reflect.ValueOf(target).Elem()
+	for _, c := range o.Components {
+		component := o.Scene.GetElement2(&c.Ref, o.PrefabInstance)
+		if reflect.TypeOf(component) == typ {
+			value.Set(reflect.Append(value, reflect.ValueOf(component)))
+		}
+	}
 }
 
 func (o *GameObject) GetTransform() *Transform {

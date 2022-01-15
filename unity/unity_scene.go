@@ -50,6 +50,10 @@ func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 			MeshRenderer  *MeshRenderer  `yaml:"MeshRenderer"`
 			MeshFilter    *MeshFilter    `yaml:"MeshFilter"`
 			MonoBehaviour *MonoBehaviour `yaml:"MonoBehaviour"`
+
+			BoxCollider     *BoxCollider     `yaml:"BoxCollider"`
+			SphereCollider  *SphereCollider  `yaml:"SphereCollider"`
+			CapsuleCollider *CapsuleCollider `yaml:"CapsuleCollider"`
 		}
 
 		// log.Println("obj", doc.Tag, doc.refID)
@@ -72,8 +76,24 @@ func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 			element = components.MeshFilter
 		} else if doc.Tag == "tag:unity3d.com,2011:114" {
 			err = doc.Decode(&components)
-			components.MonoBehaviour.Scene = scene
-			element = components.MonoBehaviour
+			component := components.MonoBehaviour
+			component.Scene = scene
+			element = component
+		} else if doc.Tag == "tag:unity3d.com,2011:65" {
+			err = doc.Decode(&components)
+			component := components.BoxCollider
+			component.Scene = scene
+			element = component
+		} else if doc.Tag == "tag:unity3d.com,2011:135" {
+			err = doc.Decode(&components)
+			component := components.SphereCollider
+			component.Scene = scene
+			element = component
+		} else if doc.Tag == "tag:unity3d.com,2011:136" {
+			err = doc.Decode(&components)
+			component := components.CapsuleCollider
+			component.Scene = scene
+			element = component
 		} else if doc.Tag == "tag:unity3d.com,2011:1001" {
 			var a struct {
 				PrefabInstance *PrefabInstance `yaml:"PrefabInstance"`

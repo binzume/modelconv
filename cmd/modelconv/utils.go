@@ -48,7 +48,7 @@ func loadDocument(input string) (*mqo.Document, error) {
 	case isUnity(ext):
 		names := strings.SplitN(input, "#", 2)
 		if len(names) == 1 {
-			p := strings.Index(input, "Assets/")
+			p := strings.Index(filepath.ToSlash(input), "Assets/")
 			if p >= 0 && ext != ".unitypackage" {
 				names = []string{input[:p+6], input[p:]}
 			} else {
@@ -70,7 +70,7 @@ func loadDocument(input string) (*mqo.Document, error) {
 		if err != nil {
 			return nil, err
 		}
-		return converter.NewUnityToMQOConverter(nil).Convert(scene)
+		return converter.NewUnityToMQOConverter(&converter.UnityToMQOOption{ConvertPhysics: *convertPhysics}).Convert(scene)
 	case ext == ".fbx":
 		doc, err := fbx.Load(input)
 		if err != nil {

@@ -332,6 +332,55 @@ func (c *mmdToMQO) Convert(pmx *mmd.Document) *mqo.Document {
 		}
 	}
 
+	if len(pmx.Bodies) > 0 {
+		physics := mqo.GetPhysicsPlugin(mq)
+		for _, b := range pmx.Bodies {
+			shape := ""
+			switch b.Shape {
+			case 0:
+				shape = "sphere"
+				break
+			case 1:
+				shape = "box"
+				break
+			case 2:
+				shape = "capsule"
+				break
+			}
+			body := &mqo.PhysicsBody{
+				Name:           b.Name,
+				Shape:          shape,
+				Size:           mqo.Vector3XmlAttr(b.Size),
+				Position:       mqo.Vector3XmlAttr(b.Position),
+				Rotation:       mqo.Vector3XmlAttr(b.Rotation),
+				Mass:           b.Mass,
+				Kinematic:      b.Mode == 0,
+				CollisionGroup: b.Group,
+				CollisionMask:  b.GroupTarget,
+				LinearDamping:  b.LinearDamping,
+				AngularDamping: b.AngularDamping,
+				Restitution:    b.Restitution,
+				Friction:       b.Friction,
+				TargetBoneID:   b.Bone,
+			}
+			physics.Bodies = append(physics.Bodies, body)
+		}
+		for _, j := range pmx.Joints {
+			joint := &mqo.PhysicsJointConstraint{
+				Name:  j.Name,
+				Body1: j.Body1 + 1,
+				Body2: j.Body2 + 1,
+
+				Position:      mqo.Vector3XmlAttr(j.Position),
+				Rotation:      mqo.Vector3XmlAttr(j.Rotation),
+				LinerSpring:   mqo.Vector3XmlAttr(j.LinerSpring),
+				AngulerSpring: mqo.Vector3XmlAttr(j.AngulerSpring),
+			}
+			physics.Constraints = append(physics.Constraints, joint)
+		}
+
+	}
+
 	mq.FixObjectID()
 	return mq
 }

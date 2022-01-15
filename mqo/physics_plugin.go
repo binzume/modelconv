@@ -6,9 +6,9 @@ import (
 	"github.com/binzume/modelconv/geom"
 )
 
-// Fake plugin for keep physics params
+// Fake plugin for keeping physics params
 type PhysicsPlugin struct {
-	XMLName xml.Name `xml:"Plugin.7A6E6962.12345678"`
+	XMLName xml.Name `xml:"Plugin.7A6E6962.43594850"`
 	Name    string   `xml:"name,attr"`
 
 	Bodies      []*PhysicsBody            `xml:"Bodies>Body"`
@@ -50,6 +50,12 @@ type PhysicsJointConstraint struct {
 	Body2 int    `xml:"body2,attr,omitempty"`
 
 	Name string `xml:"name,attr,omitempty"` // optional
+
+	// Spring joint
+	Position      Vector3XmlAttr
+	Rotation      Vector3XmlAttr
+	LinerSpring   Vector3XmlAttr
+	AngulerSpring Vector3XmlAttr
 }
 
 func GetPhysicsPlugin(mqo *Document) *PhysicsPlugin {

@@ -119,6 +119,13 @@ func (c *mqoToMMD) Convert(doc *mqo.Document) (*mmd.Document, error) {
 		}
 		dst.Materials = append(dst.Materials, c.convertMaterial(m, faceCount, texture))
 	}
+
+	// Physics
+	physics := mqo.GetPhysicsPlugin(doc)
+	for _, b := range physics.Bodies {
+		dst.Bodies = append(dst.Bodies, c.convertBody(b))
+	}
+
 	return dst, nil
 }
 
@@ -161,6 +168,42 @@ func (c *mqoToMMD) convertMaterial(m *mqo.Material, faceCount, texture int) *mmd
 		TextureID:   texture,
 		Toon:        -1,
 		Count:       faceCount * 3,
+	}
+}
+
+func (c *mqoToMMD) convertBody(b *mqo.PhysicsBody) *mmd.RigidBody {
+	var shape uint8 = 0
+	switch b.Shape {
+	case "sphere":
+		shape = 0
+		break
+	case "box":
+		shape = 1
+		break
+	case "capsule":
+		shape = 2
+		break
+	}
+	var mode uint8 = 0
+	if b.Kinematic {
+		mode = 1
+	}
+	return &mmd.RigidBody{
+		Name:  b.Name,
+		Shape: shape,
+
+		Size:           mmd.Vector3(b.Size),
+		Position:       mmd.Vector3(b.Position),
+		Rotation:       mmd.Vector3(b.Rotation),
+		Mass:           b.Mass,
+		Mode:           mode,
+		Group:          b.CollisionGroup,
+		GroupTarget:    b.CollisionMask,
+		LinearDamping:  b.LinearDamping,
+		AngularDamping: b.AngularDamping,
+		Restitution:    b.Restitution,
+		Friction:       b.Friction,
+		Bone:           b.TargetBoneID,
 	}
 }
 
