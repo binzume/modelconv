@@ -22,7 +22,7 @@ type Vector3XmlAttr struct {
 }
 
 type PhysicsBody struct {
-	Shape    string // sphere, cylinder, box
+	Shape    string // BOX | SPHERE | CAPSULE | CYLINDER | MESH
 	Size     Vector3XmlAttr
 	Position Vector3XmlAttr
 	Rotation Vector3XmlAttr

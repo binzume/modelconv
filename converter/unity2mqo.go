@@ -199,7 +199,7 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 		for _, c := range boxColliders {
 			physics.Bodies = append(physics.Bodies, &mqo.PhysicsBody{
 				Name:     obj.Name + "_BoxCollider",
-				Shape:    "box",
+				Shape:    "BOX",
 				Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&c.Center)),
 				Size:     mqo.Vector3XmlAttr(c.Size),
 			})
@@ -209,7 +209,7 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 		for _, c := range sphereColliders {
 			physics.Bodies = append(physics.Bodies, &mqo.PhysicsBody{
 				Name:     obj.Name + "_SphereCollider",
-				Shape:    "sphere",
+				Shape:    "SPHERE",
 				Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&c.Center)),
 				Size:     mqo.Vector3XmlAttr{X: c.Radius, Y: c.Radius, Z: c.Radius},
 			})
@@ -219,7 +219,7 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 		for _, c := range capsuleColliders {
 			physics.Bodies = append(physics.Bodies, &mqo.PhysicsBody{
 				Name:     obj.Name + "_CapsuleCollider",
-				Shape:    "capsule",
+				Shape:    "CAPSULE",
 				Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&c.Center)),
 				Size:     mqo.Vector3XmlAttr{X: c.Radius * c.Height, Y: c.Radius, Z: c.Radius},
 			})

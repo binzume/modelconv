@@ -338,13 +338,13 @@ func (c *mmdToMQO) Convert(pmx *mmd.Document) *mqo.Document {
 			shape := ""
 			switch b.Shape {
 			case 0:
-				shape = "sphere"
+				shape = "SPHERE"
 				break
 			case 1:
-				shape = "box"
+				shape = "BOX"
 				break
 			case 2:
-				shape = "capsule"
+				shape = "CAPSULE"
 				break
 			}
 			body := &mqo.PhysicsBody{

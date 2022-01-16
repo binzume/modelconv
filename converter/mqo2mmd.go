@@ -174,13 +174,13 @@ func (c *mqoToMMD) convertMaterial(m *mqo.Material, faceCount, texture int) *mmd
 func (c *mqoToMMD) convertBody(b *mqo.PhysicsBody) *mmd.RigidBody {
 	var shape uint8 = 0
 	switch b.Shape {
-	case "sphere":
+	case "SPHERE":
 		shape = 0
 		break
-	case "box":
+	case "BOX":
 		shape = 1
 		break
-	case "capsule":
+	case "CAPSULE":
 		shape = 2
 		break
 	}
