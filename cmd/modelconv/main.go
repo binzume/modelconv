@@ -39,7 +39,7 @@ var (
 	reuseGeometry       = flag.Bool("reuseGeometry", false, "use shared geometry data (gltf, experimental)")
 	gltfIgnoreHierarchy = flag.Bool("ignoreHierarchy", false, "ignore object tree (gltf)")
 
-	convertPhysics = flag.Bool("physics", false, "convert physics (unity)")
+	convertPhysics = flag.Bool("physics", false, "convert physics (experimental)")
 )
 
 func isGltf(ext string) bool {
@@ -102,6 +102,7 @@ func saveDocument(doc *mqo.Document, output, ext, srcDir, vrmConf string, inputs
 			TextureScale:           float32(*texResizeScale),
 			ReuseGeometry:          *reuseGeometry,
 			IgnoreObjectHierarchy:  *gltfIgnoreHierarchy,
+			ConvertPhysics:         *convertPhysics,
 		}
 		conv := converter.NewMQOToGLTFConverter(opt)
 		gltfdoc, err := conv.Convert(doc, srcDir)

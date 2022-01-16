@@ -39,7 +39,8 @@ type MQOToGLTFOption struct {
 	TextureScale           float32
 	IgnoreObjectHierarchy  bool
 
-	ReuseGeometry bool // experimental
+	ReuseGeometry  bool // experimental
+	ConvertPhysics bool // experimental. BLENDER_physics?
 }
 
 type mqoToGltf struct {
@@ -694,6 +695,44 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		if node.MatrixOrDefault() == gltf.DefaultMatrix {
 			nodePath = append(nodePath, node)
 		}
+
+		// Physics
+		if m.ConvertPhysics {
+			var body *mqo.PhysicsBody
+			var shapes []map[string]interface{}
+
+			physics := mqo.GetPhysicsPlugin(doc)
+			for _, b := range physics.Bodies {
+				if b.TargetObjID == 0 || b.TargetObjID != obj.UID {
+					continue
+				}
+				for _, s := range b.Shapes {
+					shapes = append(shapes, map[string]interface{}{
+						"boundingBox":       [3]float32{s.Size.X * m.Scale, s.Size.Y * m.Scale, s.Size.Z * m.Scale},
+						"shapeType":         s.Type,
+						"offsetTranslation": [3]float32{s.Position.X * m.Scale, s.Position.Y * m.Scale, s.Position.Z * m.Scale},
+						"offsetScale":       [3]float32{s.Size.X * m.Scale, s.Size.Y * m.Scale, s.Size.Z * m.Scale},
+						// "offsetRotation":    [4]float32{s.Rotation.X, s.Rotation.Y, s.Rotation.Z, 1}, // TODO
+						// "primaryAxis": "Z",
+					})
+				}
+				if body == nil && len(shapes) > 0 {
+					body = b
+				}
+			}
+			if len(shapes) > 0 {
+				if node.Extensions == nil {
+					node.Extensions = gltf.Extensions{}
+				}
+				node.Extensions["BLENDER_physics"] = map[string]interface{}{
+					"collisionShapes": shapes,
+					"mass":            body.Mass,
+					"static":          body.Kinematic,
+					"collisionGroups": body.CollisionGroup,
+					"collisionMasks":  body.CollisionMask,
+				}
+			}
+		}
 	}
 
 	textures := &textureCache{srcDir: textureDir, textures: map[string]*textureInfo{}}
@@ -711,6 +750,9 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 	}
 	if useUnlit {
 		m.ExtensionsUsed = append(m.ExtensionsUsed, "KHR_materials_unlit")
+	}
+	if m.ConvertPhysics {
+		m.ExtensionsUsed = append(m.ExtensionsUsed, "BLENDER_physics")
 	}
 
 	if len(m.Document.Textures) > 0 {
