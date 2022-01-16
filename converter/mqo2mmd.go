@@ -1,6 +1,8 @@
 package converter
 
 import (
+	"fmt"
+
 	"github.com/binzume/modelconv/mmd"
 	"github.com/binzume/modelconv/mqo"
 )
@@ -123,7 +125,7 @@ func (c *mqoToMMD) Convert(doc *mqo.Document) (*mmd.Document, error) {
 	// Physics
 	physics := mqo.GetPhysicsPlugin(doc)
 	for _, b := range physics.Bodies {
-		dst.Bodies = append(dst.Bodies, c.convertBody(b))
+		dst.Bodies = append(dst.Bodies, c.convertBody(b)...)
 	}
 
 	return dst, nil
@@ -171,40 +173,46 @@ func (c *mqoToMMD) convertMaterial(m *mqo.Material, faceCount, texture int) *mmd
 	}
 }
 
-func (c *mqoToMMD) convertBody(b *mqo.PhysicsBody) *mmd.RigidBody {
-	var shape uint8 = 0
-	switch b.Shape.Type {
-	case "SPHERE":
-		shape = 0
-		break
-	case "BOX":
-		shape = 1
-		break
-	case "CAPSULE":
-		shape = 2
-		break
-	}
-	var mode uint8 = 0
-	if b.Kinematic {
-		mode = 1
-	}
-	return &mmd.RigidBody{
-		Name:  b.Name,
-		Shape: shape,
+func (c *mqoToMMD) convertBody(b *mqo.PhysicsBody) []*mmd.RigidBody {
+	var bodies []*mmd.RigidBody
+	for i, shape := range b.Shapes {
+		var shapeType uint8 = 0
+		switch shape.Type {
+		case "SPHERE":
+			shapeType = 0
+			break
+		case "BOX":
+			shapeType = 1
+			break
+		case "CAPSULE":
+			shapeType = 2
+			break
+		}
+		body := &mmd.RigidBody{
+			Name:  b.Name,
+			Shape: shapeType,
 
-		Size:           mmd.Vector3(b.Shape.Size),
-		Position:       mmd.Vector3(b.Shape.Position),
-		Rotation:       mmd.Vector3(b.Shape.Rotation),
-		Mass:           b.Mass,
-		Mode:           mode,
-		Group:          b.CollisionGroup,
-		GroupTarget:    b.CollisionMask,
-		LinearDamping:  b.LinearDamping,
-		AngularDamping: b.AngularDamping,
-		Restitution:    b.Restitution,
-		Friction:       b.Friction,
-		Bone:           b.TargetBoneID,
+			Size:           *c.convertVec3(shape.Size.Vec3()),
+			Position:       *c.convertVec3(shape.Position.Vec3()),
+			Rotation:       mmd.Vector3(shape.Rotation),
+			Mass:           b.Mass,
+			Group:          b.CollisionGroup,
+			GroupTarget:    b.CollisionMask,
+			LinearDamping:  b.LinearDamping,
+			AngularDamping: b.AngularDamping,
+			Restitution:    b.Restitution,
+			Friction:       b.Friction,
+			Bone:           b.TargetBoneID,
+		}
+		if i > 0 {
+			body.Name += "_" + fmt.Sprint(i)
+		}
+		if b.Kinematic {
+			body.Mode = 1
+		}
+		bodies = append(bodies, body)
 	}
+	return bodies
 }
 
 func (c *mqoToMMD) convertVec3(v *mqo.Vector3) *mmd.Vector3 {

@@ -335,26 +335,26 @@ func (c *mmdToMQO) Convert(pmx *mmd.Document) *mqo.Document {
 	if len(pmx.Bodies) > 0 {
 		physics := mqo.GetPhysicsPlugin(mq)
 		for _, b := range pmx.Bodies {
-			shape := ""
+			shapeType := ""
 			switch b.Shape {
 			case 0:
-				shape = "SPHERE"
+				shapeType = "SPHERE"
 				break
 			case 1:
-				shape = "BOX"
+				shapeType = "BOX"
 				break
 			case 2:
-				shape = "CAPSULE"
+				shapeType = "CAPSULE"
 				break
 			}
 			body := &mqo.PhysicsBody{
 				Name: b.Name,
-				Shape: mqo.PhysicsShape{
-					Type:     shape,
-					Size:     mqo.Vector3XmlAttr(b.Size),
-					Position: mqo.Vector3XmlAttr(b.Position),
+				Shapes: []*mqo.PhysicsShape{{
+					Type:     shapeType,
+					Size:     mqo.Vector3XmlAttr(*c.convertVec3(&b.Size)),
+					Position: mqo.Vector3XmlAttr(*c.convertVec3(&b.Position)),
 					Rotation: mqo.Vector3XmlAttr(b.Rotation),
-				},
+				}},
 				Mass:           b.Mass,
 				Kinematic:      b.Mode == 0,
 				CollisionGroup: b.Group,
@@ -373,7 +373,7 @@ func (c *mmdToMQO) Convert(pmx *mmd.Document) *mqo.Document {
 				Body1: j.Body1 + 1,
 				Body2: j.Body2 + 1,
 
-				Position:      mqo.Vector3XmlAttr(j.Position),
+				Position:      mqo.Vector3XmlAttr(*c.convertVec3(&j.Position)),
 				Rotation:      mqo.Vector3XmlAttr(j.Rotation),
 				LinerSpring:   mqo.Vector3XmlAttr(j.LinerSpring),
 				AngulerSpring: mqo.Vector3XmlAttr(j.AngulerSpring),

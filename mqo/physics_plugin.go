@@ -21,8 +21,12 @@ type Vector3XmlAttr struct {
 	Z geom.Element `xml:"z,attr"`
 }
 
+func (v *Vector3XmlAttr) Vec3() *Vector3 {
+	return (*Vector3)(v)
+}
+
 type PhysicsBody struct {
-	Shape PhysicsShape // TODO slice
+	Shapes []*PhysicsShape `xml:"Shapes>Shape"`
 
 	Mass           float32 `xml:"mass,attr"`
 	Kinematic      bool    `xml:"kinematic,attr,omitempty"`
@@ -77,4 +81,15 @@ func (p *PhysicsPlugin) PreSerialize(mqo *Document) {
 }
 
 func (p *PhysicsPlugin) PostDeserialize(mqo *Document) {
+}
+
+func (p *PhysicsPlugin) ApplyTransform(transform *Matrix4) {
+	for _, b := range p.Bodies {
+		for _, s := range b.Shapes {
+			pos := geom.Vector3(s.Position)
+			s.Position = Vector3XmlAttr(*transform.ApplyTo(&pos))
+			sz := geom.Vector3(s.Size)
+			s.Size = Vector3XmlAttr(*transform.ApplyTo(&sz))
+		}
+	}
 }
