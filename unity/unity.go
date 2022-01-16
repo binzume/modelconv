@@ -208,33 +208,6 @@ func (tr *Transform) GetParent() *Transform {
 	return t
 }
 
-type MeshFilter struct {
-	Component `yaml:",inline"`
-	Mesh      *Ref `yaml:"m_Mesh"`
-}
-
-type MeshRenderer struct {
-	Component `yaml:",inline"`
-	Enabled   int `yaml:"m_Enabled"`
-
-	CastShadows          int `yaml:"m_CastShadows"`
-	ReceiveShadows       int `yaml:"m_ReceiveShadows"`
-	DynamicOccludee      int `yaml:"m_DynamicOccludee"`
-	MotionVectors        int `yaml:"m_MotionVectors"`
-	LightProbeUsage      int `yaml:"m_LightProbeUsage"`
-	ReflectionProbeUsage int `yaml:"m_ReflectionProbeUsage"`
-
-	Materials []*Ref `yaml:"m_Materials"`
-}
-
-type MonoBehaviour struct {
-	Component `yaml:",inline"`
-	Enabled   int  `yaml:"m_Enabled"`
-	Script    *Ref `yaml:"m_Script"`
-
-	RawData map[string]interface{} `yaml:",inline"`
-}
-
 type PrefabInstance struct {
 	Modification struct {
 		Modifications []struct {

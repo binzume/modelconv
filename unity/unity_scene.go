@@ -51,9 +51,11 @@ func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 			MeshFilter    *MeshFilter    `yaml:"MeshFilter"`
 			MonoBehaviour *MonoBehaviour `yaml:"MonoBehaviour"`
 
+			MeshCollider    *MeshCollider    `yaml:"MeshCollider"`
 			BoxCollider     *BoxCollider     `yaml:"BoxCollider"`
 			SphereCollider  *SphereCollider  `yaml:"SphereCollider"`
 			CapsuleCollider *CapsuleCollider `yaml:"CapsuleCollider"`
+			Rigidbody       *Rigidbody       `yaml:"Rigidbody"`
 		}
 
 		// log.Println("obj", doc.Tag, doc.refID)
@@ -64,19 +66,32 @@ func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 			objects = append(objects, components.GameObject)
 		} else if doc.Tag == "tag:unity3d.com,2011:4" {
 			err = doc.Decode(&components)
-			components.Transform.Scene = scene
-			element = components.Transform
+			component := components.Transform
+			component.Scene = scene
+			element = component
 		} else if doc.Tag == "tag:unity3d.com,2011:23" {
 			err = doc.Decode(&components)
-			components.MeshRenderer.Scene = scene
-			element = components.MeshRenderer
+			component := components.MeshRenderer
+			component.Scene = scene
+			element = component
 		} else if doc.Tag == "tag:unity3d.com,2011:33" {
 			err = doc.Decode(&components)
-			components.MeshFilter.Scene = scene
-			element = components.MeshFilter
+			component := components.MeshFilter
+			component.Scene = scene
+			element = component
 		} else if doc.Tag == "tag:unity3d.com,2011:114" {
 			err = doc.Decode(&components)
 			component := components.MonoBehaviour
+			component.Scene = scene
+			element = component
+		} else if doc.Tag == "tag:unity3d.com,2011:54" {
+			err = doc.Decode(&components)
+			component := components.Rigidbody
+			component.Scene = scene
+			element = component
+		} else if doc.Tag == "tag:unity3d.com,2011:64" {
+			err = doc.Decode(&components)
+			component := components.MeshCollider
 			component.Scene = scene
 			element = component
 		} else if doc.Tag == "tag:unity3d.com,2011:65" {

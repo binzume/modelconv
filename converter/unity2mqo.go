@@ -194,46 +194,7 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 	}
 
 	if c.ConvertPhysics {
-		var shapes []*mqo.PhysicsShape
-		scale := c.ConvertScale
-
-		var boxColliders []*unity.BoxCollider
-		o.GetComponents(&boxColliders)
-		for _, co := range boxColliders {
-			shapes = append(shapes, &mqo.PhysicsShape{
-				Type:     "BOX",
-				Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&co.Center)),
-				Size:     mqo.Vector3XmlAttr(*co.Size.Scale(scale)),
-			})
-		}
-		var sphereColliders []*unity.SphereCollider
-		o.GetComponents(&sphereColliders)
-		for _, co := range sphereColliders {
-			shapes = append(shapes, &mqo.PhysicsShape{
-				Type:     "SPHERE",
-				Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&co.Center)),
-				Size:     mqo.Vector3XmlAttr{X: co.Radius * scale, Y: co.Radius * scale, Z: co.Radius * scale},
-			})
-		}
-		var capsuleColliders []*unity.CapsuleCollider
-		o.GetComponents(&capsuleColliders)
-		for _, co := range capsuleColliders {
-			shapes = append(shapes, &mqo.PhysicsShape{
-				Type:     "CAPSULE",
-				Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&co.Center)),
-				Size:     mqo.Vector3XmlAttr{X: co.Radius * co.Height * scale, Y: co.Radius * scale, Z: co.Radius * scale},
-			})
-		}
-		if len(shapes) > 0 {
-			physics := mqo.GetPhysicsPlugin(dst)
-			physics.Bodies = append(physics.Bodies, &mqo.PhysicsBody{
-				Name:           obj.Name,
-				TargetObjID:    obj.UID,
-				Shapes:         shapes,
-				CollisionGroup: 1,
-				CollisionMask:  -1,
-			})
-		}
+		c.convertRigidBody(o, transform, obj)
 	}
 
 	for _, child := range tr.GetChildren() {
@@ -243,6 +204,85 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 			continue
 		}
 		c.convertObject(childObj, d+1, transform, active)
+	}
+}
+
+func (c *unityToMqoState) convertRigidBody(o *unity.GameObject, transform *geom.Matrix4, obj *mqo.Object) {
+	var shapes []*mqo.PhysicsShape
+	scale := c.ConvertScale
+
+	var boxColliders []*unity.BoxCollider
+	o.GetComponents(&boxColliders)
+	for _, co := range boxColliders {
+		shapes = append(shapes, &mqo.PhysicsShape{
+			Type:     "BOX",
+			Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&co.Center)),
+			Size:     mqo.Vector3XmlAttr(*co.Size.Scale(scale)),
+		})
+	}
+	var sphereColliders []*unity.SphereCollider
+	o.GetComponents(&sphereColliders)
+	for _, co := range sphereColliders {
+		shapes = append(shapes, &mqo.PhysicsShape{
+			Type:     "SPHERE",
+			Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&co.Center)),
+			Size:     mqo.Vector3XmlAttr{X: co.Radius * scale, Y: co.Radius * scale, Z: co.Radius * scale},
+		})
+	}
+	var capsuleColliders []*unity.CapsuleCollider
+	o.GetComponents(&capsuleColliders)
+	for _, co := range capsuleColliders {
+		shapes = append(shapes, &mqo.PhysicsShape{
+			Type:     "CAPSULE",
+			Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&co.Center)),
+			Size:     mqo.Vector3XmlAttr{X: co.Radius * co.Height * scale, Y: co.Radius * scale, Z: co.Radius * scale},
+		})
+	}
+	var meshColliders []*unity.MeshCollider
+	o.GetComponents(&meshColliders)
+	for _, co := range meshColliders {
+		if name, ok := unity.UnityMeshes[*co.Mesh]; ok {
+			switch name {
+			case "Cube":
+				const size = 1.0
+				shapes = append(shapes, &mqo.PhysicsShape{
+					Type:     "BOX",
+					Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&geom.Vector3{})),
+					Size:     mqo.Vector3XmlAttr{X: size * scale, Y: size * scale, Z: size * scale},
+				})
+			case "Sphere":
+				const radius = 0.5
+				shapes = append(shapes, &mqo.PhysicsShape{
+					Type:     "SPHERE",
+					Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&geom.Vector3{})),
+					Size:     mqo.Vector3XmlAttr{X: radius * scale, Y: radius * scale, Z: radius * scale},
+				})
+			default:
+				shapes = append(shapes, &mqo.PhysicsShape{
+					Type: "MESH",
+				})
+			}
+		}
+	}
+	if len(shapes) > 0 {
+		physics := mqo.GetPhysicsPlugin(c.dst)
+
+		var rigidBody *unity.Rigidbody
+		if !o.GetComponent(&rigidBody) {
+			rigidBody = &unity.Rigidbody{Mass: 1, IsKinematic: 1}
+		}
+
+		physics.Bodies = append(physics.Bodies, &mqo.PhysicsBody{
+			Name:           obj.Name,
+			TargetObjID:    obj.UID,
+			Shapes:         shapes,
+			Mass:           rigidBody.Mass,
+			Kinematic:      rigidBody.IsKinematic != 0,
+			LinearDamping:  rigidBody.Drag,
+			AngularDamping: rigidBody.AngularDrag,
+			CollisionGroup: 1,
+			CollisionMask:  -1,
+		})
 	}
 }
 
