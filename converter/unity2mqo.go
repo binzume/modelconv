@@ -93,6 +93,7 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 	}
 	obj.Translation = tr.LocalPosition.Scale(c.ConvertScale)
 	obj.Scale = &tr.LocalScale
+	// obj.Rotation = tr.LocalRotation // ToEuler()?
 	transform := parentTransform.Mul(tr.GetMatrix())
 
 	var meshFilter *unity.MeshFilter
@@ -198,30 +199,39 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 		o.GetComponents(&boxColliders)
 		for _, c := range boxColliders {
 			physics.Bodies = append(physics.Bodies, &mqo.PhysicsBody{
-				Name:     obj.Name + "_BoxCollider",
-				Shape:    "BOX",
-				Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&c.Center)),
-				Size:     mqo.Vector3XmlAttr(c.Size),
+				Name:        obj.Name + "_BoxCollider",
+				TargetObjID: obj.UID,
+				Shape: mqo.PhysicsShape{
+					Type:     "BOX",
+					Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&c.Center)),
+					Size:     mqo.Vector3XmlAttr(c.Size),
+				},
 			})
 		}
 		var sphereColliders []*unity.SphereCollider
 		o.GetComponents(&sphereColliders)
 		for _, c := range sphereColliders {
 			physics.Bodies = append(physics.Bodies, &mqo.PhysicsBody{
-				Name:     obj.Name + "_SphereCollider",
-				Shape:    "SPHERE",
-				Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&c.Center)),
-				Size:     mqo.Vector3XmlAttr{X: c.Radius, Y: c.Radius, Z: c.Radius},
+				Name:        obj.Name + "_SphereCollider",
+				TargetObjID: obj.UID,
+				Shape: mqo.PhysicsShape{
+					Type:     "SPHERE",
+					Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&c.Center)),
+					Size:     mqo.Vector3XmlAttr{X: c.Radius, Y: c.Radius, Z: c.Radius},
+				},
 			})
 		}
 		var capsuleColliders []*unity.CapsuleCollider
 		o.GetComponents(&capsuleColliders)
 		for _, c := range capsuleColliders {
 			physics.Bodies = append(physics.Bodies, &mqo.PhysicsBody{
-				Name:     obj.Name + "_CapsuleCollider",
-				Shape:    "CAPSULE",
-				Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&c.Center)),
-				Size:     mqo.Vector3XmlAttr{X: c.Radius * c.Height, Y: c.Radius, Z: c.Radius},
+				Name:        obj.Name + "_CapsuleCollider",
+				TargetObjID: obj.UID,
+				Shape: mqo.PhysicsShape{
+					Type:     "CAPSULE",
+					Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&c.Center)),
+					Size:     mqo.Vector3XmlAttr{X: c.Radius * c.Height, Y: c.Radius, Z: c.Radius},
+				},
 			})
 		}
 	}

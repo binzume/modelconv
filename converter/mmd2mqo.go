@@ -348,11 +348,13 @@ func (c *mmdToMQO) Convert(pmx *mmd.Document) *mqo.Document {
 				break
 			}
 			body := &mqo.PhysicsBody{
-				Name:           b.Name,
-				Shape:          shape,
-				Size:           mqo.Vector3XmlAttr(b.Size),
-				Position:       mqo.Vector3XmlAttr(b.Position),
-				Rotation:       mqo.Vector3XmlAttr(b.Rotation),
+				Name: b.Name,
+				Shape: mqo.PhysicsShape{
+					Type:     shape,
+					Size:     mqo.Vector3XmlAttr(b.Size),
+					Position: mqo.Vector3XmlAttr(b.Position),
+					Rotation: mqo.Vector3XmlAttr(b.Rotation),
+				},
 				Mass:           b.Mass,
 				Kinematic:      b.Mode == 0,
 				CollisionGroup: b.Group,

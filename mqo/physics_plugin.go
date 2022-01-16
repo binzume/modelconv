@@ -22,10 +22,7 @@ type Vector3XmlAttr struct {
 }
 
 type PhysicsBody struct {
-	Shape    string // BOX | SPHERE | CAPSULE | CYLINDER | MESH
-	Size     Vector3XmlAttr
-	Position Vector3XmlAttr
-	Rotation Vector3XmlAttr
+	Shape PhysicsShape // TODO slice
 
 	Mass           float32 `xml:"mass,attr"`
 	Kinematic      bool    `xml:"kinematic,attr,omitempty"`
@@ -42,6 +39,13 @@ type PhysicsBody struct {
 	Name         string `xml:"name,attr,omitempty"`
 	TargetBoneID int    `xml:"targetBone,attr,omitempty"`
 	TargetObjID  int    `xml:"targetObj,attr,omitempty"`
+}
+
+type PhysicsShape struct {
+	Type     string `xml:"type,attr"` // BOX | SPHERE | CAPSULE | CYLINDER | MESH
+	Size     Vector3XmlAttr
+	Position Vector3XmlAttr
+	Rotation Vector3XmlAttr
 }
 
 type PhysicsJointConstraint struct {

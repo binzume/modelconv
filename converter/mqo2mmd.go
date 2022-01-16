@@ -173,7 +173,7 @@ func (c *mqoToMMD) convertMaterial(m *mqo.Material, faceCount, texture int) *mmd
 
 func (c *mqoToMMD) convertBody(b *mqo.PhysicsBody) *mmd.RigidBody {
 	var shape uint8 = 0
-	switch b.Shape {
+	switch b.Shape.Type {
 	case "SPHERE":
 		shape = 0
 		break
@@ -192,9 +192,9 @@ func (c *mqoToMMD) convertBody(b *mqo.PhysicsBody) *mmd.RigidBody {
 		Name:  b.Name,
 		Shape: shape,
 
-		Size:           mmd.Vector3(b.Size),
-		Position:       mmd.Vector3(b.Position),
-		Rotation:       mmd.Vector3(b.Rotation),
+		Size:           mmd.Vector3(b.Shape.Size),
+		Position:       mmd.Vector3(b.Shape.Position),
+		Rotation:       mmd.Vector3(b.Shape.Rotation),
 		Mass:           b.Mass,
 		Mode:           mode,
 		Group:          b.CollisionGroup,
