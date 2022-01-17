@@ -2,8 +2,6 @@ package unity
 
 import (
 	"reflect"
-
-	"github.com/binzume/modelconv/geom"
 )
 
 var UnityMeshes = map[Ref]string{
@@ -98,6 +96,10 @@ type GameObject struct {
 	Scene *Scene `yaml:"-"`
 }
 
+func (o *GameObject) init(scene *Scene) {
+	o.Scene = scene
+}
+
 func (o *GameObject) GetComponent(target interface{}) bool {
 	typ := reflect.TypeOf(target).Elem()
 	for _, c := range o.Components {
@@ -128,84 +130,6 @@ func (o *GameObject) GetTransform() *Transform {
 		}
 	}
 	return nil
-}
-
-type Component struct {
-	Scene *Scene `yaml:"-"`
-
-	ObjectHideFlags int `yaml:"m_ObjectHideFlags"`
-	PrefabInternal  Ref `yaml:"m_PrefabInternal"`
-	GameObject      Ref `yaml:"m_GameObject"`
-
-	CorrespondingSourceObject *Ref `yaml:"m_CorrespondingSourceObject"`
-	PrefabInstance            *Ref `yaml:"m_PrefabInstance"`
-}
-
-func (c *Component) GetGameObject() *GameObject {
-	obj, _ := c.Scene.GetElement2(&c.GameObject, c.PrefabInstance).(*GameObject)
-	return obj
-}
-
-type Transform struct {
-	Component `yaml:",inline"`
-	Father    Ref    `yaml:"m_Father"`
-	Children  []*Ref `yaml:"m_Children"`
-
-	LocalRotation geom.Vector4 `yaml:"m_LocalRotation"`
-	LocalPosition geom.Vector3 `yaml:"m_LocalPosition"`
-	LocalScale    geom.Vector3 `yaml:"m_LocalScale"`
-
-	RootOrder int `yaml:"m_RootOrder"`
-
-	children []*Transform
-}
-
-func (tr *Transform) GetMatrix() *geom.Matrix4 {
-	pos := geom.NewTranslateMatrix4(tr.LocalPosition.X, tr.LocalPosition.Y, -tr.LocalPosition.Z)
-	rot := geom.NewRotationMatrix4FromQuaternion(&geom.Vector4{X: tr.LocalRotation.X, Y: tr.LocalRotation.Y, Z: -tr.LocalRotation.Z, W: tr.LocalRotation.W})
-	sacle := geom.NewScaleMatrix4(tr.LocalScale.X, tr.LocalScale.Y, tr.LocalScale.Z)
-	return pos.Mul(rot).Mul(sacle)
-}
-
-func (tr *Transform) GetWorldMatrix() *geom.Matrix4 {
-	parent := tr.GetParent()
-	if parent == nil {
-		return tr.GetMatrix()
-	}
-	return parent.GetWorldMatrix().Mul(tr.GetMatrix())
-}
-
-func (tr *Transform) GetChildren() []*Transform {
-	if tr.children != nil {
-		return tr.children
-	}
-	var children []*Transform
-	for _, c := range tr.Children {
-		if t := tr.Scene.GetTransform(c, tr.PrefabInstance); t != nil {
-			children = append(children, t)
-		}
-	}
-	tr.children = children
-	return children
-}
-
-func (tr *Transform) AddChild(child *Transform) bool {
-	if tr.children == nil {
-		tr.GetChildren()
-	}
-	for _, c := range tr.children {
-		if child == c {
-			return false
-		}
-	}
-	tr.children = append(tr.children, child)
-	return true
-}
-
-func (tr *Transform) GetParent() *Transform {
-	// TODO: prefab parent
-	t, _ := tr.Scene.GetElement(&tr.Father).(*Transform)
-	return t
 }
 
 type PrefabInstance struct {

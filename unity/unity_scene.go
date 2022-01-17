@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -35,6 +36,15 @@ func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 		return nil, err
 	}
 
+	var components componentDesc
+	typ := reflect.TypeOf(components)
+	componentTags := map[string]int{}
+	for i := 0; i < typ.NumField(); i++ {
+		if typ.Field(i).Tag.Get("typeid") != "" {
+			componentTags["tag:"+typ.Field(i).Tag.Get("typeid")] = i
+		}
+	}
+
 	scene := NewScene(assets, sceneAsset.GUID)
 	var objects []*GameObject
 
@@ -44,71 +54,15 @@ func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 		var element Element
 		fileId, _ := strconv.ParseInt(doc.refID, 10, 64)
 
-		var components struct {
-			GameObject    *GameObject    `yaml:"GameObject"`
-			Transform     *Transform     `yaml:"Transform"`
-			MeshRenderer  *MeshRenderer  `yaml:"MeshRenderer"`
-			MeshFilter    *MeshFilter    `yaml:"MeshFilter"`
-			MonoBehaviour *MonoBehaviour `yaml:"MonoBehaviour"`
-
-			MeshCollider    *MeshCollider    `yaml:"MeshCollider"`
-			BoxCollider     *BoxCollider     `yaml:"BoxCollider"`
-			SphereCollider  *SphereCollider  `yaml:"SphereCollider"`
-			CapsuleCollider *CapsuleCollider `yaml:"CapsuleCollider"`
-			Rigidbody       *Rigidbody       `yaml:"Rigidbody"`
-		}
-
 		// log.Println("obj", doc.Tag, doc.refID)
 		if doc.Tag == "tag:unity3d.com,2011:1" {
-			err = doc.Decode(&components)
-			components.GameObject.Scene = scene
-			element = components.GameObject
-			objects = append(objects, components.GameObject)
-		} else if doc.Tag == "tag:unity3d.com,2011:4" {
-			err = doc.Decode(&components)
-			component := components.Transform
-			component.Scene = scene
-			element = component
-		} else if doc.Tag == "tag:unity3d.com,2011:23" {
-			err = doc.Decode(&components)
-			component := components.MeshRenderer
-			component.Scene = scene
-			element = component
-		} else if doc.Tag == "tag:unity3d.com,2011:33" {
-			err = doc.Decode(&components)
-			component := components.MeshFilter
-			component.Scene = scene
-			element = component
-		} else if doc.Tag == "tag:unity3d.com,2011:114" {
-			err = doc.Decode(&components)
-			component := components.MonoBehaviour
-			component.Scene = scene
-			element = component
-		} else if doc.Tag == "tag:unity3d.com,2011:54" {
-			err = doc.Decode(&components)
-			component := components.Rigidbody
-			component.Scene = scene
-			element = component
-		} else if doc.Tag == "tag:unity3d.com,2011:64" {
-			err = doc.Decode(&components)
-			component := components.MeshCollider
-			component.Scene = scene
-			element = component
-		} else if doc.Tag == "tag:unity3d.com,2011:65" {
-			err = doc.Decode(&components)
-			component := components.BoxCollider
-			component.Scene = scene
-			element = component
-		} else if doc.Tag == "tag:unity3d.com,2011:135" {
-			err = doc.Decode(&components)
-			component := components.SphereCollider
-			component.Scene = scene
-			element = component
-		} else if doc.Tag == "tag:unity3d.com,2011:136" {
-			err = doc.Decode(&components)
-			component := components.CapsuleCollider
-			component.Scene = scene
-			element = component
+			var d struct {
+				GameObject *GameObject `yaml:"GameObject" typeid:"unity3d.com,2011:1"`
+			}
+			err = doc.Decode(&d)
+			d.GameObject.init(scene)
+			element = d.GameObject
+			objects = append(objects, d.GameObject)
 		} else if doc.Tag == "tag:unity3d.com,2011:1001" {
 			var a struct {
 				PrefabInstance *PrefabInstance `yaml:"PrefabInstance"`
@@ -161,6 +115,7 @@ func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 				} else if v, ok := mod.Value.(int); ok {
 					flaotValue = float32(v)
 				}
+				// TODO: reflection
 				if t, ok := target.(*Transform); ok {
 					switch mod.PropertyPath {
 					case "m_LocalPosition.x":
@@ -225,7 +180,17 @@ func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 				}
 			}
 		} else {
-			err = doc.Decode(&element)
+			if fieldid, ok := componentTags[doc.Tag]; ok {
+				var components componentDesc
+				err = doc.Decode(&components)
+				if component, _ := reflect.ValueOf(components).Field(fieldid).Interface().(Component); component != nil {
+					component.init(scene)
+					element = component
+				}
+			}
+			if element == nil {
+				err = doc.Decode(&element)
+			}
 		}
 		if element != nil && err == nil {
 			scene.Elements[fileId] = element
