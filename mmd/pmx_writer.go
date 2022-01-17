@@ -14,14 +14,12 @@ func (p *baseWriter) write(v interface{}) error {
 	return binary.Write(p.w, binary.LittleEndian, v)
 }
 
-func (p *baseWriter) writeUint8(v uint8) uint8 {
+func (p *baseWriter) writeUint8(v uint8) {
 	binary.Write(p.w, binary.LittleEndian, &v)
-	return v
 }
 
-func (p *baseWriter) writeUint16(v uint16) uint16 {
+func (p *baseWriter) writeUint16(v uint16) {
 	binary.Write(p.w, binary.LittleEndian, &v)
-	return v
 }
 
 func (p *baseWriter) writeInt(v int) {
@@ -29,9 +27,8 @@ func (p *baseWriter) writeInt(v int) {
 	binary.Write(p.w, binary.LittleEndian, &vv)
 }
 
-func (p *baseWriter) writeFloat(v float32) float32 {
+func (p *baseWriter) writeFloat(v float32) {
 	binary.Write(p.w, binary.LittleEndian, &v)
-	return v
 }
 
 func (p *baseWriter) writeVUInt(sz byte, vv int) int {
