@@ -70,7 +70,7 @@ func loadDocument(input string) (*mqo.Document, error) {
 		if err != nil {
 			return nil, err
 		}
-		return converter.NewUnityToMQOConverter(&converter.UnityToMQOOption{ConvertPhysics: *convertPhysics}).Convert(scene)
+		return converter.NewUnityToMQOConverter(&converter.UnityToMQOOption{ConvertPhysics: *convertPhysics, SaveTexrure: true}).Convert(scene)
 	case ext == ".fbx":
 		doc, err := fbx.Load(input)
 		if err != nil {

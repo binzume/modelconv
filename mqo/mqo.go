@@ -2,6 +2,7 @@ package mqo
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/binzume/modelconv/geom"
 )
@@ -209,6 +210,14 @@ type SharedGeometryHint struct {
 
 func NewObject(name string) *Object {
 	return &Object{Name: name, Visible: true, VertexByUID: map[int]int{}, Shading: 1, Facet: 59.5}
+}
+
+func (o *Object) SetRotation(r *geom.Quaternion) {
+	o.Rotation = geom.NewRotationMatrix4FromQuaternion(r).ToEulerZXY().Scale(180 / math.Pi)
+}
+
+func (o *Object) GetRotation() *geom.Quaternion {
+	return geom.NewQuaternionFromEulerZXY(o.Rotation.Scale(math.Pi / 180))
 }
 
 func (o *Object) Clone() *Object {

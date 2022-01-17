@@ -91,9 +91,10 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 	if tr == nil {
 		return
 	}
-	obj.Translation = tr.LocalPosition.Scale(c.ConvertScale)
+	obj.Translation = geom.NewVector3(tr.LocalPosition.X, tr.LocalPosition.Y, -tr.LocalPosition.Z).Scale(c.ConvertScale)
 	obj.Scale = &tr.LocalScale
-	// obj.Rotation = tr.LocalRotation // ToEuler()?
+	obj.SetRotation(geom.NewQuaternion(-tr.LocalRotation.X, -tr.LocalRotation.Y, tr.LocalRotation.Z, tr.LocalRotation.W))
+
 	transform := parentTransform.Mul(tr.GetMatrix())
 
 	var meshFilter *unity.MeshFilter

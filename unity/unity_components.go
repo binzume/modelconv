@@ -59,7 +59,7 @@ type Transform struct {
 
 func (tr *Transform) GetMatrix() *geom.Matrix4 {
 	pos := geom.NewTranslateMatrix4(tr.LocalPosition.X, tr.LocalPosition.Y, -tr.LocalPosition.Z)
-	rot := geom.NewRotationMatrix4FromQuaternion(&geom.Vector4{X: tr.LocalRotation.X, Y: tr.LocalRotation.Y, Z: -tr.LocalRotation.Z, W: -tr.LocalRotation.W})
+	rot := geom.NewRotationMatrix4FromQuaternion(geom.NewQuaternion(-tr.LocalRotation.X, -tr.LocalRotation.Y, tr.LocalRotation.Z, tr.LocalRotation.W))
 	sacle := geom.NewScaleMatrix4(tr.LocalScale.X, tr.LocalScale.Y, tr.LocalScale.Z)
 	return pos.Mul(rot).Mul(sacle)
 }

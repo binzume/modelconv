@@ -12,7 +12,7 @@ type Vector4 struct {
 type Quaternion = Vector4
 
 func NewQuaternion(x, y, z, w float32) *Vector4 {
-	return &Vector4{X: x, Y: y, Z: z, W: z}
+	return &Vector4{X: x, Y: y, Z: z, W: w}
 }
 
 func NewQuaternionFromArray(arr [4]Element) *Vector4 {

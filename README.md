@@ -62,8 +62,9 @@ modelconv -format glb "model.gltf"
 
 ```bash
 modelconv  "test.unitypackage#Assets/scene.unity" "scene.glb"
-modelconv  "Assets/scenes/scene.unity" "scene.glb"
+modelconv  "YourProject/Assets/Scenes/scene.unity" "scene.glb"
 ```
+
 
 ### Scaling
 
