@@ -2,175 +2,8 @@ package geom
 
 import "math"
 
-type Element = float32
-
-type Vector2 struct {
-	X Element
-	Y Element
-}
-
-type Vector3 struct {
-	X Element
-	Y Element
-	Z Element
-}
-
-type Vector4 struct {
-	X Element
-	Y Element
-	Z Element
-	W Element
-}
-
 // column-major matrix
 type Matrix4 [16]Element
-
-func (v *Vector2) Add(v2 *Vector2) *Vector2 {
-	return &Vector2{X: v.X + v2.X, Y: v.Y + v2.Y}
-}
-
-func (v *Vector2) Sub(v2 *Vector2) *Vector2 {
-	return &Vector2{X: v.X - v2.X, Y: v.Y - v2.Y}
-}
-
-func (v *Vector2) Dot(v2 *Vector2) Element {
-	return v.X*v2.X + v.Y*v2.Y
-}
-func (v *Vector2) Cross(v2 *Vector2) Element {
-	return v.X*v2.Y - v.Y*v2.X
-}
-
-func (v *Vector2) Len() Element {
-	return Element(math.Sqrt(float64(v.X*v.X + v.Y*v.Y)))
-}
-
-func (v *Vector2) LenSqr() Element {
-	return v.X*v.X + v.Y*v.Y
-}
-
-func (v *Vector2) Normalize() *Vector2 {
-	l := v.Len()
-	if l > 0 {
-		v.X /= l
-		v.Y /= l
-	} else {
-		v.X = 1
-	}
-	return v
-}
-
-func NewVector3FromArray(arr [3]Element) *Vector3 {
-	return &Vector3{X: arr[0], Y: arr[1], Z: arr[2]}
-}
-
-func NewVector3FromSlice(arr []Element) *Vector3 {
-	return &Vector3{X: arr[0], Y: arr[1], Z: arr[2]}
-}
-
-func (v *Vector3) Add(v2 *Vector3) *Vector3 {
-	return &Vector3{X: v.X + v2.X, Y: v.Y + v2.Y, Z: v.Z + v2.Z}
-}
-
-func (v *Vector3) Sub(v2 *Vector3) *Vector3 {
-	return &Vector3{X: v.X - v2.X, Y: v.Y - v2.Y, Z: v.Z - v2.Z}
-}
-
-func (v *Vector3) Dot(v2 *Vector3) Element {
-	return v.X*v2.X + v.Y*v2.Y + v.Z*v2.Z
-}
-
-func (v *Vector3) Cross(v2 *Vector3) *Vector3 {
-	return &Vector3{
-		X: v.Y*v2.Z - v.Z*v2.Y,
-		Y: v.Z*v2.X - v.X*v2.Z,
-		Z: v.X*v2.Y - v.Y*v2.X,
-	}
-}
-
-func (v *Vector3) Scale(s Element) *Vector3 {
-	return &Vector3{X: v.X * s, Y: v.Y * s, Z: v.Z * s}
-}
-
-func (v *Vector3) Len() Element {
-	return Element(math.Sqrt(float64(v.X*v.X + v.Y*v.Y + v.Z*v.Z)))
-}
-
-func (v *Vector3) LenSqr() Element {
-	return v.X*v.X + v.Y*v.Y + v.Z*v.Z
-}
-
-func (v *Vector3) Normalize() *Vector3 {
-	l := v.Len()
-	if l > 0 {
-		v.X /= l
-		v.Y /= l
-		v.Z /= l
-	} else {
-		v.X = 1
-	}
-	return v
-}
-
-func (v *Vector3) ToArray(array []Element) {
-	array[0] = v.X
-	array[1] = v.Y
-	array[2] = v.Z
-}
-
-func (v *Vector4) Add(v2 *Vector4) *Vector4 {
-	return &Vector4{X: v.X + v2.X, Y: v.Y + v2.Y, Z: v.Z + v2.Z, W: v.W + v2.W}
-}
-
-func (v *Vector4) Sub(v2 *Vector4) *Vector4 {
-	return &Vector4{X: v.X - v2.X, Y: v.Y - v2.Y, Z: v.Z - v2.Z, W: v.W - v2.W}
-}
-
-func (v *Vector4) Dot(v2 *Vector4) Element {
-	return v.X*v2.X + v.Y*v2.Y + v.Z*v2.Z + v.W*v2.W
-}
-
-func (v *Vector4) Len() Element {
-	return Element(math.Sqrt(float64(v.X*v.X + v.Y*v.Y + v.Z*v.Z + v.W*v.W)))
-}
-
-func (v *Vector4) LenSqr() Element {
-	return v.X*v.X + v.Y*v.Y + v.Z*v.Z + v.W*v.W
-}
-
-func (v *Vector4) Normalize() *Vector4 {
-	l := v.Len()
-	if l > 0 {
-		v.X /= l
-		v.Y /= l
-		v.Z /= l
-		v.W /= l
-	} else {
-		v.W = 1
-	}
-	return v
-}
-
-func (v *Vector4) Inverse() *Vector4 {
-	return &Vector4{X: -v.X, Y: -v.Y, Z: -v.Z, W: v.W}
-}
-
-// Returns Hamilton product
-func (a *Vector4) Mul(b *Vector4) *Vector4 {
-	return &Vector4{
-		W: a.W*b.W - a.X*b.X - a.Y*b.Y - a.Z*b.Z, // 1
-		X: a.W*b.X + a.X*b.W + a.Y*b.Z - a.Z*b.Y, // i
-		Y: a.W*b.Y - a.X*b.Z + a.Y*b.W + a.Z*b.X, // j
-		Z: a.W*b.Z + a.X*b.Y - a.Y*b.X + a.Z*b.W, // k
-	}
-}
-
-func (mat *Matrix4) ApplyTo(v *Vector3) *Vector3 {
-	return &Vector3{
-		mat[0]*v.X + mat[4]*v.Y + mat[8]*v.Z + mat[12],
-		mat[1]*v.X + mat[5]*v.Y + mat[9]*v.Z + mat[13],
-		mat[2]*v.X + mat[6]*v.Y + mat[10]*v.Z + mat[14],
-	}
-}
 
 func NewMatrix4() *Matrix4 {
 	return &Matrix4{
@@ -205,7 +38,7 @@ func NewTranslateMatrix4(x, y, z Element) *Matrix4 {
 	}
 }
 
-func NewRotationMatrix4FromQuaternion(q *Vector4) *Matrix4 {
+func NewRotationMatrix4FromQuaternion(q *Quaternion) *Matrix4 {
 	var (
 		x = q.X
 		y = q.Y
@@ -343,4 +176,27 @@ func (m *Matrix4) Clone() *Matrix4 {
 
 func (mat *Matrix4) ToArray(a []Element) {
 	copy(a, mat[:])
+}
+
+func (mat *Matrix4) ToEulerZXY() *Vector3 {
+	m11 := float64(mat[0])
+	m21 := float64(mat[1])
+	m31 := float64(mat[2])
+	m12 := float64(mat[4])
+	m22 := float64(mat[5])
+	m32 := float64(mat[6])
+	//m13 := float64(mat[8])
+	//m23 := float64(mat[9])
+	m33 := float64(mat[10])
+
+	ret := &Vector3{}
+	ret.X = float32(math.Asin(math.Max(-1, math.Min(m32, 1))))
+	if math.Abs(m32) < 0.9999999 {
+		ret.Y = float32(math.Atan2(-m31, m33))
+		ret.Z = float32(math.Atan2(-m12, m22))
+	} else {
+		ret.Z = float32(math.Atan2(m21, m11))
+		ret.Y = 0
+	}
+	return ret
 }
