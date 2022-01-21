@@ -115,6 +115,9 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 			materials = append(materials, mat.index)
 			m := &mqo.Material{Name: matGUID, Color: geom.Vector4{X: 1, Y: 1, Z: 1, W: 1}, Diffuse: 0.8}
 			material, err := unity.LoadMaterial(o.Scene.Assets, matGUID)
+			if matGUID == "0000000000000000f000000000000000" {
+				m.Name = "UnityDefaultMaterial"
+			}
 			if err == nil {
 				if c := material.GetColorProperty("_Color"); c != nil {
 					m.Color = geom.Vector4{X: c.R, Y: c.G, Z: c.B, W: c.A}
@@ -169,6 +172,8 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 				Sphere(obj, transform, 32, 16, mat)
 			} else if name == "Cylinder" {
 				Cylinder(obj, transform, 32, mat)
+			} else if name == "Capsule" {
+				Capsule(obj, transform, 32, mat)
 			} else {
 				log.Println("TODO:", name)
 			}
@@ -211,6 +216,8 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 func (c *unityToMqoState) convertRigidBody(o *unity.GameObject, transform *geom.Matrix4, obj *mqo.Object) {
 	var shapes []*mqo.PhysicsShape
 	scale := c.ConvertScale
+	_, rot, sc := transform.Decompose()
+	angle := geom.NewEulerFromQuaternion(rot, geom.RotationOrderZXY)
 
 	var boxColliders []*unity.BoxCollider
 	o.GetComponents(&boxColliders)
@@ -218,7 +225,8 @@ func (c *unityToMqoState) convertRigidBody(o *unity.GameObject, transform *geom.
 		shapes = append(shapes, &mqo.PhysicsShape{
 			Type:     "BOX",
 			Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&co.Center)),
-			Size:     mqo.Vector3XmlAttr(*co.Size.Scale(scale)),
+			Size:     mqo.Vector3XmlAttr(*co.Size.Scale(sc.X * 0.5)),
+			Rotation: mqo.Vector3XmlAttr(angle.Vector3),
 		})
 	}
 	var sphereColliders []*unity.SphereCollider
@@ -227,7 +235,8 @@ func (c *unityToMqoState) convertRigidBody(o *unity.GameObject, transform *geom.
 		shapes = append(shapes, &mqo.PhysicsShape{
 			Type:     "SPHERE",
 			Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&co.Center)),
-			Size:     mqo.Vector3XmlAttr{X: co.Radius * scale, Y: co.Radius * scale, Z: co.Radius * scale},
+			Size:     mqo.Vector3XmlAttr{X: co.Radius * sc.X, Y: co.Radius * sc.Y, Z: co.Radius * sc.Z},
+			Rotation: mqo.Vector3XmlAttr(angle.Vector3),
 		})
 	}
 	var capsuleColliders []*unity.CapsuleCollider
@@ -236,7 +245,8 @@ func (c *unityToMqoState) convertRigidBody(o *unity.GameObject, transform *geom.
 		shapes = append(shapes, &mqo.PhysicsShape{
 			Type:     "CAPSULE",
 			Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&co.Center)),
-			Size:     mqo.Vector3XmlAttr{X: co.Radius * co.Height * scale, Y: co.Radius * scale, Z: co.Radius * scale},
+			Size:     mqo.Vector3XmlAttr{X: co.Radius * sc.X, Y: (co.Height - co.Radius*2) * sc.Y, Z: co.Radius * sc.Z},
+			Rotation: mqo.Vector3XmlAttr(angle.Vector3),
 		})
 	}
 	var meshColliders []*unity.MeshCollider
@@ -245,10 +255,11 @@ func (c *unityToMqoState) convertRigidBody(o *unity.GameObject, transform *geom.
 		if name, ok := unity.UnityMeshes[*co.Mesh]; ok {
 			switch name {
 			case "Cube":
-				const size = 1.0
+				const size = 1
 				shapes = append(shapes, &mqo.PhysicsShape{
 					Type:     "BOX",
 					Position: mqo.Vector3XmlAttr(*transform.ApplyTo(&geom.Vector3{})),
+					Rotation: mqo.Vector3XmlAttr(angle.Vector3),
 					Size:     mqo.Vector3XmlAttr{X: size * scale, Y: size * scale, Z: size * scale},
 				})
 			case "Sphere":
@@ -402,15 +413,25 @@ func Cube(o *mqo.Object, tr *geom.Matrix4, mat int) {
 }
 
 func Sphere(o *mqo.Object, tr *geom.Matrix4, sh, sv, mat int) {
-	const r = 0.5
-	vs := []*geom.Vector3{
-		{X: 0, Y: r, Z: 0},
-		{X: 0, Y: -r, Z: 0},
-	}
-	var faces [][]int
-	var uvs [][]geom.Vector2
+	vs, faces, uvs := sphereInternal(sh, sv, 0, sv, 0)
+	AddGeometry(o, tr, mat, vs, faces, uvs)
+}
 
-	for i := 1; i < sv; i++ {
+func sphereInternal(sh, sv, t, b, voffset int) (vs []*geom.Vector3, faces [][]int, uvs [][]geom.Vector2) {
+	const r = 0.5
+	ofs := voffset
+	if t > 2 {
+		ofs -= (t - 1) * sh
+	}
+	for i := t; i <= b; i++ {
+		if i == 0 {
+			vs = append(vs, &geom.Vector3{X: 0, Y: r, Z: 0})
+			ofs += 1
+			continue
+		} else if i == sv {
+			vs = append(vs, &geom.Vector3{X: 0, Y: -r, Z: 0})
+			continue
+		}
 		t := float64(i) / float64(sv) * math.Pi
 		y := math.Cos(t) * r
 		r2 := math.Sin(t) * r
@@ -419,21 +440,20 @@ func Sphere(o *mqo.Object, tr *geom.Matrix4, sh, sv, mat int) {
 			vs = append(vs, &geom.Vector3{X: float32(math.Cos(t2) * r2), Y: float32(y), Z: float32(math.Sin(t2) * r2)})
 		}
 	}
-	ofs := 2
-	for i := 0; i < sv; i++ {
+	for i := t; i < b; i++ {
 		i1 := (i - 1) * sh
 		i2 := (i) * sh
 		for j := 0; j < sh; j++ {
 			j2 := (j + 1) % sh
 			if i == 0 {
-				faces = append(faces, []int{ofs - 2, i2 + j + ofs, i2 + j2 + ofs})
+				faces = append(faces, []int{ofs - 1, i2 + j + ofs, i2 + j2 + ofs})
 				uvs = append(uvs, []geom.Vector2{
 					{X: float32(j) / float32(sh), Y: float32(i) / float32(sv)},
 					{X: float32(j) / float32(sh), Y: float32(i+1) / float32(sv)},
 					{X: float32(j+1) / float32(sh), Y: float32(i+1) / float32(sv)},
 				})
 			} else if i == sv-1 {
-				faces = append(faces, []int{i1 + j + ofs, ofs - 1, i1 + j2 + ofs})
+				faces = append(faces, []int{i1 + j + ofs, i2 + ofs, i1 + j2 + ofs})
 				uvs = append(uvs, []geom.Vector2{
 					{X: float32(j) / float32(sh), Y: float32(i) / float32(sv)},
 					{X: float32(j) / float32(sh), Y: float32(i+1) / float32(sv)},
@@ -450,8 +470,7 @@ func Sphere(o *mqo.Object, tr *geom.Matrix4, sh, sv, mat int) {
 			}
 		}
 	}
-
-	AddGeometry(o, tr, mat, vs, faces, uvs)
+	return
 }
 
 func Cylinder(o *mqo.Object, tr *geom.Matrix4, s, mat int) {
@@ -481,6 +500,43 @@ func Cylinder(o *mqo.Object, tr *geom.Matrix4, s, mat int) {
 	}
 	faces = append(faces, top, bottom)
 	uvs = append(uvs, topuv, topuv)
+
+	AddGeometry(o, tr, mat, vs, faces, uvs)
+}
+
+func Capsule(o *mqo.Object, tr *geom.Matrix4, s, mat int) {
+	const r = 0.5
+	const h = 1.0
+	var vs []*geom.Vector3
+	var faces [][]int
+	var uvs [][]geom.Vector2
+
+	// cap
+	vs1, faces1, uvs1 := sphereInternal(s, 8, 0, 4, len(vs))
+	for _, v := range vs1 {
+		v.Y += h / 2
+	}
+	vs = append(vs, vs1...)
+	faces = append(faces, faces1...)
+	uvs = append(uvs, uvs1...)
+
+	st := len(vs) - s
+	for i := 0; i < s; i++ {
+		faces = append(faces, []int{st + i, st + i + s, st + (i+1)%s + s, st + (i+1)%s})
+		uvs = append(uvs, []geom.Vector2{
+			{X: 1 - float32(i)/float32(s), Y: 0},
+			{X: 1 - float32(i)/float32(s), Y: 1},
+			{X: 1 - float32(i+1)/float32(s), Y: 1},
+			{X: 1 - float32(i+1)/float32(s), Y: 0},
+		})
+	}
+	vs1, faces1, uvs1 = sphereInternal(s, 8, 4, 8, len(vs))
+	for _, v := range vs1 {
+		v.Y -= h / 2
+	}
+	vs = append(vs, vs1...)
+	faces = append(faces, faces1...)
+	uvs = append(uvs, uvs1...)
 
 	AddGeometry(o, tr, mat, vs, faces, uvs)
 }
