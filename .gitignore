@@ -1,2 +1,4 @@
 *.exe
-testdata/*
+*.out
+testdata_large/*
+**/*.generated

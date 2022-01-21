@@ -46,6 +46,11 @@ func (m *MetaFile) GetRecycleNameByFileID(fileID int64) string {
 	return m.ModelImporter.FileIDToRecycleName[fileID]
 }
 
+// OpenProject opens Unity project.
+func OpenProject(projectDir string) (Assets, error) {
+	return scanAssets(filepath.Join(projectDir, "Assets"))
+}
+
 // OpenAssets opens Assets dir.
 func OpenAssets(assetsDir string) (Assets, error) {
 	return scanAssets(assetsDir)

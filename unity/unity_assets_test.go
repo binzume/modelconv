@@ -5,9 +5,10 @@ import (
 	"testing"
 )
 
-const PackagePath = "../testdata/unity/test.unitypackage"
-const ExtractedPackagePath = "../testdata/unity/extracted"
-const SceneAssetPath = "Assets/world.unity"
+const PackagePath = "../testdata/unity/unity2020.unitypackage"
+const ProjectPath = "../testdata/unity/TestProject"
+const ExtractedPackagePath = "../testdata/unity/extracted.generated"
+const SceneAssetPath = "Assets/Scenes/SampleScene.unity"
 
 func TestExtractPackage(t *testing.T) {
 	if _, err := os.Stat(PackagePath); err != nil {
@@ -27,6 +28,22 @@ func TestOpenPackage(t *testing.T) {
 	}
 
 	assets, err := OpenPackage(ExtractedPackagePath)
+	if err != nil {
+		t.Fatal("Cannot open package.", err)
+	}
+	defer assets.Close()
+
+	for _, a := range assets.GetAllAssets() {
+		t.Log(a.GUID, a.Path)
+	}
+}
+
+func TestOpenProject(t *testing.T) {
+	if _, err := os.Stat(ExtractedPackagePath); err != nil {
+		t.Skip()
+	}
+
+	assets, err := OpenProject(ProjectPath)
 	if err != nil {
 		t.Fatal("Cannot open package.", err)
 	}
