@@ -10,6 +10,10 @@ const ExtractedPackagePath = "../testdata/unity/extracted"
 const SceneAssetPath = "Assets/world.unity"
 
 func TestExtractPackage(t *testing.T) {
+	if _, err := os.Stat(PackagePath); err != nil {
+		t.Skip()
+	}
+
 	_ = os.RemoveAll(ExtractedPackagePath)
 	err := extractPackage(PackagePath, ExtractedPackagePath)
 	if err != nil {
@@ -18,9 +22,13 @@ func TestExtractPackage(t *testing.T) {
 }
 
 func TestOpenPackage(t *testing.T) {
+	if _, err := os.Stat(ExtractedPackagePath); err != nil {
+		t.Skip()
+	}
+
 	assets, err := OpenPackage(ExtractedPackagePath)
 	if err != nil {
-		t.Error("Cannot open package.", err)
+		t.Fatal("Cannot open package.", err)
 	}
 	defer assets.Close()
 
@@ -30,15 +38,19 @@ func TestOpenPackage(t *testing.T) {
 }
 
 func TestLoadScene(t *testing.T) {
+	if _, err := os.Stat(ExtractedPackagePath); err != nil {
+		t.Skip()
+	}
+
 	assets, err := OpenPackage(ExtractedPackagePath)
 	if err != nil {
-		t.Error("Cannot open package.", err)
+		t.Fatal("Cannot open package.", err)
 	}
 	defer assets.Close()
 
 	scene, err := LoadScene(assets, SceneAssetPath)
 	if err != nil {
-		t.Error("Cannot open scene.", err)
+		t.Fatal("Cannot open scene.", err)
 	}
 
 	DumpScene(scene, true)

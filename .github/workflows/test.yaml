@@ -19,7 +19,7 @@ jobs:
     - name: Build
       run: go build -v ./...
     - name: Test
-      run: go test -v -cover -coverprofile=cover.out ./fbx
+      run: go test -v -cover -coverprofile=cover.out ./...
     - name: Codecov
       uses: codecov/codecov-action@v2
       with:
