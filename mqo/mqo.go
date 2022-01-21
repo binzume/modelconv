@@ -226,7 +226,12 @@ type SharedGeometryHint struct {
 }
 
 func NewObject(name string) *Object {
-	return &Object{Name: name, Visible: true, VertexByUID: map[int]int{}, Shading: 1, Facet: 59.5}
+	return &Object{
+		Name: name, Visible: true, VertexByUID: map[int]int{}, Shading: 1, Facet: 59.5,
+		Rotation:    geom.NewVector3(0, 0, 0),
+		Scale:       geom.NewVector3(1, 1, 1),
+		Translation: geom.NewVector3(0, 0, 0),
+	}
 }
 
 func (o *Object) SetRotation(r *geom.Quaternion) {
