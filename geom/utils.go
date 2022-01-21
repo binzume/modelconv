@@ -1,10 +1,5 @@
 package geom
 
-// deprecated
-func NewQuaternionFromEulerZXY(v *Vector3) *Quaternion {
-	return (&EulerAngles{Vector3: *v, Order: RotationOrderZXY}).ToQuaternion()
-}
-
 func IsInTriangle(p, a, b, c *Vector3) bool {
 	ab, bc, ca := b.Sub(a), c.Sub(b), a.Sub(c)
 	c1, c2, c3 := ab.Cross(p.Sub(a)), bc.Cross(p.Sub(b)), ca.Cross(p.Sub(c))
@@ -53,6 +48,9 @@ func Triangulate(poly []*Vector3) [][3]int {
 					dst = append(dst, [3]int{i0, i1, i2})
 					ii = tmp
 					count--
+					if count < 3 {
+						break
+					}
 				}
 			}
 		}
