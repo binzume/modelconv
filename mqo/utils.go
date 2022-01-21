@@ -30,6 +30,7 @@ func (o *Object) ApplyTransform(transform *Matrix4) {
 // Transform all objects and plugins
 func (doc *Document) ApplyTransform(transform *Matrix4) {
 	for _, o := range doc.Objects {
+		o.SetLocalTransform(transform.Mul(o.GetLocalTransform()))
 		o.ApplyTransform(transform)
 	}
 	for _, p := range doc.Plugins {

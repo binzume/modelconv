@@ -192,7 +192,7 @@ type Object struct {
 	MirrorDis    float32
 
 	Scale       *Vector3
-	Rotation    *Vector3
+	Rotation    *Vector3 // TODO: EulerAngles
 	Translation *Vector3
 
 	Color *Vector3
@@ -213,11 +213,23 @@ func NewObject(name string) *Object {
 }
 
 func (o *Object) SetRotation(r *geom.Quaternion) {
-	o.Rotation = geom.NewRotationMatrix4FromQuaternion(r).ToEulerZXY().Scale(180 / math.Pi)
+	// RotationOrderYXZ?
+	o.Rotation = geom.NewEulerFromQuaternion(r, geom.RotationOrderYXZ).Vector3.Scale(180 / math.Pi)
 }
 
 func (o *Object) GetRotation() *geom.Quaternion {
-	return geom.NewQuaternionFromEulerZXY(o.Rotation.Scale(math.Pi / 180))
+	return (&geom.EulerAngles{Vector3: *o.Rotation.Scale(math.Pi / 180), Order: geom.RotationOrderYXZ}).ToQuaternion()
+}
+
+func (o *Object) GetLocalTransform() *geom.Matrix4 {
+	return geom.NewTRSMatrix4(o.Translation, o.GetRotation(), o.Scale)
+}
+
+func (o *Object) SetLocalTransform(mat *geom.Matrix4) {
+	t, r, s := mat.Decompose()
+	o.Translation = t
+	o.Scale = s
+	o.SetRotation(r)
 }
 
 func (o *Object) Clone() *Object {

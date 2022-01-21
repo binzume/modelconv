@@ -252,7 +252,7 @@ func (p *Parser) readObject() *Object {
 		"mirror":      func() { o.Mirror = p.readInt() },
 		"mirror_dis":  func() { o.MirrorDis = p.readFloat() },
 		"scale":       func() { o.Scale = &Vector3{X: p.readFloat(), Y: p.readFloat(), Z: p.readFloat()} },
-		"rotation":    func() { o.Rotation = &Vector3{X: p.readFloat(), Y: p.readFloat(), Z: p.readFloat()} },
+		"rotation":    func() { o.Rotation = &Vector3{Y: p.readFloat(), X: p.readFloat(), Z: p.readFloat()} },
 		"translation": func() { o.Translation = &Vector3{X: p.readFloat(), Y: p.readFloat(), Z: p.readFloat()} },
 		"color":       func() { o.Color = &Vector3{X: p.readFloat(), Y: p.readFloat(), Z: p.readFloat()} },
 		"vertex": func() {

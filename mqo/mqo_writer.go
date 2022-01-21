@@ -143,7 +143,7 @@ func (writer *Writer) WriteMQO(mqo *Document, ww io.Writer) error {
 			fmt.Fprintf(w, "\tscale %v %v %v\n", obj.Scale.X, obj.Scale.Y, obj.Scale.Z)
 		}
 		if obj.Rotation != nil {
-			fmt.Fprintf(w, "\trotation %v %v %v\n", obj.Rotation.X, obj.Rotation.Y, obj.Rotation.Z)
+			fmt.Fprintf(w, "\trotation %v %v %v\n", obj.Rotation.Y, obj.Rotation.X, obj.Rotation.Z) // HPB?
 		}
 		if obj.Translation != nil {
 			fmt.Fprintf(w, "\ttranslation %v %v %v\n", obj.Translation.X, obj.Translation.Y, obj.Translation.Z)

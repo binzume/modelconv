@@ -50,12 +50,12 @@ func (m *Model) SetScaling(v *geom.Vector3) {
 func (m *Model) UpdateMatrix() {
 	// TODO: apply pivot
 	prerotEuler := m.GetProperty("PreRotation").ToVector3(0, 0, 0).Scale(math.Pi / 180)
-	prerot := geom.NewEulerRotationMatrix4(prerotEuler.X, prerotEuler.Y, prerotEuler.Z, 1)
+	prerot := geom.NewRotationMatrix4FromQuaternion((&geom.EulerAngles{Vector3: *prerotEuler, Order: geom.RotationOrderZYX}).ToQuaternion())
 	translation := m.GetTranslation()
 	rotationEuler := m.GetRotation().Scale(math.Pi / 180)
 	scale := m.GetScaling()
 	tr := geom.NewTranslateMatrix4(translation.X, translation.Y, translation.Z)
-	rot := geom.NewEulerRotationMatrix4(rotationEuler.X, rotationEuler.Y, rotationEuler.Z, 1)
+	rot := geom.NewRotationMatrix4FromQuaternion((&geom.EulerAngles{Vector3: *rotationEuler, Order: geom.RotationOrderZYX}).ToQuaternion())
 	sacle := geom.NewScaleMatrix4(scale.X, scale.Y, scale.Z)
 	m.cachedMatrix = tr.Mul(prerot).Mul(rot).Mul(sacle)
 }

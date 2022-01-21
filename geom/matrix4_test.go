@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestDecomposeMatrix(t *testing.T) {
+func TestMatrix4_Decompose(t *testing.T) {
 	const eps = 0.000001
 
 	pos := NewVector3(1, 2, 3)
@@ -35,5 +35,11 @@ func TestDecomposeMatrix(t *testing.T) {
 	}
 	if scale1.Sub(NewVector3(1, 1, 1)).Len() > eps {
 		t.Error("scale: ", scale1)
+	}
+}
+
+func TestMatrix4_Inverse(t *testing.T) {
+	if NewMatrix4().Inverse().Det() != 1 {
+		t.Error("inv: ", NewMatrix4().Inverse())
 	}
 }

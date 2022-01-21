@@ -57,43 +57,6 @@ func NewRotationMatrix4FromQuaternion(q *Quaternion) *Matrix4 {
 	}
 }
 
-func NewEulerRotationMatrix4(x, y, z Element, rev int) *Matrix4 {
-	m := NewMatrix4()
-	cx := Element(math.Cos(float64(x)))
-	sx := Element(math.Sin(float64(x)))
-	cy := Element(math.Cos(float64(y)))
-	sy := Element(math.Sin(float64(y)))
-	cz := Element(math.Cos(float64(z)))
-	sz := Element(math.Sin(float64(z)))
-
-	if rev == 0 {
-		m[0] = cy * cz
-		m[4] = -cy * sz
-		m[8] = sy
-
-		m[1] = cx*sz + sx*cz*sy
-		m[5] = cx*cz - sx*sz*sy
-		m[9] = -sx * cy
-
-		m[2] = sx*sz - cx*cz*sy
-		m[6] = sx*cz + cx*sz*sy
-		m[10] = cx * cy
-	} else {
-		m[0] = cy * cz
-		m[4] = sx*cz*sy - cx*sz
-		m[8] = cx*cz*sy + sx*sz
-
-		m[1] = cy * sz
-		m[5] = sx*sz*sy + cx*cz
-		m[9] = cx*sz*sy - sx*cz
-
-		m[2] = -sy
-		m[6] = sx * cy
-		m[10] = cx * cy
-	}
-	return m
-}
-
 func (b *Matrix4) Mul(a *Matrix4) *Matrix4 {
 	r := &Matrix4{}
 
@@ -233,9 +196,4 @@ func (m *Matrix4) Clone() *Matrix4 {
 
 func (mat *Matrix4) ToArray(a []Element) {
 	copy(a, mat[:])
-}
-
-// deprecated
-func (mat *Matrix4) ToEulerZXY() *Vector3 {
-	return &NewEulerFromMatrix4(mat, RotationOrderZXY).Vector3
 }
