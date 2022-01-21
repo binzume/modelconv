@@ -5,6 +5,20 @@ import (
 	"testing"
 )
 
+func TestMatrix4(t *testing.T) {
+	var arr [32]Element
+	mat := NewMatrix4()
+	mat.ToArray(arr[:])
+
+	if *mat != *NewMatrix4FromSlice(arr[:]) {
+		t.Error("error: ToArray/FromSlice", mat)
+	}
+
+	if *mat != *mat.Transposed().Transposed() {
+		t.Error("error: Transposed()", mat)
+	}
+}
+
 func TestMatrix4_Decompose(t *testing.T) {
 	const eps = 0.000001
 
