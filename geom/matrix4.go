@@ -20,6 +20,10 @@ func NewMatrix4FromSlice(a []Element) *Matrix4 {
 	return mat
 }
 
+func NewTRSMatrix4(t *Vector3, r *Quaternion, s *Vector3) *Matrix4 {
+	return NewTranslateMatrix4(t.X, t.Y, t.Z).Mul(NewRotationMatrix4FromQuaternion(r).Mul(NewScaleMatrix4(s.X, s.Y, s.Z)))
+}
+
 func NewScaleMatrix4(x, y, z Element) *Matrix4 {
 	return &Matrix4{
 		x, 0, 0, 0,
@@ -115,7 +119,7 @@ func (b *Matrix4) Mul(a *Matrix4) *Matrix4 {
 	return r
 }
 
-func (m *Matrix4) Det() float32 {
+func (m *Matrix4) Det() Element {
 	var (
 		t11 = m[9]*m[14]*m[7] - m[13]*m[10]*m[7] + m[13]*m[6]*m[11] - m[5]*m[14]*m[11] - m[9]*m[6]*m[15] + m[5]*m[10]*m[15]
 		t12 = m[12]*m[10]*m[7] - m[8]*m[14]*m[7] - m[12]*m[6]*m[11] + m[4]*m[14]*m[11] + m[8]*m[6]*m[15] - m[4]*m[10]*m[15]
@@ -169,6 +173,59 @@ func (m *Matrix4) Transposed() *Matrix4 {
 	}
 }
 
+func (mat *Matrix4) Decompose() (translate *Vector3, rotation *Quaternion, scale *Vector3) {
+	scale = &Vector3{
+		(&Vector3{mat[0], mat[1], mat[2]}).Len(),
+		(&Vector3{mat[4], mat[5], mat[6]}).Len(),
+		(&Vector3{mat[8], mat[9], mat[10]}).Len(),
+	}
+	if mat.Det() < 0 {
+		scale.X = -scale.X
+	}
+
+	m11, m12, m13 := mat[0]/scale.X, mat[4]/scale.Y, mat[8]/scale.Z
+	m21, m22, m23 := mat[1]/scale.X, mat[5]/scale.Y, mat[9]/scale.Z
+	m31, m32, m33 := mat[2]/scale.X, mat[6]/scale.Y, mat[10]/scale.Z
+	trace := m11 + m22 + m33
+	if trace > 0 {
+		s := 0.5 / math.Sqrt(float64(trace+1.0))
+		rotation = &Quaternion{
+			(m32 - m23) * Element(s),
+			(m13 - m31) * Element(s),
+			(m21 - m12) * Element(s),
+			0.25 / Element(s),
+		}
+
+	} else if m11 > m22 && m11 > m33 {
+		s := 2.0 * math.Sqrt(float64(1.0+m11-m22-m33))
+		rotation = &Quaternion{
+			0.25 * Element(s),
+			(m12 + m21) / Element(s),
+			(m13 + m31) / Element(s),
+			(m32 - m23) / Element(s),
+		}
+	} else if m22 > m33 {
+		s := 2.0 * math.Sqrt(float64(1.0+m22-m11-m33))
+		rotation = &Quaternion{
+			(m12 + m21) / Element(s),
+			0.25 * Element(s),
+			(m23 + m32) / Element(s),
+			(m13 - m31) / Element(s),
+		}
+	} else {
+		s := 2.0 * math.Sqrt(float64(1.0+m33-m11-m22))
+		rotation = &Quaternion{
+			(m13 + m31) / Element(s),
+			(m23 + m32) / Element(s),
+			0.25 * Element(s),
+			(m21 - m12) / Element(s),
+		}
+	}
+
+	translate = &Vector3{mat[12], mat[13], mat[14]}
+	return
+}
+
 func (m *Matrix4) Clone() *Matrix4 {
 	r := *m
 	return &r
@@ -178,25 +235,7 @@ func (mat *Matrix4) ToArray(a []Element) {
 	copy(a, mat[:])
 }
 
+// deprecated
 func (mat *Matrix4) ToEulerZXY() *Vector3 {
-	m11 := float64(mat[0])
-	m21 := float64(mat[1])
-	m31 := float64(mat[2])
-	m12 := float64(mat[4])
-	m22 := float64(mat[5])
-	m32 := float64(mat[6])
-	//m13 := float64(mat[8])
-	//m23 := float64(mat[9])
-	m33 := float64(mat[10])
-
-	ret := &Vector3{}
-	ret.X = float32(math.Asin(math.Max(-1, math.Min(m32, 1))))
-	if math.Abs(m32) < 0.9999999 {
-		ret.Y = float32(math.Atan2(-m31, m33))
-		ret.Z = float32(math.Atan2(-m12, m22))
-	} else {
-		ret.Z = float32(math.Atan2(m21, m11))
-		ret.Y = 0
-	}
-	return ret
+	return &NewEulerFromMatrix4(mat, RotationOrderZXY).Vector3
 }

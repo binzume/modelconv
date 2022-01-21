@@ -1,20 +1,8 @@
 package geom
 
-import "math"
-
-func NewQuaternionFromEulerZXY(v *Vector3) *Vector4 {
-	c1 := math.Cos(float64(v.X / 2))
-	c2 := math.Cos(float64(v.Y / 2))
-	c3 := math.Cos(float64(v.Z / 2))
-	s1 := math.Sin(float64(v.X / 2))
-	s2 := math.Sin(float64(v.Y / 2))
-	s3 := math.Sin(float64(v.Z / 2))
-
-	return &Vector4{
-		X: float32(s1*c2*c3 - c1*s2*s3),
-		Y: float32(c1*s2*c3 + s1*c2*s3),
-		Z: float32(c1*c2*s3 + s1*s2*c3),
-		W: float32(c1*c2*c3 - s1*s2*s3)}
+// deprecated
+func NewQuaternionFromEulerZXY(v *Vector3) *Quaternion {
+	return (&EulerAngles{Vector3: *v, Order: RotationOrderZXY}).ToQuaternion()
 }
 
 func IsInTriangle(p, a, b, c *Vector3) bool {
