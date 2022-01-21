@@ -45,6 +45,23 @@ func (doc *Document) GetObjectByID(id int) *Object {
 	return nil
 }
 
+func (doc *Document) GetWorldTransforms() map[*Object]*Matrix4 {
+	transforms := map[*Object]*Matrix4{}
+	dd := []int{-1}
+	dt := []*Matrix4{geom.NewMatrix4()}
+
+	for _, o := range doc.Objects {
+		for len(dd) > 1 && dd[len(dd)-1] <= o.Depth {
+			dd = dd[:len(dd)-1]
+			dt = dt[:len(dt)-1]
+		}
+		transforms[o] = dt[len(dt)-1].Mul(o.GetLocalTransform())
+		dd = append(dd, o.Depth)
+		dt = append(dt, transforms[o])
+	}
+	return transforms
+}
+
 func (doc *Document) FixNames() {
 	objNames := map[string]bool{}
 	for _, obj := range doc.Objects {
@@ -214,7 +231,7 @@ func NewObject(name string) *Object {
 
 func (o *Object) SetRotation(r *geom.Quaternion) {
 	// RotationOrderYXZ?
-	o.Rotation = geom.NewEulerFromQuaternion(r, geom.RotationOrderYXZ).Vector3.Scale(180 / math.Pi)
+	o.Rotation = geom.NewEulerFromQuaternion(r, geom.RotationOrderZXY).Vector3.Scale(180 / math.Pi)
 }
 
 func (o *Object) GetRotation() *geom.Quaternion {
