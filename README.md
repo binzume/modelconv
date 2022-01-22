@@ -13,17 +13,15 @@ Goで3Dモデルファイルを読み書きするライブラリ＆変換ツー�
 | .gltf/.glb |  ○  |  ○   | 他フォーマットへの変換は暫定実装 |
 | .vrm       |  △  |  ○   | glTF 用のエクステンション        |
 | .pmx/.pmd  |  ○  |  ○   | .pmd は Read only                |
-| .fbx       |  ○  |  △   | 暫定実装                         |
+| .fbx       |  ○  |  △   | 出力はASCIIのみ                  |
 | .unity     |  △  |       | Unity 2018以降のシーンに対応     |
 | .vmd       |  △  |       | 暫定実装                         |
 
-glTFの読み書きには https://github.com/qmuntal/gltf を使っています．
-
-データを見ながら雰囲気で実装してるので，読み込めないファイルがあるかもしれません．
+仕様が良くわかからないものは実際のファイルを見ながら雰囲気で実装してるので，読み込めないデータがあるかもしれません．
 
 # Command-line tool
 
-package: [cmd/modelconv](cmd/modelconv)
+[cmd/modelconv](cmd/modelconv)
 
 以下の組み合わせの変換が可能です．
 
@@ -88,6 +86,8 @@ modelconv -scaleY 1.5 -scaleX 1.3 "model.mqo" "model_scaled.mqo"
 | -vrmconfig | Config file for VRM | "inputfile.vrmconfig.json" |
 | -autotpose | Arm bone names |            |
 | -chparent  | replace parent bone (BONE1:PARENT1,BONE2:PARENT2,...) |  |
+| -physics   | Convert Physics colliders (experinemtal) | false |
+
 
 ### vrmconfig:
 

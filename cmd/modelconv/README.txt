@@ -42,8 +42,9 @@ modelconv -format glb "model.gltf"
 
 ```bash
 modelconv  "test.unitypackage#Assets/scene.unity" "scene.glb"
-modelconv  "Assets/scenes/scene.unity" "scene.glb"
+modelconv  "YourProject/Assets/Scenes/scene.unity" "scene.glb"
 ```
+
 
 ### Scaling
 
@@ -68,6 +69,8 @@ modelconv -scaleY 1.5 -scaleX 1.3 "model.mqo" "model_scaled.mqo"
 | -vrmconfig | Config file for VRM | "inputfile.vrmconfig.json" |
 | -autotpose | Arm bone names |            |
 | -chparent  | replace parent bone (BONE1:PARENT1,BONE2:PARENT2,...) |  |
+| -physics   | Convert Physics colliders (experinemtal) | false |
+
 
 ### vrmconfig:
 
@@ -97,8 +100,3 @@ MMDからの変換時にはデフォルトで [mmd.json](converter/vrmconfig_pre
 
 https://github.com/binzume/modelconv
   MIT License (https://github.com/binzume/modelconv/blob/master/LICENSE)
-
-glTFの読み書きに以下のライブラリを使用しています．
-
-qmuntal/gltf https://github.com/qmuntal/gltf
-  BSD 2-Clause (https://github.com/qmuntal/gltf/blob/master/LICENSE)
