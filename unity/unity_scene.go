@@ -14,12 +14,21 @@ func LoadScene(assets Assets, scenePath string) (*Scene, error) {
 	sceneAsset := assets.GetAssetByPath(scenePath)
 	if sceneAsset == nil {
 		log.Println("Scenes:")
+		count := 0
+		candidate := ""
 		for _, a := range assets.GetAllAssets() {
 			if strings.HasSuffix(a.Path, ".unity") {
 				log.Println("  " + assets.GetSourcePath() + "#" + a.Path)
+				candidate = a.Path
+				count++
 			}
 		}
-		return nil, fmt.Errorf("Scene not found: %s", scenePath)
+		if scenePath == "" && count == 1 {
+			sceneAsset = assets.GetAssetByPath(candidate)
+		}
+		if sceneAsset == nil {
+			return nil, fmt.Errorf("Could not load scene: %s", scenePath)
+		}
 	}
 	return LoadSceneAsset(assets, sceneAsset)
 }
