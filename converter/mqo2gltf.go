@@ -63,6 +63,16 @@ type textureInfo struct {
 	err  error
 }
 
+const BlenderPhysicsName = "BLENDER_physics"
+
+type BlenderPhysicsBody struct {
+	Shapes          []map[string]interface{} `json:"collisionShapes"`
+	Mass            float32                  `json:"mass"`
+	Static          bool                     `json:"static"`
+	CollisionGroups int                      `json:"collisionGroups"`
+	CollisionMasks  int                      `json:"collisionMasks"`
+}
+
 func (c *textureCache) get(name string) *textureInfo {
 	if t, ok := c.textures[name]; ok {
 		return t
@@ -626,6 +636,17 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		bones = mqo.GetBonePlugin(doc).Bones()
 		boneIDToJoint, jointToBone = m.addBoneNodes(bones)
 		m.JointNodeToBone = jointToBone
+		if m.ConvertPhysics {
+			physics := mqo.GetPhysicsPlugin(doc)
+			for _, b := range physics.Bodies {
+				if b.TargetBoneID == 0 {
+					continue
+				}
+				if n, ok := boneIDToJoint[b.TargetBoneID]; ok {
+					addPhysicsBody(m.Nodes[n], b, m.Scale)
+				}
+			}
+		}
 	}
 
 	sharedGeoms := map[string]*geomCache{}
@@ -698,38 +719,10 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 
 		// Physics
 		if m.ConvertPhysics {
-			var body *mqo.PhysicsBody
-			var shapes []map[string]interface{}
-
 			physics := mqo.GetPhysicsPlugin(doc)
 			for _, b := range physics.Bodies {
-				if b.TargetObjID == 0 || b.TargetObjID != obj.UID {
-					continue
-				}
-				for _, s := range b.Shapes {
-					shapes = append(shapes, map[string]interface{}{
-						"boundingBox":       [3]float32{s.Size.X * m.Scale, s.Size.Y * m.Scale, s.Size.Z * m.Scale},
-						"shapeType":         s.Type,
-						"offsetTranslation": [3]float32{s.Position.X * m.Scale, s.Position.Y * m.Scale, s.Position.Z * m.Scale},
-						"offsetScale":       [3]float32{s.Size.X * m.Scale, s.Size.Y * m.Scale, s.Size.Z * m.Scale},
-						// "offsetRotation":    [4]float32{s.Rotation.X, s.Rotation.Y, s.Rotation.Z, 1}, // TODO
-						// "primaryAxis": "Z",
-					})
-				}
-				if body == nil && len(shapes) > 0 {
-					body = b
-				}
-			}
-			if len(shapes) > 0 {
-				if node.Extensions == nil {
-					node.Extensions = gltf.Extensions{}
-				}
-				node.Extensions["BLENDER_physics"] = map[string]interface{}{
-					"collisionShapes": shapes,
-					"mass":            body.Mass,
-					"static":          body.Kinematic,
-					"collisionGroups": body.CollisionGroup,
-					"collisionMasks":  body.CollisionMask,
+				if b.TargetObjID != 0 && b.TargetObjID == obj.UID {
+					addPhysicsBody(node, b, m.Scale)
 				}
 			}
 		}
@@ -752,7 +745,7 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		m.ExtensionsUsed = append(m.ExtensionsUsed, "KHR_materials_unlit")
 	}
 	if m.ConvertPhysics {
-		m.ExtensionsUsed = append(m.ExtensionsUsed, "BLENDER_physics")
+		m.ExtensionsUsed = append(m.ExtensionsUsed, BlenderPhysicsName)
 	}
 
 	if len(m.Document.Textures) > 0 {
@@ -760,4 +753,37 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 	}
 
 	return m.Document, nil
+}
+
+func addPhysicsBody(node *gltf.Node, body *mqo.PhysicsBody, scale float32) {
+	var shapes []map[string]interface{}
+
+	for _, s := range body.Shapes {
+		shapes = append(shapes, map[string]interface{}{
+			"boundingBox":       [3]float32{s.Size.X * scale, s.Size.Y * scale, s.Size.Z * scale},
+			"shapeType":         s.Type,
+			"offsetTranslation": [3]float32{s.Position.X * scale, s.Position.Y * scale, s.Position.Z * scale},
+			"offsetScale":       [3]float32{s.Size.X * scale, s.Size.Y * scale, s.Size.Z * scale},
+			// "offsetRotation":    [4]float32{s.Rotation.X, s.Rotation.Y, s.Rotation.Z, 1}, // TODO
+			// "primaryAxis": "Z",
+		})
+	}
+	if len(shapes) > 0 {
+		if node.Extensions == nil {
+			node.Extensions = gltf.Extensions{}
+		}
+		if p, ok := node.Extensions[BlenderPhysicsName].(*BlenderPhysicsBody); ok {
+			p.Shapes = append(p.Shapes, shapes...)
+			p.Mass = p.Mass + body.Mass
+			p.Static = p.Static || body.Kinematic
+		} else {
+			node.Extensions[BlenderPhysicsName] = &BlenderPhysicsBody{
+				Shapes:          shapes,
+				Mass:            body.Mass,
+				Static:          body.Kinematic,
+				CollisionGroups: body.CollisionGroup,
+				CollisionMasks:  body.CollisionMask,
+			}
+		}
+	}
 }
