@@ -125,7 +125,7 @@ func (c *mqoToMMD) Convert(doc *mqo.Document) (*mmd.Document, error) {
 	// Physics
 	physics := mqo.GetPhysicsPlugin(doc)
 	for _, b := range physics.Bodies {
-		dst.Bodies = append(dst.Bodies, c.convertBody(b)...)
+		dst.Bodies = append(dst.Bodies, c.convertBody(b, boneIndexByID)...)
 	}
 
 	return dst, nil
@@ -173,7 +173,7 @@ func (c *mqoToMMD) convertMaterial(m *mqo.Material, faceCount, texture int) *mmd
 	}
 }
 
-func (c *mqoToMMD) convertBody(b *mqo.PhysicsBody) []*mmd.RigidBody {
+func (c *mqoToMMD) convertBody(b *mqo.PhysicsBody, boneIndexByID map[int]int) []*mmd.RigidBody {
 	var bodies []*mmd.RigidBody
 	for i, shape := range b.Shapes {
 		var shapeType uint8 = 0
@@ -202,7 +202,7 @@ func (c *mqoToMMD) convertBody(b *mqo.PhysicsBody) []*mmd.RigidBody {
 			AngularDamping: b.AngularDamping,
 			Restitution:    b.Restitution,
 			Friction:       b.Friction,
-			Bone:           b.TargetBoneID,
+			Bone:           boneIndexByID[b.TargetBoneID],
 		}
 		if i > 0 {
 			body.Name += "_" + fmt.Sprint(i)

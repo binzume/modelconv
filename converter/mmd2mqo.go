@@ -363,7 +363,7 @@ func (c *mmdToMQO) Convert(pmx *mmd.Document) *mqo.Document {
 				AngularDamping: b.AngularDamping,
 				Restitution:    b.Restitution,
 				Friction:       b.Friction,
-				TargetBoneID:   b.Bone,
+				TargetBoneID:   b.Bone + 1,
 			}
 			physics.Bodies = append(physics.Bodies, body)
 		}
