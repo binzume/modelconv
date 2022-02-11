@@ -141,6 +141,19 @@ func (m *Material) GetShaderName() string {
 	return ""
 }
 
+const (
+	AlphaModeOpaque = 1
+	AlphaModeMask   = 2
+	AlphaModeBlend  = 3
+)
+
+func (m *Material) SetGltfAlphaMode(mode int) {
+	if m.Ex2 == nil {
+		m.Ex2 = &MaterialEx2{ShaderName: "glTF"}
+	}
+	m.Ex2.ShaderParams["AlphaMode"] = mode
+}
+
 type MaterialEx2 struct {
 	ShaderType          string
 	ShaderName          string

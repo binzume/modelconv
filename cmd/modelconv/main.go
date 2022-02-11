@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/binzume/modelconv/converter"
@@ -31,6 +32,8 @@ var (
 	hides     = flag.String("hide", "", "hide objects (OBJ1,OBJ2,...)")
 	hidemats  = flag.String("hidemat", "", "hide materials (MAT1,MAT2,...)")
 	chparent  = flag.String("chparent", "", "ch bone parent (BONE1:PARENT1,BONE2:PARENT2,...)")
+
+	alphaOverrides = flag.String("alpha", "", "override alpha (MAT1:blend,MAT2:opaque,MAT2:0.5,...)")
 
 	texReCompress       = flag.Bool("texReCompress", false, "re-compress all textures (gltf)")
 	texBytesThreshold   = flag.Int64("texBytesThreshold", 0, "resize large textures (gltf)")
@@ -336,6 +339,37 @@ func main() {
 			if match(patterns, mat.Name) {
 				mat.Name += "$IGNORE"
 				mat.Color.W = 0
+			}
+		}
+	}
+
+	if *alphaOverrides != "" {
+		for _, p := range strings.Split(*alphaOverrides, ",") {
+			pattern := strings.SplitN(p, ":", 2)
+			if len(pattern) != 2 {
+				continue
+			}
+			for _, mat := range doc.Materials {
+				if match([]string{pattern[0]}, mat.Name) {
+					if pattern[1] == "opaque" {
+						mat.SetGltfAlphaMode(mqo.AlphaModeOpaque)
+						mat.Color.W = 1
+					} else if pattern[1] == "mask" {
+						mat.SetGltfAlphaMode(mqo.AlphaModeMask)
+					} else if pattern[1] == "blend" {
+						mat.SetGltfAlphaMode(mqo.AlphaModeBlend)
+					} else if pattern[1] == "0" {
+						mat.Name += "$IGNORE"
+						mat.Color.W = 0
+					} else if alpha, err := strconv.ParseFloat(pattern[1], 32); err == nil {
+						if mat.GetShaderName() == "glTF" {
+							mat.SetGltfAlphaMode(mqo.AlphaModeBlend)
+						}
+						mat.Color.W = float32(alpha)
+					} else {
+						log.Fatal("invalid alpha:", p)
+					}
+				}
 			}
 		}
 	}
