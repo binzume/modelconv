@@ -39,7 +39,8 @@ var (
 	reuseGeometry       = flag.Bool("reuseGeometry", false, "use shared geometry data (gltf, experimental)")
 	gltfIgnoreHierarchy = flag.Bool("ignoreHierarchy", false, "ignore object tree (gltf)")
 
-	convertPhysics = flag.Bool("physics", false, "convert physics (experimental)")
+	convertPhysics    = flag.Bool("physics", false, "convert physics (experimental)")
+	vrmAutoSpringBone = flag.Bool("vrmAutoSpringBone", false, "SpringBone auto detection (vrm, experimental)")
 )
 
 func isGltf(ext string) bool {
@@ -65,6 +66,30 @@ func defaultOutputExt(inputExt string) string {
 	return ".mqo"
 }
 
+func springLen(doc *gltf.Document, node *gltf.Node) int {
+	if len(node.Children) == 0 {
+		return 0
+	}
+	p, ok := node.Extensions[converter.BlenderPhysicsName].(*converter.BlenderPhysicsBody)
+	if !ok {
+		return -1
+	}
+	if p.Static {
+		return -1
+	}
+	l := 0
+	for _, n := range node.Children {
+		d := springLen(doc, doc.Nodes[n])
+		if d < 0 {
+			return -1
+		}
+		if d >= l {
+			l = d + 1
+		}
+	}
+	return l
+}
+
 func saveGltfDocument(doc *gltf.Document, output, ext, srcDir, vrmConf string) error {
 	if ext == ".glb" {
 		err := gltfutil.ToSingleFile(doc, srcDir)
@@ -80,6 +105,21 @@ func saveGltfDocument(doc *gltf.Document, output, ext, srcDir, vrmConf string) e
 		}
 		return gltf.Save(doc, output)
 	} else if ext == ".vrm" {
+		if *vrmAutoSpringBone {
+			parents := map[int]int{}
+			for i, n := range doc.Nodes {
+				for _, c := range n.Children {
+					parents[int(c)] = i
+				}
+			}
+			for i, n := range doc.Nodes {
+				l := springLen(doc, n)
+				if l > 0 && l > springLen(doc, doc.Nodes[parents[i]]) {
+					// TODO: add spring bone to vrm
+					log.Println("SpringBone candidate:", i, n.Name)
+				}
+			}
+		}
 		vrmdoc, err := converter.ToVRM(doc, output, srcDir, vrmConf)
 		if err := vrmdoc.ValidateBones(); err != nil {
 			log.Print(err)
@@ -93,7 +133,7 @@ func saveGltfDocument(doc *gltf.Document, output, ext, srcDir, vrmConf string) e
 	return fmt.Errorf("Unsuppored output type: %v", ext)
 }
 
-func saveDocument(doc *mqo.Document, output, ext, srcDir, vrmConf string, inputs []string) error {
+func saveDocument(doc *mqo.Document, output, ext, srcDir string, inputs []string) error {
 	if isGltf(ext) {
 		opt := &converter.MQOToGLTFOption{
 			TextureReCompress:      *texReCompress,
@@ -119,7 +159,7 @@ func saveDocument(doc *mqo.Document, output, ext, srcDir, vrmConf string, inputs
 				converter.AddAnimationTpGlb(gltfdoc, ani, conv.JointNodeToBone, true)
 			}
 		}
-		return saveGltfDocument(gltfdoc, output, ext, srcDir, vrmConf)
+		return saveGltfDocument(gltfdoc, output, ext, srcDir, *vrmconf)
 	} else if isMQO(ext) {
 		return mqo.Save(doc, output)
 	} else if ext == ".pmx" {
@@ -316,7 +356,7 @@ func main() {
 	baseDir := filepath.Dir(input)
 
 	log.Print("out: ", output)
-	if err = saveDocument(doc, output, outputExt, baseDir, *vrmconf, flag.Args()[0:inputN]); err != nil {
+	if err = saveDocument(doc, output, outputExt, baseDir, flag.Args()[0:inputN]); err != nil {
 		log.Fatal(err)
 	}
 }
