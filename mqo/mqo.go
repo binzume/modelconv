@@ -148,8 +148,8 @@ const (
 )
 
 func (m *Material) SetGltfAlphaMode(mode int) {
-	if m.Ex2 == nil {
-		m.Ex2 = &MaterialEx2{ShaderName: "glTF"}
+	if m.Ex2 == nil || m.Ex2.ShaderName != "glTF" {
+		m.Ex2 = NewMaterialEx2("glTF")
 	}
 	m.Ex2.ShaderParams["AlphaMode"] = mode
 }
@@ -159,6 +159,14 @@ type MaterialEx2 struct {
 	ShaderName          string
 	ShaderParams        map[string]interface{}
 	ShaderMappingParams map[string]map[string]interface{}
+}
+
+func NewMaterialEx2(name string) *MaterialEx2 {
+	return &MaterialEx2{
+		ShaderName:          "glTF",
+		ShaderParams:        map[string]interface{}{},
+		ShaderMappingParams: map[string]map[string]interface{}{},
+	}
 }
 
 func (m *MaterialEx2) StringParam(name string) string {
