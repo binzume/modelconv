@@ -44,7 +44,7 @@ func loadDocument(input string) (*mqo.Document, error) {
 		}
 		log.Println("Name: ", pmx.Name)
 		log.Println("Comment: ", pmx.Comment)
-		return converter.NewMMDToMQOConverter(nil).Convert(pmx), nil
+		return converter.NewMMDToMQOConverter(&converter.MMDToMQOOption{ReplaceInheritParent: true, InheritParentThreshold: 0.5}).Convert(pmx), nil
 	case isUnity(ext):
 		names := strings.SplitN(input, "#", 2)
 		if len(names) == 1 {

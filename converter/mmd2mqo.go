@@ -8,11 +8,17 @@ import (
 	"github.com/binzume/modelconv/mqo"
 )
 
-type mmdToMQO struct {
+type MMDToMQOOption struct {
+	ReplaceInheritParent   bool
+	InheritParentThreshold float32
 }
 
-func NewMMDToMQOConverter(options interface{}) *mmdToMQO {
-	return &mmdToMQO{}
+type mmdToMQO struct {
+	MMDToMQOOption
+}
+
+func NewMMDToMQOConverter(options *MMDToMQOOption) *mmdToMQO {
+	return &mmdToMQO{MMDToMQOOption: *options}
 }
 
 func (c *mmdToMQO) convertVec3(v *mmd.Vector3) *mqo.Vector3 {
@@ -52,6 +58,10 @@ func (c *mmdToMQO) convertBones(pmx *mmd.Document) []*mqo.Bone {
 			Group:  pmBone.Layer,
 			Pos:    mqo.Vector3Attr{Vector3: *c.convertVec3(&pmBone.Pos)},
 			Parent: pmBone.ParentID + 1,
+		}
+		if c.ReplaceInheritParent && pmBone.Flags&mmd.BoneFlagInheritRotation > 0 &&
+			pmBone.InheritParentInfluence > c.InheritParentThreshold {
+			mqBone.Parent = pmBone.InheritParentID + 1
 		}
 		if pmBone.Flags&mmd.BoneFlagTranslatable != 0 {
 			mqBone.Movable = 1
