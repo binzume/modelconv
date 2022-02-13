@@ -320,7 +320,6 @@ func (m *mqoToGltf) hasAlpha(texture string, textures *textureCache, rect *uvrec
 	case color.RGBAModel:
 		return !img.(*image.RGBA).Opaque()
 	case color.NRGBAModel:
-		log.Println(texture, rect, !img.(*image.NRGBA).Opaque())
 		return !img.(*image.NRGBA).Opaque()
 	}
 	return false
