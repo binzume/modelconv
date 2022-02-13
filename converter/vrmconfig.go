@@ -113,8 +113,28 @@ func matchNodeName(pattern string, nodeMap map[string]int) []int {
 	return result
 }
 
+func findReursive(doc *vrm.Document, target uint32, m map[uint32]string) (string, bool) {
+	if name, ok := m[target]; ok {
+		return name, ok
+	}
+	for _, c := range doc.Nodes[target].Children {
+		if name, ok := findReursive(doc, c, m); ok {
+			return name, ok
+		}
+	}
+	return "", false
+}
+
+func registerReursive(doc *vrm.Document, target uint32, m map[uint32]string, name string) {
+	m[target] = name
+	for _, c := range doc.Nodes[target].Children {
+		registerReursive(doc, c, m, name)
+	}
+}
+
 func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]int, nodeMap map[string]int, blendShapeMap map[[2]int]string) {
 	ext := doc.VRM()
+	springBones := map[uint32]string{}
 	for _, mapping := range conf.BoneMappings {
 		if _, ok := foundBones[mapping.Bone.Bone]; ok {
 			continue
@@ -182,7 +202,18 @@ func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]
 		var b = boneGroup.SecondaryAnimationBoneGroup
 		for _, nodeName := range boneGroup.NodeNames {
 			matched := matchNodeName(nodeName, nodeMap)
-			b.Bones = append(b.Bones, matched...)
+			for _, n := range matched {
+				if doc.Nodes[n].Mesh != nil {
+					log.Printf("ERROR: %v is not bone node!", nodeName)
+					continue
+				}
+				if name, ok := findReursive(doc, uint32(n), springBones); ok {
+					log.Printf("ERROR: %s already added as %s", nodeName, name)
+					continue
+				}
+				registerReursive(doc, uint32(n), springBones, nodeName)
+				b.Bones = append(b.Bones, n)
+			}
 			if len(matched) == 0 {
 				log.Println("Bone node not found:", nodeName)
 			}
@@ -258,7 +289,7 @@ func applyConfigInternal(doc *vrm.Document, conf *Config, foundBones map[string]
 	}
 }
 
-func ApplyConfig(doc *vrm.Document, conf *Config) error {
+func ApplyConfig(doc *vrm.Document, conf *Config) (*vrm.Document, error) {
 	ext := doc.VRM()
 	ext.ExporterVersion = vrm.ExporterVersion
 	ext.Meta = conf.Metadata
@@ -284,7 +315,7 @@ func ApplyConfig(doc *vrm.Document, conf *Config) error {
 	if conf.Preset != "" {
 		presetConf, err := LoadVRMConfig(conf.Preset)
 		if err != nil {
-			return err
+			return doc, err
 		}
 		conf.MergePreset(presetConf)
 	}
@@ -331,7 +362,7 @@ func ApplyConfig(doc *vrm.Document, conf *Config) error {
 		}
 	}
 
-	return nil
+	return doc, nil
 }
 
 func ToVRM(gltfDoc *gltf.Document, output, srcDir, confFile string) (*vrm.Document, error) {
@@ -343,10 +374,19 @@ func ToVRM(gltfDoc *gltf.Document, output, srcDir, confFile string) (*vrm.Docume
 	doc := (*vrm.Document)(gltfDoc)
 	if confFile != "" {
 		conf, err := LoadVRMConfig(confFile)
-		if err == nil {
-			err = ApplyConfig(doc, conf)
+		if err != nil {
+			return doc, err
 		}
-		return doc, err
+		return ApplyConfig(doc, conf)
 	}
 	return doc, nil
+}
+
+func ApplyVRMConfig(gltfDoc *gltf.Document, output, srcDir string, conf *Config) (*vrm.Document, error) {
+	if err := gltfutil.ToSingleFile(gltfDoc, srcDir); err != nil {
+		return nil, err
+	}
+	gltfutil.FixJointComponentType(gltfDoc)
+	gltfutil.ResetJointMatrix(gltfDoc)
+	return ApplyConfig((*vrm.Document)(gltfDoc), conf)
 }

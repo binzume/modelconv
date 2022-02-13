@@ -16,6 +16,7 @@ import (
 	"github.com/binzume/modelconv/geom"
 	"github.com/binzume/modelconv/gltfutil"
 	"github.com/binzume/modelconv/mqo"
+	"github.com/binzume/modelconv/vrm"
 	"github.com/qmuntal/gltf"
 )
 
@@ -109,6 +110,11 @@ func saveGltfDocument(doc *gltf.Document, output, ext, srcDir, vrmConf string) e
 		}
 		return gltf.Save(doc, output)
 	} else if ext == ".vrm" {
+		conf, err := converter.LoadVRMConfig(vrmConf)
+		if err != nil {
+			log.Println("vrmconfig error:", err)
+			conf = &converter.Config{}
+		}
 		if *vrmAutoSpringBone {
 			parents := map[int]int{}
 			for i, n := range doc.Nodes {
@@ -116,15 +122,30 @@ func saveGltfDocument(doc *gltf.Document, output, ext, srcDir, vrmConf string) e
 					parents[int(c)] = i
 				}
 			}
+			var nodeNames []string
 			for i, n := range doc.Nodes {
 				l := springLen(doc, n)
 				if l > 0 && l > springLen(doc, doc.Nodes[parents[i]]) {
-					// TODO: add spring bone to vrm
 					log.Println("SpringBone candidate:", i, n.Name)
+					nodeNames = append(nodeNames, n.Name)
 				}
 			}
+			if len(nodeNames) > 0 {
+				// TODO: physics parameters.
+				conf.AnimationBoneGroups = append(conf.AnimationBoneGroups, &struct {
+					vrm.SecondaryAnimationBoneGroup
+					NodeNames []string `json:"nodeNames"`
+				}{SecondaryAnimationBoneGroup: vrm.SecondaryAnimationBoneGroup{
+					Comment:        "auto generated",
+					Stiffiness:     0.3,
+					DragForce:      0.2,
+					HitRadius:      0.02,
+					Center:         -1,
+					ColliderGroups: nil,
+				}, NodeNames: nodeNames})
+			}
 		}
-		vrmdoc, err := converter.ToVRM(doc, output, srcDir, vrmConf)
+		vrmdoc, err := converter.ApplyVRMConfig(doc, output, srcDir, conf)
 		if err := vrmdoc.ValidateBones(); err != nil {
 			log.Print(err)
 		}
@@ -146,7 +167,7 @@ func saveDocument(doc *mqo.Document, output, ext, srcDir string, inputs []string
 			TextureScale:           float32(*texResizeScale),
 			ReuseGeometry:          *reuseGeometry,
 			IgnoreObjectHierarchy:  *gltfIgnoreHierarchy,
-			ConvertPhysics:         *convertPhysics,
+			ConvertPhysics:         *convertPhysics || *vrmAutoSpringBone,
 			DetectAlphaTexture:     *gltfDetectAlphaTexture,
 		}
 		conv := converter.NewMQOToGLTFConverter(opt)
