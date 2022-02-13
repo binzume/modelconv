@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,6 +39,7 @@ type MQOToGLTFOption struct {
 	TextureResolutionLimit int   // 0: unlimited
 	TextureScale           float32
 	IgnoreObjectHierarchy  bool
+	DetectAlphaTexture     bool
 
 	ReuseGeometry  bool // experimental
 	ConvertPhysics bool // experimental. BLENDER_physics?
@@ -61,6 +63,33 @@ type textureInfo struct {
 	id   *uint32
 	img  image.Image
 	err  error
+}
+
+type uvrect struct {
+	top, bottom, left, right float32
+}
+
+func newUVRectFromPoint(p geom.Vector2) *uvrect {
+	x := p.X - float32(math.Floor(float64(p.X)))
+	y := p.Y - float32(math.Floor(float64(p.Y)))
+	return &uvrect{y, y, x, x}
+}
+
+func (b *uvrect) Add(p geom.Vector2) {
+	x := p.X - float32(math.Floor(float64(p.X)))
+	y := p.Y - float32(math.Floor(float64(p.Y)))
+	if x < b.left {
+		b.left = x
+	}
+	if x > b.right {
+		b.right = x
+	}
+	if y < b.top {
+		b.top = y
+	}
+	if y > b.bottom {
+		b.bottom = y
+	}
 }
 
 const BlenderPhysicsName = "BLENDER_physics"
@@ -265,7 +294,7 @@ func (m *mqoToGltf) addSkin(joints []uint32, jointToBone map[uint32]*mqo.Bone) u
 	return uint32(len(m.Skins) - 1)
 }
 
-func (m *mqoToGltf) hasAlpha(texture string, textures *textureCache) bool {
+func (m *mqoToGltf) hasAlpha(texture string, textures *textureCache, rect *uvrect) bool {
 	if texture == "" || strings.HasSuffix(texture, ".jpg") || strings.HasSuffix(texture, ".bmp") {
 		return false
 	}
@@ -273,11 +302,26 @@ func (m *mqoToGltf) hasAlpha(texture string, textures *textureCache) bool {
 	if err != nil {
 		return false
 	}
+	if rect != nil {
+		if s, ok := img.(interface {
+			SubImage(r image.Rectangle) image.Image
+		}); ok {
+			b := img.Bounds()
+			r := image.Rectangle{
+				Min: image.Point{X: int(float32(b.Dx()) * rect.left), Y: int(float32(b.Dy()) * rect.top)},
+				Max: image.Point{X: int(float32(b.Dx()) * rect.right), Y: int(float32(b.Dy()) * rect.bottom)},
+			}
+			img = s.SubImage(r)
+		}
+	}
 	switch img.ColorModel() {
 	case color.YCbCrModel, color.CMYKModel:
 		return false
 	case color.RGBAModel:
 		return !img.(*image.RGBA).Opaque()
+	case color.NRGBAModel:
+		log.Println(texture, rect, !img.(*image.NRGBA).Opaque())
+		return !img.(*image.NRGBA).Opaque()
 	}
 	return false
 }
@@ -370,7 +414,7 @@ func (m *mqoToGltf) addTexture(texture string, textures *textureCache) (*uint32,
 	return t.id, nil
 }
 
-func (m *mqoToGltf) convertMaterial(mat *mqo.Material, textures *textureCache) *gltf.Material {
+func (m *mqoToGltf) convertMaterial(mat *mqo.Material, textures *textureCache, bounds *uvrect) *gltf.Material {
 	var unlitMaterialExt = "KHR_materials_unlit"
 	var rf float32 = 0.4
 	var mf = mat.Specular
@@ -406,7 +450,7 @@ func (m *mqoToGltf) convertMaterial(mat *mqo.Material, textures *textureCache) *
 		if metallicFactor == 0 && roughnessFactor == 1 {
 			mm.Extensions = map[string]interface{}{unlitMaterialExt: map[string]string{}}
 		}
-	} else if mat.Color.W < 0.99 || m.hasAlpha(mat.Texture, textures) {
+	} else if mat.Color.W < 0.99 || (m.DetectAlphaTexture && m.hasAlpha(mat.Texture, textures, bounds)) {
 		mm.AlphaMode = gltf.AlphaBlend
 	}
 	if m.ForceUnlit || mat.GetShaderName() == "Constant" {
@@ -435,7 +479,7 @@ func (m *mqoToGltf) convertMaterial(mat *mqo.Material, textures *textureCache) *
 }
 
 func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJoint map[int]uint32,
-	morphObjs []*mqo.Object, materialMap map[int]int, shared *geomCache) (*gltf.Mesh, []uint32) {
+	morphObjs []*mqo.Object, materialMap map[int]int, shared *geomCache, uvBounds map[int]*uvrect) (*gltf.Mesh, []uint32) {
 	scale := m.Scale
 	obj.FixhNormals()
 	obj.Triangulate()
@@ -468,6 +512,12 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 		copy(verts, f.Verts)
 		if len(f.UVs) > 0 {
 			useTexcood0 = true
+			bounds := uvBounds[f.Material]
+			if bounds == nil {
+				bounds = newUVRectFromPoint(f.UVs[0])
+				uvBounds[f.Material] = bounds
+			}
+
 			for i, index := range verts {
 				assigned := indicesMap[index]
 				normal := f.Normals[i]
@@ -495,6 +545,7 @@ func (m *mqoToGltf) ConvertObject(obj *mqo.Object, bones []*mqo.Bone, boneIDToJo
 				indicesMap[index] = append(indicesMap[index], verts[i])
 				texcood0[verts[i]] = [2]float32{f.UVs[i].X, f.UVs[i].Y}
 				normal.ToArray(normals[verts[i]][:])
+				bounds.Add(f.UVs[i])
 			}
 		} else {
 			for i, index := range verts {
@@ -591,6 +642,7 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 	objectByName := map[string]*mqo.Object{}
 	morphTargets := map[string]*mqo.Object{}
 	morphBases := map[string]*mqo.MorphTargetList{}
+	uvBounds := map[int]*uvrect{}
 	for _, obj := range doc.Objects {
 		objectByName[obj.Name] = obj
 	}
@@ -685,7 +737,7 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 					}
 				}
 			}
-			mesh, joints := m.ConvertObject(obj, bones, boneIDToJoint, morphTargets, materialMap, shared)
+			mesh, joints := m.ConvertObject(obj, bones, boneIDToJoint, morphTargets, materialMap, shared, uvBounds)
 			if len(mesh.Primitives) > 0 {
 				node.Mesh = gltf.Index(uint32(len(m.Document.Meshes)))
 				m.Document.Meshes = append(m.Document.Meshes, mesh)
@@ -734,7 +786,7 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		if _, ok := materialMap[i]; !ok {
 			continue
 		}
-		mm := m.convertMaterial(mat, textures)
+		mm := m.convertMaterial(mat, textures, uvBounds[i])
 
 		if mm.Extensions["KHR_materials_unlit"] != nil {
 			useUnlit = true

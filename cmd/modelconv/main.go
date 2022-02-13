@@ -35,12 +35,13 @@ var (
 
 	alphaOverrides = flag.String("alpha", "", "override alpha (MAT1:blend,MAT2:opaque,MAT2:0.5,...)")
 
-	texReCompress       = flag.Bool("texReCompress", false, "re-compress all textures (gltf)")
-	texBytesThreshold   = flag.Int64("texBytesThreshold", 0, "resize large textures (gltf)")
-	texResolutionLimit  = flag.Int("texResolutionLimit", 4096, "resize large textures (gltf)")
-	texResizeScale      = flag.Float64("texResizeScale", 1.0, "resize large textures (gltf)")
-	reuseGeometry       = flag.Bool("reuseGeometry", false, "use shared geometry data (gltf, experimental)")
-	gltfIgnoreHierarchy = flag.Bool("ignoreHierarchy", false, "ignore object tree (gltf)")
+	texReCompress          = flag.Bool("texReCompress", false, "re-compress all textures (gltf)")
+	texBytesThreshold      = flag.Int64("texBytesThreshold", 0, "resize large textures (gltf)")
+	texResolutionLimit     = flag.Int("texResolutionLimit", 4096, "resize large textures (gltf)")
+	texResizeScale         = flag.Float64("texResizeScale", 1.0, "resize large textures (gltf)")
+	reuseGeometry          = flag.Bool("reuseGeometry", false, "use shared geometry data (gltf, experimental)")
+	gltfIgnoreHierarchy    = flag.Bool("ignoreHierarchy", false, "ignore object tree (gltf)")
+	gltfDetectAlphaTexture = flag.Bool("detectAlphaTexture", false, "detect alpha texture (gltf)")
 
 	convertPhysics    = flag.Bool("physics", false, "convert physics (experimental)")
 	vrmAutoSpringBone = flag.Bool("vrmAutoSpringBone", false, "SpringBone auto detection (vrm, experimental)")
@@ -146,6 +147,7 @@ func saveDocument(doc *mqo.Document, output, ext, srcDir string, inputs []string
 			ReuseGeometry:          *reuseGeometry,
 			IgnoreObjectHierarchy:  *gltfIgnoreHierarchy,
 			ConvertPhysics:         *convertPhysics,
+			DetectAlphaTexture:     *gltfDetectAlphaTexture,
 		}
 		conv := converter.NewMQOToGLTFConverter(opt)
 		gltfdoc, err := conv.Convert(doc, srcDir)
