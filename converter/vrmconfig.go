@@ -21,18 +21,25 @@ type Config struct {
 	BoneMappings     []*BoneMapping              `json:"boneMappings"`
 	MorphMappings    []*MorphMapping             `json:"morphMappings"`
 	MaterialSettings map[string]*MaterialSetting `json:"materialSettings"`
-	ExportAllMorph   bool                        `json:"exportAllMorph"`
 
-	AnimationBoneGroups []*struct {
-		vrm.SecondaryAnimationBoneGroup
-		NodeNames []string `json:"nodeNames"`
-	} `json:"animationBoneGroups"`
-	ColliderGroups []*struct {
-		vrm.SecondaryAnimationColliderGroup
-		NodeName string `json:"nodeName"`
-	} `json:"colliderGroups"`
+	ExportAllMorph           bool `json:"exportAllMorph"`
+	ConvertPhysicsCollider   bool `json:"convertPhysicsCollider"`
+	AnimationBoneFromPhysics bool `json:"animationBoneFromPhysics"`
+
+	AnimationBoneGroups []*AnimationBoneGroupSettings `json:"animationBoneGroups"`
+	ColliderGroups      []*ColliderGroupSettings      `json:"colliderGroups"`
 
 	Preset string `json:"preset"`
+}
+
+type AnimationBoneGroupSettings struct {
+	vrm.SecondaryAnimationBoneGroup
+	NodeNames []string `json:"nodeNames"`
+}
+
+type ColliderGroupSettings struct {
+	vrm.SecondaryAnimationColliderGroup
+	NodeName string `json:"nodeName"`
 }
 
 type BoneMapping struct {
@@ -382,11 +389,106 @@ func ToVRM(gltfDoc *gltf.Document, output, srcDir, confFile string) (*vrm.Docume
 	return doc, nil
 }
 
-func ApplyVRMConfig(gltfDoc *gltf.Document, output, srcDir string, conf *Config) (*vrm.Document, error) {
-	if err := gltfutil.ToSingleFile(gltfDoc, srcDir); err != nil {
+func springLen(doc *gltf.Document, node *gltf.Node) int {
+	if len(node.Children) == 0 {
+		return 0
+	}
+	p, ok := node.Extensions[BlenderPhysicsName].(*BlenderPhysicsBody)
+	if !ok {
+		return -1
+	}
+	if p.Static {
+		return -1
+	}
+	l := 0
+	for _, n := range node.Children {
+		d := springLen(doc, doc.Nodes[n])
+		if d < 0 {
+			return -1
+		}
+		if d >= l {
+			l = d + 1
+		}
+	}
+	return l
+}
+
+func DetectSpringBones(doc *gltf.Document, conf *Config) {
+	parents := map[int]int{}
+	for i, n := range doc.Nodes {
+		for _, c := range n.Children {
+			parents[int(c)] = i
+		}
+	}
+	var nodeNames []string
+	for i, n := range doc.Nodes {
+		l := springLen(doc, n)
+		if l > 0 && springLen(doc, doc.Nodes[parents[i]]) < 0 {
+			log.Println("Add SpringBone:", i, n.Name)
+			nodeNames = append(nodeNames, n.Name)
+		}
+	}
+	if len(nodeNames) > 0 {
+		// TODO: physics parameters.
+		conf.AnimationBoneGroups = append(conf.AnimationBoneGroups,
+			&AnimationBoneGroupSettings{
+				SecondaryAnimationBoneGroup: vrm.SecondaryAnimationBoneGroup{
+					Comment:        "auto generated",
+					Stiffiness:     0.3,
+					DragForce:      0.2,
+					HitRadius:      0.02,
+					Center:         -1,
+					ColliderGroups: nil,
+				}, NodeNames: nodeNames})
+	}
+}
+
+func ConvertColliders(doc *gltf.Document, conf *Config) {
+	for i, node := range doc.Nodes {
+		p, ok := node.Extensions[BlenderPhysicsName].(*BlenderPhysicsBody)
+		if !ok || !p.Static {
+			continue
+		}
+		var colliders []*vrm.SecondaryAnimationCollider
+		for _, s := range p.Shapes {
+			if s["shapeType"] == "SPHERE" || s["shapeType"] == "CAPSULE" {
+				if scale, ok := s["offsetScale"].([3]float32); ok && scale[0] != 0 {
+					collider := &vrm.SecondaryAnimationCollider{
+						Radius: float64(scale[0]),
+						Offset: map[string]float64{"x": 0, "y": 0, "z": 0},
+					}
+					if pos, ok := s["offsetTranslation"].([3]float32); ok {
+						collider.Offset = map[string]float64{"x": float64(pos[0]), "y": float64(pos[1]), "z": float64(pos[2])}
+					}
+					colliders = append(colliders, collider)
+				}
+			}
+		}
+		log.Println(colliders)
+		if len(colliders) > 0 {
+			conf.ColliderGroups = append(conf.ColliderGroups, &ColliderGroupSettings{
+				SecondaryAnimationColliderGroup: vrm.SecondaryAnimationColliderGroup{
+					Colliders: colliders,
+					Node:      uint32(i),
+				},
+				NodeName: node.Name,
+			})
+		}
+	}
+}
+
+func ApplyVRMConfig(src *gltf.Document, output, srcDir string, conf *Config) (*vrm.Document, error) {
+	if err := gltfutil.ToSingleFile(src, srcDir); err != nil {
 		return nil, err
 	}
-	gltfutil.FixJointComponentType(gltfDoc)
-	gltfutil.ResetJointMatrix(gltfDoc)
-	return ApplyConfig((*vrm.Document)(gltfDoc), conf)
+	if conf.AnimationBoneFromPhysics {
+		DetectSpringBones(src, conf)
+	}
+	if conf.ConvertPhysicsCollider {
+		ConvertColliders(src, conf)
+	}
+	gltfutil.RemoveExtension(src, BlenderPhysicsName)
+	gltfutil.FixJointComponentType(src)
+	gltfutil.ResetJointMatrix(src)
+	return ApplyConfig((*vrm.Document)(src), conf)
 }

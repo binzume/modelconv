@@ -16,7 +16,6 @@ import (
 	"github.com/binzume/modelconv/geom"
 	"github.com/binzume/modelconv/gltfutil"
 	"github.com/binzume/modelconv/mqo"
-	"github.com/binzume/modelconv/vrm"
 	"github.com/qmuntal/gltf"
 )
 
@@ -45,7 +44,9 @@ var (
 	gltfDetectAlphaTexture = flag.Bool("detectAlphaTexture", false, "detect alpha texture (gltf)")
 
 	convertPhysics    = flag.Bool("physics", false, "convert physics (experimental)")
-	vrmAutoSpringBone = flag.Bool("vrmAutoSpringBone", false, "SpringBone auto detection (vrm, experimental)")
+	vrmExportAllMorph = flag.Bool("vrmExportAllMorph", false, "Export non-standard morph (vrm, experimental)")
+
+	mmdFixInheritParentThreshold = flag.Float64("mmdFixInheritParentThreshold", 0.4, "Replace parent bone with inherit parent")
 )
 
 func isGltf(ext string) bool {
@@ -71,30 +72,6 @@ func defaultOutputExt(inputExt string) string {
 	return ".mqo"
 }
 
-func springLen(doc *gltf.Document, node *gltf.Node) int {
-	if len(node.Children) == 0 {
-		return 0
-	}
-	p, ok := node.Extensions[converter.BlenderPhysicsName].(*converter.BlenderPhysicsBody)
-	if !ok {
-		return -1
-	}
-	if p.Static {
-		return -1
-	}
-	l := 0
-	for _, n := range node.Children {
-		d := springLen(doc, doc.Nodes[n])
-		if d < 0 {
-			return -1
-		}
-		if d >= l {
-			l = d + 1
-		}
-	}
-	return l
-}
-
 func saveGltfDocument(doc *gltf.Document, output, ext, srcDir, vrmConf string) error {
 	if ext == ".glb" {
 		err := gltfutil.ToSingleFile(doc, srcDir)
@@ -115,35 +92,11 @@ func saveGltfDocument(doc *gltf.Document, output, ext, srcDir, vrmConf string) e
 			log.Println("vrmconfig error:", err)
 			conf = &converter.Config{}
 		}
-		if *vrmAutoSpringBone {
-			parents := map[int]int{}
-			for i, n := range doc.Nodes {
-				for _, c := range n.Children {
-					parents[int(c)] = i
-				}
-			}
-			var nodeNames []string
-			for i, n := range doc.Nodes {
-				l := springLen(doc, n)
-				if l > 0 && l > springLen(doc, doc.Nodes[parents[i]]) {
-					log.Println("SpringBone candidate:", i, n.Name)
-					nodeNames = append(nodeNames, n.Name)
-				}
-			}
-			if len(nodeNames) > 0 {
-				// TODO: physics parameters.
-				conf.AnimationBoneGroups = append(conf.AnimationBoneGroups, &struct {
-					vrm.SecondaryAnimationBoneGroup
-					NodeNames []string `json:"nodeNames"`
-				}{SecondaryAnimationBoneGroup: vrm.SecondaryAnimationBoneGroup{
-					Comment:        "auto generated",
-					Stiffiness:     0.3,
-					DragForce:      0.2,
-					HitRadius:      0.02,
-					Center:         -1,
-					ColliderGroups: nil,
-				}, NodeNames: nodeNames})
-			}
+		if *convertPhysics {
+			conf.AnimationBoneFromPhysics = true
+		}
+		if *vrmExportAllMorph {
+			conf.ExportAllMorph = true
 		}
 		vrmdoc, err := converter.ApplyVRMConfig(doc, output, srcDir, conf)
 		if err := vrmdoc.ValidateBones(); err != nil {
@@ -167,7 +120,7 @@ func saveDocument(doc *mqo.Document, output, ext, srcDir string, inputs []string
 			TextureScale:           float32(*texResizeScale),
 			ReuseGeometry:          *reuseGeometry,
 			IgnoreObjectHierarchy:  *gltfIgnoreHierarchy,
-			ConvertPhysics:         *convertPhysics || *vrmAutoSpringBone,
+			ConvertPhysics:         *convertPhysics,
 			DetectAlphaTexture:     *gltfDetectAlphaTexture,
 		}
 		conv := converter.NewMQOToGLTFConverter(opt)

@@ -18,6 +18,34 @@ func Load(path string) (*gltf.Document, error) {
 	return gltf.Open(path)
 }
 
+func RemoveExtension(doc *gltf.Document, extension string) {
+	for _, n := range doc.Accessors {
+		delete(n.Extensions, extension)
+	}
+	for _, n := range doc.Animations {
+		delete(n.Extensions, extension)
+	}
+	for _, n := range doc.Materials {
+		delete(n.Extensions, extension)
+	}
+	for _, n := range doc.Nodes {
+		delete(n.Extensions, extension)
+	}
+	for _, n := range doc.Skins {
+		delete(n.Extensions, extension)
+	}
+	for _, n := range doc.Cameras {
+		delete(n.Extensions, extension)
+	}
+	for _, n := range doc.Samplers {
+		delete(n.Extensions, extension)
+	}
+	for _, n := range doc.Scenes {
+		delete(n.Extensions, extension)
+	}
+	delete(doc.Extensions, extension)
+}
+
 func ToSingleFile(doc *gltf.Document, srcDir string) error {
 	for _, b := range doc.Buffers {
 		b.URI = ""
