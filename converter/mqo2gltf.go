@@ -694,7 +694,7 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 					continue
 				}
 				if n, ok := boneIDToJoint[b.TargetBoneID]; ok {
-					addPhysicsBody(m.Nodes[n], b, m.Scale)
+					addPhysicsBody(m.Nodes[n], b, m.Scale, &jointToBone[n].Pos.Vector3)
 				}
 			}
 		}
@@ -773,7 +773,7 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 			physics := mqo.GetPhysicsPlugin(doc)
 			for _, b := range physics.Bodies {
 				if b.TargetObjID != 0 && b.TargetObjID == obj.UID {
-					addPhysicsBody(node, b, m.Scale)
+					addPhysicsBody(node, b, m.Scale, geom.NewVector3(0, 0, 0))
 				}
 			}
 		}
@@ -806,15 +806,19 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 	return m.Document, nil
 }
 
-func addPhysicsBody(node *gltf.Node, body *mqo.PhysicsBody, scale float32) {
+func addPhysicsBody(node *gltf.Node, body *mqo.PhysicsBody, scale float32, nodePos *geom.Vector3) {
 	var shapes []map[string]interface{}
 
 	for _, s := range body.Shapes {
+		log.Println(s.Size, scale)
 		shapes = append(shapes, map[string]interface{}{
-			"boundingBox":       [3]float32{s.Size.X * scale, s.Size.Y * scale, s.Size.Z * scale},
-			"shapeType":         s.Type,
-			"offsetTranslation": [3]float32{s.Position.X * scale, s.Position.Y * scale, s.Position.Z * scale},
-			"offsetScale":       [3]float32{s.Size.X * scale, s.Size.Y * scale, s.Size.Z * scale},
+			"boundingBox": [3]float32{s.Size.X * scale, s.Size.Y * scale, s.Size.Z * scale},
+			"shapeType":   s.Type,
+			"offsetTranslation": [3]float32{
+				(s.Position.X - nodePos.X) * scale,
+				(s.Position.Y - nodePos.Y) * scale,
+				(s.Position.Z - nodePos.Z) * scale},
+			"offsetScale": [3]float32{s.Size.X * scale, s.Size.Y * scale, s.Size.Z * scale},
 			// "offsetRotation":    [4]float32{s.Rotation.X, s.Rotation.Y, s.Rotation.Z, 1}, // TODO
 			// "primaryAxis": "Z",
 		})

@@ -1,5 +1,12 @@
 package geom
 
+func Abs(v Element) Element {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
 func IsInTriangle(p, a, b, c *Vector3) bool {
 	ab, bc, ca := b.Sub(a), c.Sub(b), a.Sub(c)
 	c1, c2, c3 := ab.Cross(p.Sub(a)), bc.Cross(p.Sub(b)), ca.Cross(p.Sub(c))

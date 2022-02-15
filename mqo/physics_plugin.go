@@ -84,12 +84,12 @@ func (p *PhysicsPlugin) PostDeserialize(mqo *Document) {
 }
 
 func (p *PhysicsPlugin) ApplyTransform(transform *Matrix4) {
+	_, _, scale := transform.Decompose()
 	for _, b := range p.Bodies {
 		for _, s := range b.Shapes {
 			pos := geom.Vector3(s.Position)
 			s.Position = Vector3XmlAttr(*transform.ApplyTo(&pos))
-			sz := geom.Vector3(s.Size)
-			s.Size = Vector3XmlAttr(*transform.ApplyTo(&sz))
+			s.Size.X, s.Size.Y, s.Size.Z = geom.Abs(s.Size.X*scale.X), geom.Abs(s.Size.Y*scale.Y), geom.Abs(s.Size.Z*scale.Z)
 		}
 	}
 }
