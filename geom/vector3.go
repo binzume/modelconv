@@ -72,16 +72,6 @@ func (v *Vector3) ToArray(array []Element) {
 	array[2] = v.Z
 }
 
-// Returns Hamilton product
-func (a *Vector4) Mul(b *Vector4) *Vector4 {
-	return &Vector4{
-		W: a.W*b.W - a.X*b.X - a.Y*b.Y - a.Z*b.Z, // 1
-		X: a.W*b.X + a.X*b.W + a.Y*b.Z - a.Z*b.Y, // i
-		Y: a.W*b.Y - a.X*b.Z + a.Y*b.W + a.Z*b.X, // j
-		Z: a.W*b.Z + a.X*b.Y - a.Y*b.X + a.Z*b.W, // k
-	}
-}
-
 func (mat *Matrix4) ApplyTo(v *Vector3) *Vector3 {
 	return &Vector3{
 		mat[0]*v.X + mat[4]*v.Y + mat[8]*v.Z + mat[12],

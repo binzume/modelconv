@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"math"
+
+	"github.com/binzume/modelconv/geom"
 )
 
 type BonePlugin struct {
@@ -240,7 +242,7 @@ func (p *BonePlugin) ApplyTransform(transform *Matrix4) {
 	}
 }
 
-func (doc *Document) BoneTransform(baseBone *Bone, transform func(v *Vector3), boneFn func(b *Bone)) {
+func (doc *Document) BoneTransform(baseBone *Bone, rot *geom.Quaternion, boneFn func(b *Bone)) {
 	bones := GetBonePlugin(doc).Bones()
 	targetBones := map[*Bone]bool{baseBone: true}
 	boneByID := map[int]*Bone{}
@@ -290,10 +292,24 @@ func (doc *Document) BoneTransform(baseBone *Bone, transform func(v *Vector3), b
 		}
 	}
 
-	pos := baseBone.Pos
+	// Physics collider
+	if physics := FindPhysicsPlugin(doc); physics != nil {
+		for _, b := range physics.Bodies {
+			if b.TargetBoneID != 0 && targetBones[boneByID[b.TargetBoneID]] {
+				for _, s := range b.Shapes {
+					verts[s.Position.Vec3()] = 1
+					// TODO: rotation order.
+					r := s.Rotation.Vec3()
+					angle := geom.NewEulerFromQuaternion(rot.Mul(geom.NewEuler(r.X, r.Y, r.Z, geom.RotationOrderXYZ).ToQuaternion()), geom.RotationOrderXYZ)
+					*r = angle.Vector3
+				}
+			}
+		}
+	}
+
+	pos := &baseBone.Pos.Vector3
 	for v, w := range verts {
-		dv := v.Sub(&pos.Vector3)
-		transform(dv)
+		dv := rot.ApplyTo(v.Sub(pos))
 		v.X = (dv.X+pos.X)*w + v.X*(1-w)
 		v.Y = (dv.Y+pos.Y)*w + v.Y*(1-w)
 		v.Z = (dv.Z+pos.Z)*w + v.Z*(1-w)
@@ -326,13 +342,8 @@ func (doc *Document) BoneAdjustX(baseBone *Bone) {
 	} else {
 		rot = math.Pi - bd
 	}
-	cosRot := float32(math.Cos(rot))
-	sinRot := float32(math.Sin(rot))
-	doc.BoneTransform(baseBone, func(v *Vector3) {
-		dv := *v
-		v.X = dv.X*cosRot - dv.Y*sinRot
-		v.Y = dv.X*sinRot + dv.Y*cosRot
-	}, func(b *Bone) {
+	q := geom.NewEuler(0, 0, float32(rot), geom.RotationOrderXYZ).ToQuaternion()
+	doc.BoneTransform(baseBone, q, func(b *Bone) {
 		b.RotationOffset.X += float32(rot)
 	})
 }

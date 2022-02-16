@@ -66,11 +66,18 @@ type PhysicsJointConstraint struct {
 	AngulerSpring Vector3XmlAttr
 }
 
-func GetPhysicsPlugin(mqo *Document) *PhysicsPlugin {
+func FindPhysicsPlugin(mqo *Document) *PhysicsPlugin {
 	for _, p := range mqo.Plugins {
 		if plugin, ok := p.(*PhysicsPlugin); ok {
 			return plugin
 		}
+	}
+	return nil
+}
+
+func GetPhysicsPlugin(mqo *Document) *PhysicsPlugin {
+	if plugin := FindPhysicsPlugin(mqo); plugin != nil {
+		return plugin
 	}
 	plugin := &PhysicsPlugin{Name: "Physics Plugin"}
 	mqo.Plugins = append(mqo.Plugins, plugin)
