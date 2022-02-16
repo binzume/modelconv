@@ -94,6 +94,7 @@ func saveGltfDocument(doc *gltf.Document, output, ext, srcDir, vrmConf string) e
 		}
 		if *convertPhysics {
 			conf.AnimationBoneFromPhysics = true
+			conf.ConvertPhysicsCollider = true
 		}
 		if *vrmExportAllMorph {
 			conf.ExportAllMorph = true
