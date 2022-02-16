@@ -68,6 +68,6 @@
     ],
     "animationBoneGroups":[],
     "materialSettings": {
-        "!*": {"forceUnlit": true}
+        "*": {"forceUnlit": false}
     }
 }
