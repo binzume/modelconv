@@ -434,8 +434,8 @@ func DetectSpringBones(doc *gltf.Document, conf *Config) {
 			&AnimationBoneGroupSettings{
 				SecondaryAnimationBoneGroup: vrm.SecondaryAnimationBoneGroup{
 					Comment:        "auto generated",
-					Stiffiness:     0.3,
-					DragForce:      0.2,
+					Stiffiness:     5,
+					DragForce:      0.9,
 					HitRadius:      0.02,
 					Center:         -1,
 					ColliderGroups: nil,

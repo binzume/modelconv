@@ -810,7 +810,6 @@ func addPhysicsBody(node *gltf.Node, body *mqo.PhysicsBody, scale float32, nodeP
 	var shapes []map[string]interface{}
 
 	for _, s := range body.Shapes {
-		log.Println(s.Size, scale)
 		shapes = append(shapes, map[string]interface{}{
 			"boundingBox": [3]float32{s.Size.X * scale, s.Size.Y * scale, s.Size.Z * scale},
 			"shapeType":   s.Type,
