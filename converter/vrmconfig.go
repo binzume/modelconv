@@ -464,7 +464,6 @@ func ConvertColliders(doc *gltf.Document, conf *Config) {
 				}
 			}
 		}
-		log.Println(colliders)
 		if len(colliders) > 0 {
 			conf.ColliderGroups = append(conf.ColliderGroups, &ColliderGroupSettings{
 				SecondaryAnimationColliderGroup: vrm.SecondaryAnimationColliderGroup{
