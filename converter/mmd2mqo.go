@@ -332,7 +332,7 @@ func (c *mmdToMQO) Convert(pmx *mmd.Document) *mqo.Document {
 				continue
 			}
 			var m mqo.Material = *mq.Materials[mat.Target]
-			m.Name = "$MORPH:" + m.Name + ":" + morph.Name
+			m.Name = "$MORPH:" + morph.Name + ":" + m.Name
 			m.Color = *m.Color.Add(&mqo.Vector4{X: mat.Diffuse.X, Y: mat.Diffuse.Y, Z: mat.Diffuse.Z, W: mat.Diffuse.W})
 			m.Specular = 0
 			m.Diffuse = 1.0
