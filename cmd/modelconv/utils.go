@@ -44,8 +44,17 @@ func loadDocument(input string) (*mqo.Document, error) {
 		}
 		log.Println("Name: ", pmx.Name)
 		log.Println("Comment: ", pmx.Comment)
+		// Temporary hack...
+		var knownBoneNames []string
+		if *vrmconf != "" {
+			if conf, err := converter.LoadVRMConfig(*vrmconf); err == nil {
+				for _, b := range conf.BoneMappings {
+					knownBoneNames = append(knownBoneNames, b.NodeNames...)
+				}
+			}
+		}
 		return converter.NewMMDToMQOConverter(&converter.MMDToMQOOption{
-			ReplaceInheritParent:   *mmdFixInheritParentThreshold >= 0,
+			KnownBoneNames:         knownBoneNames,
 			InheritParentThreshold: float32(*mmdFixInheritParentThreshold),
 		}).Convert(pmx), nil
 	case isUnity(ext):

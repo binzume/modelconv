@@ -9,7 +9,7 @@ import (
 )
 
 type MMDToMQOOption struct {
-	ReplaceInheritParent   bool
+	KnownBoneNames         []string
 	InheritParentThreshold float32
 }
 
@@ -59,9 +59,15 @@ func (c *mmdToMQO) convertBones(pmx *mmd.Document) []*mqo.Bone {
 			Pos:    mqo.Vector3Attr{Vector3: *c.convertVec3(&pmBone.Pos)},
 			Parent: pmBone.ParentID + 1,
 		}
-		if c.ReplaceInheritParent && pmBone.Flags&mmd.BoneFlagInheritRotation > 0 &&
-			pmBone.InheritParentInfluence > c.InheritParentThreshold {
-			mqBone.Parent = pmBone.InheritParentID + 1
+		if pmBone.Flags&mmd.BoneFlagInheritRotation > 0 &&
+			pmBone.InheritParentInfluence > c.InheritParentThreshold &&
+			len(pmx.Bones) > pmBone.InheritParentID {
+			for _, n := range c.KnownBoneNames {
+				if n == pmx.Bones[pmBone.InheritParentID].Name {
+					mqBone.Parent = pmBone.InheritParentID + 1
+					break
+				}
+			}
 		}
 		if pmBone.Flags&mmd.BoneFlagTranslatable != 0 {
 			mqBone.Movable = 1
