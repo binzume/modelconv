@@ -34,6 +34,7 @@ var (
 	chparent  = flag.String("chparent", "", "ch bone parent (BONE1:PARENT1,BONE2:PARENT2,...)")
 
 	alphaOverrides = flag.String("alpha", "", "override alpha (MAT1:blend,MAT2:opaque,MAT2:0.5,...)")
+	morphOverride  = flag.String("morph", "", "apply morph (MORPH1:1,MORPH2:0.5,MORPH3:R,,...)")
 
 	texReCompress          = flag.Bool("texReCompress", false, "re-compress all textures (gltf)")
 	texBytesThreshold      = flag.Int64("texBytesThreshold", 0, "resize large textures (gltf)")
@@ -317,6 +318,21 @@ func main() {
 				mat.Name += "$IGNORE"
 				mat.Color.W = 0
 			}
+		}
+	}
+
+	if *morphOverride != "" {
+		for _, p := range strings.Split(*morphOverride, ",") {
+			morph := mqo.GetMorphPlugin(doc)
+			pattern := strings.SplitN(p, ":", 2)
+			if len(pattern) != 2 {
+				log.Fatal("invalid morph param:", p)
+			}
+			value, err := strconv.ParseFloat(pattern[1], 32)
+			if err != nil {
+				log.Fatal("invalid morph param:", p)
+			}
+			morph.Apply(doc, pattern[0], float32(value))
 		}
 	}
 

@@ -25,6 +25,10 @@ func (v *Vector4) Dot(v2 *Vector4) Element {
 	return v.X*v2.X + v.Y*v2.Y + v.Z*v2.Z + v.W*v2.W
 }
 
+func (v *Vector4) Scale(s Element) *Vector4 {
+	return &Vector4{X: v.X * s, Y: v.Y * s, Z: v.Z * s, W: v.W * s}
+}
+
 func (v *Vector4) Len() Element {
 	return Element(math.Sqrt(float64(v.X*v.X + v.Y*v.Y + v.Z*v.Z + v.W*v.W)))
 }
