@@ -27,7 +27,7 @@ go install github.com/binzume/modelconv/cmd/modelconv@latest
 ### MMD to VRM
 
 ```bash
-modelconv -autotpose "右腕,左腕" "model.pmx" "model.vrm"
+modelconv -physics -unlit "*" -autotpose "右腕,左腕" "model.pmx" "model.vrm"
 modelconv -vrmconfig "model.vrmconfig.json" "model.pmx" "model.vrm"
 ```
 
@@ -66,10 +66,12 @@ modelconv -scaleY 1.5 -scaleX 1.3 "model.mqo" "model_scaled.mqo"
 | -hide      | hide objects (OBJ1,OBJ2,...) |  |
 | -hidemat   | hide materials (MAT1,MAT2,...)  |  |
 | -unlit     | unlit materials (MAT1,MAT2,...)  |  |
+| -alpha     | override material alpha (MAT1:A1,MAT2,A2) |  |
+| -morph     | apply morph (MORPH1:value1,MORPH2,value2) |  |
 | -vrmconfig | Config file for VRM | "inputfile.vrmconfig.json" |
 | -autotpose | Arm bone names |            |
 | -chparent  | replace parent bone (BONE1:PARENT1,BONE2:PARENT2,...) |  |
-| -physics   | Convert Physics colliders (experinemtal) | false |
+| -physics   | Convert colliders (experinemtal) | false |
 
 
 ### vrmconfig:

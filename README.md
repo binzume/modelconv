@@ -83,7 +83,8 @@ modelconv -scaleY 1.5 -scaleX 1.3 "model.mqo" "model_scaled.mqo"
 | -hide      | hide objects (OBJ1,OBJ2,...) |  |
 | -hidemat   | hide materials (MAT1,MAT2,...)  |  |
 | -unlit     | unlit materials (MAT1,MAT2,...)  |  |
-| -alpha     | override naterial alpha (MAT1:A1,MAT2,A2) |  |
+| -alpha     | override material alpha (MAT1:A1,MAT2,A2) |  |
+| -morph     | apply morph (MORPH1:value1,MORPH2,value2) |  |
 | -vrmconfig | Config file for VRM | "inputfile.vrmconfig.json" |
 | -autotpose | Arm bone names |            |
 | -chparent  | replace parent bone (BONE1:PARENT1,BONE2:PARENT2,...) |  |
