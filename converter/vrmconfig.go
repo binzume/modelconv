@@ -390,17 +390,17 @@ func ToVRM(gltfDoc *gltf.Document, output, srcDir, confFile string) (*vrm.Docume
 }
 
 func springLen(doc *gltf.Document, node *gltf.Node) int {
-	if len(node.Children) == 0 {
-		return 0
-	}
 	p, ok := node.Extensions[BlenderPhysicsName].(*BlenderPhysicsBody)
 	if !ok {
+		if len(node.Children) == 0 {
+			return 0
+		}
 		return -1
 	}
 	if p.Static {
 		return -1
 	}
-	l := 0
+	l := 1
 	for _, n := range node.Children {
 		d := springLen(doc, doc.Nodes[n])
 		if d < 0 {
