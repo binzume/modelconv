@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/binzume/modelconv/geom"
 	"github.com/binzume/modelconv/mmd"
 	"github.com/binzume/modelconv/mqo"
 )
@@ -339,7 +340,11 @@ func (c *mmdToMQO) Convert(pmx *mmd.Document) *mqo.Document {
 			}
 			var m mqo.Material = *mq.Materials[mat.Target]
 			m.Name = "$MORPH:" + morph.Name + ":" + m.Name
-			m.Color = *m.Color.Add(&mqo.Vector4{X: mat.Diffuse.X, Y: mat.Diffuse.Y, Z: mat.Diffuse.Z, W: mat.Diffuse.W})
+			if mat.Flags&1 == 1 {
+				m.Color = *m.Color.Add(&mqo.Vector4{X: mat.Diffuse.X, Y: mat.Diffuse.Y, Z: mat.Diffuse.Z, W: mat.Diffuse.W})
+			} else {
+				m.Color = *geom.NewVector4(m.Color.X*mat.Diffuse.X, m.Color.Y*mat.Diffuse.Y, m.Color.Z*mat.Diffuse.Z, m.Color.W*mat.Diffuse.W)
+			}
 			m.Specular = 0
 			m.Diffuse = 1.0
 			m.Ambient = 1.4
