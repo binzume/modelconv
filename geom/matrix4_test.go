@@ -17,6 +17,18 @@ func TestMatrix4(t *testing.T) {
 	if *mat != *mat.Transposed().Transposed() {
 		t.Error("error: Transposed()", mat)
 	}
+
+	if *mat.Sub(mat).Add(mat) != *mat {
+		t.Error("error: Sub().Add()", mat)
+	}
+
+	if *mat.Mul(mat) != *mat {
+		t.Error("error: Mul()", mat)
+	}
+
+	if *mat.Scale(1) != *mat {
+		t.Error("error: Scale()", mat)
+	}
 }
 
 func TestMatrix4_Decompose(t *testing.T) {

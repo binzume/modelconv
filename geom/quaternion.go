@@ -21,12 +21,12 @@ func (v *Vector4) Sub(v2 *Vector4) *Vector4 {
 	return &Vector4{X: v.X - v2.X, Y: v.Y - v2.Y, Z: v.Z - v2.Z, W: v.W - v2.W}
 }
 
-func (v *Vector4) Dot(v2 *Vector4) Element {
-	return v.X*v2.X + v.Y*v2.Y + v.Z*v2.Z + v.W*v2.W
-}
-
 func (v *Vector4) Scale(s Element) *Vector4 {
 	return &Vector4{X: v.X * s, Y: v.Y * s, Z: v.Z * s, W: v.W * s}
+}
+
+func (v *Vector4) Dot(v2 *Vector4) Element {
+	return v.X*v2.X + v.Y*v2.Y + v.Z*v2.Z + v.W*v2.W
 }
 
 func (v *Vector4) Len() Element {
@@ -48,6 +48,16 @@ func (v *Vector4) Normalize() *Vector4 {
 		v.W = 1
 	}
 	return v
+}
+
+// Returns Hadamard product
+func (a *Vector4) HadamardProduct(b *Vector4) *Vector4 {
+	return &Vector4{
+		X: a.X * b.X,
+		Y: a.Y * b.Y,
+		Z: a.Z * b.Z,
+		W: a.W * b.W,
+	}
 }
 
 // Returns Hamilton product

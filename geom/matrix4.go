@@ -57,6 +57,33 @@ func NewRotationMatrix4FromQuaternion(q *Quaternion) *Matrix4 {
 	}
 }
 
+func (m *Matrix4) Add(a *Matrix4) *Matrix4 {
+	return &Matrix4{
+		m[0] + a[0], m[1] + a[1], m[2] + a[2], m[3] + a[3],
+		m[4] + a[4], m[5] + a[5], m[6] + a[6], m[7] + a[7],
+		m[8] + a[8], m[9] + a[9], m[10] + a[10], m[11] + a[11],
+		m[12] + a[12], m[13] + a[13], m[14] + a[14], m[15] + a[15],
+	}
+}
+
+func (m *Matrix4) Sub(a *Matrix4) *Matrix4 {
+	return &Matrix4{
+		m[0] - a[0], m[1] - a[1], m[2] - a[2], m[3] - a[3],
+		m[4] - a[4], m[5] - a[5], m[6] - a[6], m[7] - a[7],
+		m[8] - a[8], m[9] - a[9], m[10] - a[10], m[11] - a[11],
+		m[12] - a[12], m[13] - a[13], m[14] - a[14], m[15] - a[15],
+	}
+}
+
+func (m *Matrix4) Scale(s Element) *Matrix4 {
+	return &Matrix4{
+		m[0] * s, m[1] * s, m[2] * s, m[3] * s,
+		m[4] * s, m[5] * s, m[6] * s, m[7] * s,
+		m[8] * s, m[9] * s, m[10] * s, m[11] * s,
+		m[12] * s, m[13] * s, m[14] * s, m[15] * s,
+	}
+}
+
 func (b *Matrix4) Mul(a *Matrix4) *Matrix4 {
 	r := &Matrix4{}
 
