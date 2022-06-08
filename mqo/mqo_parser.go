@@ -186,7 +186,7 @@ func (p *Parser) readMaterial() *Material {
 }
 
 func (p *Parser) readMaterialEx() (int, *MaterialEx2) {
-	var ex MaterialEx2
+	ex := NewMaterialEx2("")
 	p.skip("material")
 	mid := p.readInt()
 
@@ -221,6 +221,14 @@ func (p *Parser) readMaterialEx() (int, *MaterialEx2) {
 				ex.ShaderParams[key] = value
 			}, "shaderparam")
 		},
+		"shadermapping": func() {
+			p.procArray(func(n int) {
+				ex.ShaderMapping = map[string]string{}
+			}, func(i int) {
+				key := p.readStr()
+				ex.ShaderMapping[key] = p.readStr()
+			}, "shadermappingparam")
+		},
 		"shadermappingparam": func() {
 			if ex.ShaderMappingParams == nil {
 				ex.ShaderMappingParams = map[string]map[string]interface{}{}
@@ -234,7 +242,7 @@ func (p *Parser) readMaterialEx() (int, *MaterialEx2) {
 			}, "shadermappingparam")
 		},
 	}, "MaterialEx2")
-	return mid, &ex
+	return mid, ex
 }
 
 func (p *Parser) readObject() *Object {

@@ -51,6 +51,7 @@ type mqoToGltf struct {
 	convertBone     bool
 	convertMorph    bool
 	JointNodeToBone map[uint32]*mqo.Bone
+	extensions      map[string]bool
 }
 
 type textureCache struct {
@@ -155,6 +156,7 @@ func NewMQOToGLTFConverter(options *MQOToGLTFOption) *mqoToGltf {
 		Document:        gltf.NewDocument(),
 		convertBone:     true,
 		convertMorph:    true,
+		extensions:      map[string]bool{},
 	}
 }
 
@@ -363,10 +365,14 @@ func (m *mqoToGltf) addTexture(texture string, textures *textureCache) (*uint32,
 		return t.id, nil
 	}
 	ext := strings.ToLower(filepath.Ext(texture))
+	path := texture
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(textures.srcDir, texture)
+	}
 
 	encode := m.TextureReCompress
 	if m.TextureBytesThreshold > 0 {
-		stat, err := os.Stat(filepath.Join(textures.srcDir, texture))
+		stat, err := os.Stat(path)
 		if err != nil {
 			return nil, err
 		}
@@ -393,7 +399,7 @@ func (m *mqoToGltf) addTexture(texture string, textures *textureCache) (*uint32,
 		}
 		r = r2
 	} else {
-		f, err := os.Open(filepath.Join(textures.srcDir, texture))
+		f, err := os.Open(path)
 		if err != nil {
 			return nil, err
 		}
@@ -411,6 +417,17 @@ func (m *mqoToGltf) addTexture(texture string, textures *textureCache) (*uint32,
 	t.id = gltf.Index(uint32(len(m.Textures)) - 1)
 
 	return t.id, nil
+}
+func (m *mqoToGltf) tryAddTexture(texturePath string, textures *textureCache) *gltf.TextureInfo {
+	if texturePath == "" {
+		return nil
+	}
+	if tex, err := m.addTexture(texturePath, textures); err == nil {
+		return &gltf.TextureInfo{Index: *tex}
+	} else {
+		log.Print("Texture read error:", texturePath, err)
+	}
+	return nil
 }
 
 func (m *mqoToGltf) convertMaterial(mat *mqo.Material, textures *textureCache, bounds *uvrect) *gltf.Material {
@@ -431,6 +448,13 @@ func (m *mqoToGltf) convertMaterial(mat *mqo.Material, textures *textureCache, b
 	} else if mat.Emission > 0 {
 		mm.EmissiveFactor = [3]float32{(mat.Emission), (mat.Emission), (mat.Emission)}
 	}
+	addExt := func(name string, ext interface{}) {
+		if mm.Extensions == nil {
+			mm.Extensions = map[string]interface{}{}
+		}
+		mm.Extensions[name] = ext
+		m.extensions[name] = true
+	}
 	if mat.GetShaderName() == "glTF" {
 		metallicFactor := float32(mat.Ex2.FloatParam("Metallic"))
 		mm.PBRMetallicRoughness.MetallicFactor = &metallicFactor
@@ -446,33 +470,104 @@ func (m *mqoToGltf) convertMaterial(mat *mqo.Material, textures *textureCache, b
 		case 3:
 			mm.AlphaMode = gltf.AlphaBlend
 		}
-		if metallicFactor == 0 && roughnessFactor == 1 {
-			mm.Extensions = map[string]interface{}{unlitMaterialExt: map[string]string{}}
+
+		if mat.Ex2.BoolParam("Extensions.Unlit") || metallicFactor == 0 && roughnessFactor == 1 {
+			addExt(unlitMaterialExt, map[string]string{})
+		}
+		if mat.Ex2.BoolParam("Extensions.SpecularExt") {
+			ext := map[string]interface{}{}
+			if v := mat.Ex2.FloatParam("Extensions.SpecularFactor"); v != 0 {
+				ext["specularFactor"] = v
+			}
+			if c := mat.Ex2.ColorParam("Extensions.SpecularColorFactor"); c != nil {
+				ext["specularColorFactor"] = c[0:3]
+			}
+			if t := m.tryAddTexture(mat.Ex2.Mapping("Specular"), textures); t != nil {
+				ext["specularTexture"] = t
+			}
+			if t := m.tryAddTexture(mat.Ex2.Mapping("SpecularColor"), textures); t != nil {
+				ext["specularColorTexture"] = t
+			}
+			addExt("KHR_materials_specular", ext)
+		}
+		if mat.Ex2.BoolParam("Extensions.Clearcoat") {
+			ext := map[string]interface{}{}
+			if v := mat.Ex2.FloatParam("Extensions.ClearcoatFactor"); v != 0 {
+				ext["clearcoatFactor"] = v
+			}
+			if v := mat.Ex2.FloatParam("Extensions.ClearcoatRoughnessFactor"); v != 0 {
+				ext["clearcoatRoughnessFactor"] = v
+			}
+			if t := m.tryAddTexture(mat.Ex2.Mapping("Clearcoat"), textures); t != nil {
+				ext["clearcoatTexture"] = t
+			}
+			if t := m.tryAddTexture(mat.Ex2.Mapping("ClearcoatRoughness"), textures); t != nil {
+				ext["clearcoatRoughnessTexture"] = t
+			}
+			if t := m.tryAddTexture(mat.Ex2.Mapping("ClearcoatNormal"), textures); t != nil {
+				ext["clearcoatNormalTexture"] = t
+			}
+			addExt("KHR_materials_clearcoat", ext)
+		}
+		if mat.Ex2.BoolParam("Extensions.Sheen") {
+			ext := map[string]interface{}{}
+			if c := mat.Ex2.ColorParam("Extensions.SheenColorFactor"); c != nil {
+				ext["sheenColorFactor"] = c[0:3]
+			}
+			if v := mat.Ex2.FloatParam("Extensions.SheenRoughnessFactor"); v != 0 {
+				ext["sheenRoughnessFactor"] = v
+			}
+			if t := m.tryAddTexture(mat.Ex2.Mapping("SheenColor"), textures); t != nil {
+				ext["sheenColorTexture"] = t
+			}
+			if t := m.tryAddTexture(mat.Ex2.Mapping("SheenRoughness"), textures); t != nil {
+				ext["sheenRoughnessTexture"] = t
+			}
+			addExt("KHR_materials_sheen", ext)
+		}
+		if mat.Ex2.BoolParam("Extensions.IorExt") {
+			ext := map[string]interface{}{}
+			if v := mat.Ex2.FloatParam("Extensions.Ior"); v != 0 {
+				ext["ior"] = v
+			}
+			addExt("KHR_materials_ior", ext)
+		}
+		if mat.Ex2.BoolParam("Extensions.Volume") {
+			ext := map[string]interface{}{}
+			if v := mat.Ex2.FloatParam("Extensions.ThicknessFactor"); v != 0 {
+				ext["thicknessFactor"] = v
+			}
+			if v := mat.Ex2.FloatParam("Extensions.AttenuationDistance"); v != 0 {
+				ext["attenuationDistance"] = v
+			}
+			if c := mat.Ex2.ColorParam("Extensions.AttenuationColor"); c != nil {
+				ext["attenuationColor"] = c[0:3]
+			}
+			if t := m.tryAddTexture(mat.Ex2.Mapping("Thickness"), textures); t != nil {
+				ext["thicknessTexture"] = t
+			}
+			addExt("KHR_materials_volume", ext)
+		}
+		if mat.Ex2.BoolParam("Extensions.Transmission") {
+			ext := map[string]interface{}{}
+			if v := mat.Ex2.FloatParam("Extensions.TransmissionFactor"); v != 0 {
+				ext["transmissionFactor"] = v
+			}
+			if t := m.tryAddTexture(mat.Ex2.Mapping("Transmission"), textures); t != nil {
+				ext["transmissionTexture"] = t
+			}
+			addExt("KHR_materials_transmission", ext)
 		}
 	} else if mat.Color.W < 0.99 || (m.DetectAlphaTexture && m.hasAlpha(mat.Texture, textures, bounds)) {
 		mm.AlphaMode = gltf.AlphaBlend
 	}
 	if m.ForceUnlit || mat.GetShaderName() == "Constant" {
-		mm.Extensions = map[string]interface{}{unlitMaterialExt: map[string]string{}}
+		addExt(unlitMaterialExt, map[string]string{})
 	}
 
-	if mat.Texture != "" {
-		if tex, err := m.addTexture(mat.Texture, textures); err == nil {
-			mm.PBRMetallicRoughness.BaseColorTexture = &gltf.TextureInfo{
-				Index: *tex,
-			}
-		} else {
-			log.Print("Texture read error:", err)
-		}
-	}
-	if mat.BumpTexture != "" {
-		if tex, err := m.addTexture(mat.BumpTexture, textures); err == nil {
-			mm.NormalTexture = &gltf.NormalTexture{
-				Index: tex,
-			}
-		} else {
-			log.Print("Texture read error:", err)
-		}
+	mm.PBRMetallicRoughness.BaseColorTexture = m.tryAddTexture(mat.Texture, textures)
+	if t := m.tryAddTexture(mat.BumpTexture, textures); t != nil {
+		mm.NormalTexture = &gltf.NormalTexture{Index: &t.Index}
 	}
 	return mm
 }
@@ -780,23 +875,18 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 	}
 
 	textures := &textureCache{srcDir: textureDir, textures: map[string]*textureInfo{}}
-	useUnlit := false
 	for i, mat := range doc.Materials {
 		if _, ok := materialMap[i]; !ok {
 			continue
 		}
 		mm := m.convertMaterial(mat, textures, uvBounds[i])
-
-		if mm.Extensions["KHR_materials_unlit"] != nil {
-			useUnlit = true
-		}
 		m.Document.Materials = append(m.Document.Materials, mm)
 	}
-	if useUnlit {
-		m.ExtensionsUsed = append(m.ExtensionsUsed, "KHR_materials_unlit")
-	}
 	if m.ConvertPhysics {
-		m.ExtensionsUsed = append(m.ExtensionsUsed, BlenderPhysicsName)
+		m.extensions[BlenderPhysicsName] = true
+	}
+	for ext := range m.extensions {
+		m.ExtensionsUsed = append(m.ExtensionsUsed, ext)
 	}
 
 	if len(m.Document.Textures) > 0 {

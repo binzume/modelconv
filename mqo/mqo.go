@@ -122,20 +122,30 @@ type Material struct {
 	Ex2    *MaterialEx2
 }
 
+const (
+	ShaderClassic  = 0
+	ShaderConstant = 1
+	ShaderLambert  = 2
+	ShaderPhong    = 3
+	ShaderBlinn    = 4
+	ShaderTypeHLSL = "hlsl"
+	ShaderNameGlTF = "glTF"
+)
+
 func (m *Material) GetShaderName() string {
 	if m.Ex2 != nil {
 		return m.Ex2.ShaderName
 	}
 	switch m.Shader {
-	case 0:
+	case ShaderClassic:
 		return "Classic"
-	case 1:
+	case ShaderConstant:
 		return "Constant"
-	case 2:
+	case ShaderLambert:
 		return "Lambert"
-	case 3:
+	case ShaderPhong:
 		return "Phong"
-	case 4:
+	case ShaderBlinn:
 		return "Blinn"
 	}
 	return ""
@@ -148,8 +158,8 @@ const (
 )
 
 func (m *Material) SetGltfAlphaMode(mode int) {
-	if m.Ex2 == nil || m.Ex2.ShaderName != "glTF" {
-		m.Ex2 = NewMaterialEx2("glTF")
+	if m.Ex2 == nil || m.Ex2.ShaderName != ShaderNameGlTF {
+		m.Ex2 = NewMaterialEx2(ShaderNameGlTF)
 	}
 	m.Ex2.ShaderParams["AlphaMode"] = mode
 }
@@ -158,13 +168,15 @@ type MaterialEx2 struct {
 	ShaderType          string
 	ShaderName          string
 	ShaderParams        map[string]interface{}
+	ShaderMapping       map[string]string
 	ShaderMappingParams map[string]map[string]interface{}
 }
 
 func NewMaterialEx2(name string) *MaterialEx2 {
 	return &MaterialEx2{
-		ShaderName:          "glTF",
+		ShaderName:          name,
 		ShaderParams:        map[string]interface{}{},
+		ShaderMapping:       map[string]string{},
 		ShaderMappingParams: map[string]map[string]interface{}{},
 	}
 }
@@ -191,6 +203,27 @@ func (m *MaterialEx2) FloatParam(name string) float64 {
 		return float64(v)
 	}
 	return 0
+}
+
+func (m *MaterialEx2) BoolParam(name string) bool {
+	if v, ok := m.ShaderParams[name].(bool); ok {
+		return v
+	}
+	return false
+}
+
+func (m *MaterialEx2) ColorParam(name string) []float32 {
+	if v, ok := m.ShaderParams[name].([]float32); ok {
+		return v
+	}
+	return nil
+}
+
+func (m *MaterialEx2) Mapping(name string) string {
+	if v, ok := m.ShaderMapping[name]; ok {
+		return v
+	}
+	return ""
 }
 
 type Face struct {
