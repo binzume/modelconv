@@ -130,6 +130,11 @@ func (c *fbxToMqoState) convertModel(m *fbx.Model, d int, parentTransform *geom.
 		if c.RootTransform != nil {
 			transform = c.RootTransform.Mul(c.coordMat)
 		}
+		if c.TargetModelName != "" {
+			// Unity: FIXME
+			pivot := m.GetScalingPivot()
+			transform = transform.Mul(geom.NewTranslateMatrix4(-pivot.X, -pivot.Y, -pivot.Z))
+		}
 		if len(c.MaterialOverride) > 0 {
 			materialIDs = c.MaterialOverride
 			if geometry != nil && len(materialIDs) > 1 {

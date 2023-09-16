@@ -43,6 +43,10 @@ func (m *Model) GetScaling() *geom.Vector3 {
 	return m.GetProperty("Lcl Scaling").ToVector3(1, 1, 1)
 }
 
+func (m *Model) GetScalingPivot() *geom.Vector3 {
+	return m.GetProperty("ScalingPivot").ToVector3(0, 0, 0)
+}
+
 func (m *Model) SetScaling(v *geom.Vector3) {
 	m.SetProperty("Lcl Scaling", &Property{Type: "Lcl Scaling", Flag: "A+", AttributeList: []*Attribute{{Value: v.X}, {Value: v.Y}, {Value: v.Z}}})
 }
