@@ -6,7 +6,6 @@ import (
 	"log"
 	"math"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -300,8 +299,8 @@ func (c *unityToMqoState) convertRigidBody(o *unity.GameObject, transform *geom.
 
 func (c *unityToMqoState) saveTexrure(assets unity.Assets, texAsset *unity.Asset) (string, error) {
 	texDir := filepath.Join(filepath.Dir(assets.GetSourcePath()), "saved_textures")
-	texPath := filepath.Join(texDir, texAsset.GUID+"_"+path.Base(texAsset.Path))
-	texName := "saved_textures/" + texAsset.GUID + "_" + path.Base(texAsset.Path)
+	texPath := filepath.Join(texDir, texAsset.GUID+"_"+filepath.Base(texAsset.Path))
+	texName := "saved_textures/" + texAsset.GUID + "_" + filepath.Base(texAsset.Path)
 	_ = os.Mkdir(texDir, 0755)
 	if _, err := os.Stat(texPath); err == nil {
 		return texName, nil

@@ -377,8 +377,13 @@ func main() {
 		}
 	}
 
-	if isUnity(inputExt) {
-		input = strings.Split(input, "#")[0]
+	if isUnity(inputExt) && !strings.HasSuffix(input, ".unitypackage") {
+		names := strings.SplitN(input, "#", 2)
+		if len(names) == 1 {
+			p := strings.Index(filepath.ToSlash(input), "Assets/")
+			names = []string{input[:p+6], input[p:]}
+		}
+		input = names[0]
 	}
 	baseDir := filepath.Dir(input)
 

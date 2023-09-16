@@ -86,7 +86,7 @@ func (a *assets) GetAsset(guid string) *Asset {
 }
 
 func (a *assets) GetAssetByPath(path string) *Asset {
-	return a.AssetsByPath[path]
+	return a.AssetsByPath[filepath.ToSlash(path)]
 }
 
 func (a *assets) GetAllAssets() []*Asset {
@@ -294,7 +294,7 @@ func scanAssets(assetsDir string) (*assetsFs, error) {
 				Path: path,
 			}
 			assets.Assets[guid] = asset
-			assets.AssetsByPath[path] = asset
+			assets.AssetsByPath[filepath.ToSlash(path)] = asset
 		}
 		return nil
 	})
