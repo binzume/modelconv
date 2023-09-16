@@ -26,6 +26,7 @@ import (
 	_ "github.com/oov/psd"
 	_ "golang.org/x/image/bmp"
 	"golang.org/x/image/draw"
+	_ "golang.org/x/image/tiff"
 )
 
 var TextureUVEpsilon float32 = 0.0001
