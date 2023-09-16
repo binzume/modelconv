@@ -125,11 +125,10 @@ func (c *textureCache) getImage(name string) (image.Image, error) {
 	}
 	defer f.Close()
 
-	t.img, _, t.err = image.Decode(f)
-	if t.err != nil && strings.ToLower(filepath.Ext(t.name)) == ".tga" {
-		// retry
-		f.Seek(0, io.SeekStart)
+	if strings.ToLower(filepath.Ext(t.name)) == ".tga" {
 		t.img, t.err = tga.Decode(f)
+	} else {
+		t.img, _, t.err = image.Decode(f)
 	}
 	return t.img, t.err
 }
