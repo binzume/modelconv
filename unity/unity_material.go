@@ -2,9 +2,9 @@ package unity
 
 import (
 	"fmt"
+	"io/ioutil"
 
 	"github.com/binzume/modelconv/geom"
-	"gopkg.in/yaml.v2"
 )
 
 type Material struct {
@@ -77,9 +77,21 @@ func LoadMaterial(assets Assets, guid string) (*Material, error) {
 	}
 	defer r.Close()
 
-	var mat struct {
-		Material Material `yaml:"Material"`
+	b, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, err
 	}
-	err = yaml.NewDecoder(r).Decode(&mat)
-	return &mat.Material, err
+	for _, doc := range ParseYamlDocuments(b) {
+		if doc.Tag != "" && doc.Tag != "tag:unity3d.com,2011:21" {
+			continue
+		}
+		var mat struct {
+			Material Material `yaml:"Material"`
+		}
+		err = doc.Decode(&mat)
+		if err == nil {
+			return &mat.Material, err
+		}
+	}
+	return nil, fmt.Errorf("Material not found: %s", asset.Path)
 }
