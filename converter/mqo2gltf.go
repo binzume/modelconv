@@ -443,11 +443,20 @@ func (m *mqoToGltf) convertMaterial(mat *mqo.Material, textures *textureCache, b
 		},
 		DoubleSided: mat.DoubleSided,
 	}
-	if mat.EmissionColor != nil {
-		mm.EmissiveFactor = [3]float32{(mat.EmissionColor.X), (mat.EmissionColor.Y), (mat.EmissionColor.Z)}
-	} else if mat.Emission > 0 {
-		mm.EmissiveFactor = [3]float32{(mat.Emission), (mat.Emission), (mat.Emission)}
+	if mat.EmissionColor != nil || mat.Emission > 0 {
+		if mat.EmissionColor != nil {
+			mm.EmissiveFactor = [3]float32{(mat.EmissionColor.X), (mat.EmissionColor.Y), (mat.EmissionColor.Z)}
+		} else {
+			mm.EmissiveFactor = [3]float32{(mat.Emission), (mat.Emission), (mat.Emission)}
+		}
+		s := geom.Max(geom.Max(mm.EmissiveFactor[0], mm.EmissiveFactor[1]), mm.EmissiveFactor[2])
+		if s > 1 {
+			mm.EmissiveFactor[0] /= s
+			mm.EmissiveFactor[1] /= s
+			mm.EmissiveFactor[2] /= s
+		}
 	}
+
 	addExt := func(name string, ext interface{}) {
 		if mm.Extensions == nil {
 			mm.Extensions = map[string]interface{}{}

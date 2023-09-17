@@ -7,6 +7,20 @@ func Abs(v Element) Element {
 	return v
 }
 
+func Min(v1 Element, v2 Element) Element {
+	if v1 < v2 {
+		return v1
+	}
+	return v2
+}
+
+func Max(v1 Element, v2 Element) Element {
+	if v1 > v2 {
+		return v1
+	}
+	return v2
+}
+
 func IsInTriangle(p, a, b, c *Vector3) bool {
 	ab, bc, ca := b.Sub(a), c.Sub(b), a.Sub(c)
 	c1, c2, c3 := ab.Cross(p.Sub(a)), bc.Cross(p.Sub(b)), ca.Cross(p.Sub(c))
