@@ -33,6 +33,10 @@ type Color struct {
 	A float32
 }
 
+func (c *Color) Array() [4]float32 {
+	return [4]float32{c.R, c.G, c.B, c.A}
+}
+
 type TextureEnv struct {
 	Texture *Ref         `yaml:"m_Texture"`
 	Scale   geom.Vector2 `yaml:"m_Scale"`

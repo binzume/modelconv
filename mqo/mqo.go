@@ -272,6 +272,7 @@ type Object struct {
 
 	// Internal use
 	SharedGeometryHint *SharedGeometryHint
+	Extra              map[string]interface{}
 }
 
 type SharedGeometryHint struct {
@@ -285,6 +286,7 @@ func NewObject(name string) *Object {
 		Rotation:    geom.NewVector3(0, 0, 0),
 		Scale:       geom.NewVector3(1, 1, 1),
 		Translation: geom.NewVector3(0, 0, 0),
+		Extra:       map[string]interface{}{},
 	}
 }
 

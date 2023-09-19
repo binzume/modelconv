@@ -5,6 +5,7 @@ import "github.com/binzume/modelconv/geom"
 type componentDesc struct {
 	Transform     *Transform     `yaml:"Transform" typeid:"unity3d.com,2011:4"`
 	MonoBehaviour *MonoBehaviour `yaml:"MonoBehaviour" typeid:"unity3d.com,2011:114"`
+	Light         *Light         `yaml:"Light" typeid:"unity3d.com,2011:108"`
 
 	// Mesh
 	MeshRenderer *MeshRenderer `yaml:"MeshRenderer" typeid:"unity3d.com,2011:23"`
@@ -178,4 +179,28 @@ type CapsuleCollider struct {
 	Radius    float32      `yaml:"m_Radius"`
 	Direction int          `yaml:"m_Direction"`
 	Height    float32      `yaml:"m_Height"`
+}
+
+type Light struct {
+	BaseComponent `yaml:",inline"`
+
+	Type           int     `yaml:"m_Type"`
+	Shape          int     `yaml:"m_Shape"`
+	Color          Color   `yaml:"m_Color"`
+	Intensity      float32 `yaml:"m_Intensity"`
+	Range          float32 `yaml:"m_Range"`
+	SpotAngle      float32 `yaml:"m_SpotAngle"`
+	InnerSpotAngle float32 `yaml:"m_InnerSpotAngle"`
+
+	DrawHalo int          `yaml:"m_DrawHalo"`
+	Flare    Ref          `yaml:"m_Flare"`
+	AreaSize geom.Vector2 `yaml:"m_AreaSize"`
+
+	CullingMask struct {
+		Bits int64 `yaml:"m_Bits"`
+	} `yaml:"m_CullingMask"`
+
+	ColorTemperature float32 `yaml:"m_ColorTemperature"`
+	ShadowRadius     float32 `yaml:"m_ShadowRadius"`
+	ShadowAngle      float32 `yaml:"m_ShadowAngle"`
 }

@@ -43,6 +43,7 @@ var (
 	reuseGeometry          = flag.Bool("reuseGeometry", false, "use shared geometry data (gltf, experimental)")
 	gltfIgnoreHierarchy    = flag.Bool("ignoreHierarchy", false, "ignore object tree (gltf)")
 	gltfDetectAlphaTexture = flag.Bool("detectAlphaTexture", false, "detect alpha texture (gltf)")
+	gltfExportLight        = flag.Bool("gltfExportLight", false, "export lights (gltf)")
 
 	convertPhysics    = flag.Bool("physics", false, "convert physics (experimental)")
 	vrmExportAllMorph = flag.Bool("vrmExportAllMorph", false, "Export non-standard morph (vrm, experimental)")
@@ -124,6 +125,7 @@ func saveDocument(doc *mqo.Document, output, ext, srcDir string, inputs []string
 			IgnoreObjectHierarchy:  *gltfIgnoreHierarchy,
 			ConvertPhysics:         *convertPhysics,
 			DetectAlphaTexture:     *gltfDetectAlphaTexture,
+			ExportLights:           *gltfExportLight,
 		}
 		conv := converter.NewMQOToGLTFConverter(opt)
 		gltfdoc, err := conv.Convert(doc, srcDir)

@@ -183,6 +183,23 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 		}
 	}
 
+	var light *unity.Light
+	if o.GetComponent(&light) {
+		t := "directional"
+		if light.Type == 0 {
+			t = "spot"
+		}
+		c := light.Color.Array()
+		obj.Extra["light"] = map[string]interface{}{
+			"type":           t,
+			"color":          c[0:3],
+			"intensity":      light.Intensity,
+			"range":          light.Range,
+			"outerConeAngle": light.SpotAngle,
+			"innerConeAngle": light.InnerSpotAngle,
+		}
+	}
+
 	if c.ConvertPhysics {
 		c.convertRigidBody(o, transform, obj)
 	}

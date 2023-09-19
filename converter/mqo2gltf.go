@@ -42,6 +42,7 @@ type MQOToGLTFOption struct {
 	IgnoreObjectHierarchy  bool
 	DetectAlphaTexture     bool
 
+	ExportLights   bool
 	ReuseGeometry  bool // experimental
 	ConvertPhysics bool // experimental. BLENDER_physics?
 }
@@ -814,6 +815,7 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		}
 	}
 
+	var lights []map[string]interface{}
 	var nodePath []*gltf.Node
 	for i, obj := range targetObjects {
 		var morphTargets []*mqo.Object
@@ -856,6 +858,15 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 				node.Matrix[11] = 0
 				node.Matrix[15] = 1
 			}
+			if m.ExportLights {
+				if lightParam, ok := obj.Extra["light"].(map[string]interface{}); ok {
+					if node.Extensions == nil {
+						node.Extensions = gltf.Extensions{}
+					}
+					node.Extensions["KHR_lights_punctual"] = map[string]interface{}{"light": len(lights)}
+					lights = append(lights, lightParam)
+				}
+			}
 		}
 		m.Nodes[i] = node
 		// node.AddChild()
@@ -881,6 +892,14 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 				}
 			}
 		}
+	}
+
+	if len(lights) > 0 {
+		m.extensions["KHR_lights_punctual"] = true
+		if m.Document.Extensions == nil {
+			m.Document.Extensions = gltf.Extensions{}
+		}
+		m.Document.Extensions["KHR_lights_punctual"] = map[string]interface{}{"lights": lights}
 	}
 
 	textures := &textureCache{srcDir: textureDir, textures: map[string]*textureInfo{}}
