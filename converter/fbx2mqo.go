@@ -125,7 +125,6 @@ func (c *fbxToMqoState) convertModel(m *fbx.Model, d int, parentTransform *geom.
 			transform = c.RootTransform.Mul(c.coordMat)
 		}
 		if c.TargetModelName != "" {
-			log.Println("mesh mat", m.GetScalingPivot(), m.GetMatrix())
 			// Unity: FIXME
 			pivot := m.GetScalingPivot()
 			transform = transform.Mul(geom.NewTranslateMatrix4(-pivot.X, -pivot.Y, -pivot.Z))
