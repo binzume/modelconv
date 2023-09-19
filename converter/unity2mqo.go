@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -154,28 +153,14 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 		}
 
 		meshObjectIndex := len(dst.Objects)
-		if name, ok := unity.UnityMeshes[*meshFilter.Mesh]; ok {
+		if vs, faces, uvs, name := unity.GetBuiltinMesh(meshFilter.Mesh); name != "" {
 			meshObjectIndex--
 			mat := 0
 			if len(materials) > 0 {
 				mat = materials[0]
 			}
 			obj.Name += "(" + name + ")"
-			if name == "Cube" {
-				Cube(obj, transform, mat)
-			} else if name == "Plane" {
-				Plane(obj, transform, mat)
-			} else if name == "Quad" {
-				Quad(obj, transform, mat)
-			} else if name == "Sphere" {
-				Sphere(obj, transform, 32, 16, mat)
-			} else if name == "Cylinder" {
-				Cylinder(obj, transform, 32, mat)
-			} else if name == "Capsule" {
-				Capsule(obj, transform, 32, mat)
-			} else {
-				log.Println("TODO:", name)
-			}
+			AddGeometry(obj, transform, mat, vs, faces, uvs)
 		} else {
 			err := c.importMesh(meshFilter.Mesh, obj, materials, transform)
 			if err != nil {
@@ -382,192 +367,4 @@ func AddGeometry(o *mqo.Object, tr *geom.Matrix4, mat int, vs []*geom.Vector3, f
 		}
 		o.Faces = append(o.Faces, face)
 	}
-}
-
-func Cube(o *mqo.Object, tr *geom.Matrix4, mat int) {
-	vs := []*geom.Vector3{
-		{X: -0.5, Y: -0.5, Z: -0.5},
-		{X: 0.5, Y: -0.5, Z: -0.5},
-		{X: 0.5, Y: 0.5, Z: -0.5},
-		{X: -0.5, Y: 0.5, Z: -0.5},
-		{X: -0.5, Y: -0.5, Z: 0.5},
-		{X: 0.5, Y: -0.5, Z: 0.5},
-		{X: 0.5, Y: 0.5, Z: 0.5},
-		{X: -0.5, Y: 0.5, Z: 0.5},
-	}
-	faces := [][]int{
-		{0, 1, 2, 3}, {7, 6, 5, 4},
-		{4, 5, 1, 0}, {3, 2, 6, 7},
-		{2, 1, 5, 6}, {0, 3, 7, 4},
-	}
-	uvs := [][]geom.Vector2{
-		{{X: 1, Y: 1}, {X: 0, Y: 1}, {X: 0, Y: 0}, {X: 1, Y: 0}},
-		{{X: 1, Y: 1}, {X: 0, Y: 1}, {X: 0, Y: 0}, {X: 1, Y: 0}},
-		{{X: 1, Y: 1}, {X: 0, Y: 1}, {X: 0, Y: 0}, {X: 1, Y: 0}},
-		{{X: 1, Y: 1}, {X: 0, Y: 1}, {X: 0, Y: 0}, {X: 1, Y: 0}},
-		{{X: 1, Y: 0}, {X: 1, Y: 1}, {X: 0, Y: 1}, {X: 0, Y: 0}},
-		{{X: 0, Y: 1}, {X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}},
-	}
-	AddGeometry(o, tr, mat, vs, faces, uvs)
-}
-
-func Sphere(o *mqo.Object, tr *geom.Matrix4, sh, sv, mat int) {
-	vs, faces, uvs := sphereInternal(sh, sv, 0, sv, 0)
-	AddGeometry(o, tr, mat, vs, faces, uvs)
-}
-
-func sphereInternal(sh, sv, t, b, voffset int) (vs []*geom.Vector3, faces [][]int, uvs [][]geom.Vector2) {
-	const r = 0.5
-	ofs := voffset
-	if t > 2 {
-		ofs -= (t - 1) * sh
-	}
-	for i := t; i <= b; i++ {
-		if i == 0 {
-			vs = append(vs, &geom.Vector3{X: 0, Y: r, Z: 0})
-			ofs += 1
-			continue
-		} else if i == sv {
-			vs = append(vs, &geom.Vector3{X: 0, Y: -r, Z: 0})
-			continue
-		}
-		t := float64(i) / float64(sv) * math.Pi
-		y := math.Cos(t) * r
-		r2 := math.Sin(t) * r
-		for j := 0; j < sh; j++ {
-			t2 := float64(j) / float64(sh) * 2 * math.Pi
-			vs = append(vs, &geom.Vector3{X: float32(math.Cos(t2) * r2), Y: float32(y), Z: float32(math.Sin(t2) * r2)})
-		}
-	}
-	for i := t; i < b; i++ {
-		i1 := (i - 1) * sh
-		i2 := (i) * sh
-		for j := 0; j < sh; j++ {
-			j2 := (j + 1) % sh
-			if i == 0 {
-				faces = append(faces, []int{ofs - 1, i2 + j + ofs, i2 + j2 + ofs})
-				uvs = append(uvs, []geom.Vector2{
-					{X: float32(j) / float32(sh), Y: float32(i) / float32(sv)},
-					{X: float32(j) / float32(sh), Y: float32(i+1) / float32(sv)},
-					{X: float32(j+1) / float32(sh), Y: float32(i+1) / float32(sv)},
-				})
-			} else if i == sv-1 {
-				faces = append(faces, []int{i1 + j + ofs, i2 + ofs, i1 + j2 + ofs})
-				uvs = append(uvs, []geom.Vector2{
-					{X: float32(j) / float32(sh), Y: float32(i) / float32(sv)},
-					{X: float32(j) / float32(sh), Y: float32(i+1) / float32(sv)},
-					{X: float32(j+1) / float32(sh), Y: float32(i) / float32(sv)},
-				})
-			} else {
-				faces = append(faces, []int{i1 + j + ofs, i2 + j + ofs, i2 + j2 + ofs, i1 + j2 + ofs})
-				uvs = append(uvs, []geom.Vector2{
-					{X: float32(j) / float32(sh), Y: float32(i) / float32(sv)},
-					{X: float32(j) / float32(sh), Y: float32(i+1) / float32(sv)},
-					{X: float32(j+1) / float32(sh), Y: float32(i+1) / float32(sv)},
-					{X: float32(j+1) / float32(sh), Y: float32(i) / float32(sv)},
-				})
-			}
-		}
-	}
-	return
-}
-
-func Cylinder(o *mqo.Object, tr *geom.Matrix4, s, mat int) {
-	const r = 0.5
-	var vs []*geom.Vector3
-	var faces [][]int
-	var uvs [][]geom.Vector2
-	var top []int
-	var bottom []int
-	var topuv []geom.Vector2
-
-	for i := 0; i < s; i++ {
-		t := float64(i) / float64(s) * math.Pi * 2
-		vs = append(vs,
-			&geom.Vector3{X: float32(math.Cos(t) * r), Y: 1, Z: float32(math.Sin(t) * r)},
-			&geom.Vector3{X: float32(math.Cos(t) * r), Y: -1, Z: float32(math.Sin(t) * r)})
-		top = append(top, i*2)
-		bottom = append(bottom, (s-i-1)*2+1)
-		faces = append(faces, []int{i * 2, i*2 + 1, ((i+1)%s)*2 + 1, ((i + 1) % s) * 2})
-		uvs = append(uvs, []geom.Vector2{
-			{X: 1 - float32(i)/float32(s), Y: 0},
-			{X: 1 - float32(i)/float32(s), Y: 1},
-			{X: 1 - float32(i+1)/float32(s), Y: 1},
-			{X: 1 - float32(i+1)/float32(s), Y: 0},
-		})
-		topuv = append(topuv, geom.Vector2{X: float32(i) / float32(s), Y: 1})
-	}
-	faces = append(faces, top, bottom)
-	uvs = append(uvs, topuv, topuv)
-
-	AddGeometry(o, tr, mat, vs, faces, uvs)
-}
-
-func Capsule(o *mqo.Object, tr *geom.Matrix4, s, mat int) {
-	const r = 0.5
-	const h = 1.0
-	var vs []*geom.Vector3
-	var faces [][]int
-	var uvs [][]geom.Vector2
-
-	// cap
-	vs1, faces1, uvs1 := sphereInternal(s, 8, 0, 4, len(vs))
-	for _, v := range vs1 {
-		v.Y += h / 2
-	}
-	vs = append(vs, vs1...)
-	faces = append(faces, faces1...)
-	uvs = append(uvs, uvs1...)
-
-	st := len(vs) - s
-	for i := 0; i < s; i++ {
-		faces = append(faces, []int{st + i, st + i + s, st + (i+1)%s + s, st + (i+1)%s})
-		uvs = append(uvs, []geom.Vector2{
-			{X: 1 - float32(i)/float32(s), Y: 0},
-			{X: 1 - float32(i)/float32(s), Y: 1},
-			{X: 1 - float32(i+1)/float32(s), Y: 1},
-			{X: 1 - float32(i+1)/float32(s), Y: 0},
-		})
-	}
-	vs1, faces1, uvs1 = sphereInternal(s, 8, 4, 8, len(vs))
-	for _, v := range vs1 {
-		v.Y -= h / 2
-	}
-	vs = append(vs, vs1...)
-	faces = append(faces, faces1...)
-	uvs = append(uvs, uvs1...)
-
-	AddGeometry(o, tr, mat, vs, faces, uvs)
-}
-
-func Quad(o *mqo.Object, tr *geom.Matrix4, mat int) {
-	vs := []*geom.Vector3{
-		{X: -0.5, Y: -0.5},
-		{X: 0.5, Y: -0.5},
-		{X: -0.5, Y: 0.5},
-		{X: 0.5, Y: 0.5},
-	}
-	faces := [][]int{
-		{1, 0, 2, 3},
-	}
-	uvs := [][]geom.Vector2{
-		{{X: 1, Y: 1}, {X: 0, Y: 1}, {X: 0, Y: 0}, {X: 1, Y: 0}},
-	}
-	AddGeometry(o, tr, mat, vs, faces, uvs)
-}
-
-func Plane(o *mqo.Object, tr *geom.Matrix4, mat int) {
-	vs := []*geom.Vector3{
-		{X: -5, Y: 0, Z: -5},
-		{X: 5, Y: 0, Z: -5},
-		{X: 5, Y: 0, Z: 5},
-		{X: -5, Y: 0, Z: 5},
-	}
-	faces := [][]int{
-		{0, 1, 2, 3},
-	}
-	uvs := [][]geom.Vector2{
-		{{X: 1, Y: 1}, {X: 0, Y: 1}, {X: 0, Y: 0}, {X: 1, Y: 0}},
-	}
-	AddGeometry(o, tr, mat, vs, faces, uvs)
 }

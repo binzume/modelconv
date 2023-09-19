@@ -4,24 +4,6 @@ import (
 	"reflect"
 )
 
-var UnityMeshes = map[Ref]string{
-	{FileID: 10202, GUID: "0000000000000000e000000000000000"}: "Cube",
-	{FileID: 10206, GUID: "0000000000000000e000000000000000"}: "Cylinder",
-	{FileID: 10207, GUID: "0000000000000000e000000000000000"}: "Sphere",
-	{FileID: 10208, GUID: "0000000000000000e000000000000000"}: "Capsule",
-	{FileID: 10209, GUID: "0000000000000000e000000000000000"}: "Plane",
-	{FileID: 10210, GUID: "0000000000000000e000000000000000"}: "Quad",
-}
-
-var UnityShaders = map[Ref]string{
-	{FileID: 45, GUID: "0000000000000000f000000000000000"}:      "StandardSpecularSetup",
-	{FileID: 46, GUID: "0000000000000000f000000000000000"}:      "Standard",
-	{FileID: 47, GUID: "0000000000000000f000000000000000"}:      "AutodeskInteractive ",
-	{FileID: 4800000, GUID: "933532a4fcc9baf4fa0491de14d08ed7"}: "URP/Lit ",
-	{FileID: 4800000, GUID: "650dd9526735d5b46b79224bc6e94025"}: "URP/Unlit ",
-	{FileID: 4800000, GUID: "8d2bb70cbf9db8d4da26e15b26e74248"}: "URP/SimpleLit ",
-}
-
 type Scene struct {
 	GUID    string
 	Objects []*GameObject

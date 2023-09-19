@@ -48,23 +48,13 @@ func (conv *FBXToMQOConverter) Convert(src *fbx.Document) (*mqo.Document, error)
 }
 
 func (conv *FBXToMQOConverter) ConvertTo(dst *mqo.Document, src *fbx.Document) (*mqo.Document, error) {
-	gs := src.GlobalSettings
-	mat := geom.Matrix4{
-		0, 0, 0, 0,
-		0, 0, 0, 0,
-		0, 0, 0, 0,
-		0, 0, 0, 1,
-	}
-	mat[gs.GetProperty("CoordAxis").ToInt(0)*4] = gs.GetProperty("CoordAxisSign").ToFloat32(1)
-	mat[gs.GetProperty("UpAxis").ToInt(1)*4+1] = gs.GetProperty("UpAxisSign").ToFloat32(1)
-	mat[gs.GetProperty("FrontAxis").ToInt(2)*4+2] = gs.GetProperty("FrontAxisSign").ToFloat32(1)
 	c := &fbxToMqoState{
 		FBXToMQOOption: conv.options,
 		src:            src,
 		dst:            dst,
 		boneNodeMap:    map[*fbx.Model]int{},
 		materialIDMap:  map[*fbx.Material]int{},
-		coordMat:       &mat,
+		coordMat:       src.CoordMatrix(),
 	}
 	c.convert()
 	return c.dst, nil
@@ -79,10 +69,14 @@ func (c *fbxToMqoState) convert() {
 	}
 
 	transform := c.coordMat.Mul(c.src.Scene.GetMatrix())
-	for _, m := range c.src.Scene.GetChildModels() {
-		if c.TargetModelName != "" && c.TargetModelName+"::Model" != m.Name() {
-			continue
+	if c.TargetModelName != "" {
+		m := c.src.Scene.FindChildModel(c.TargetModelName)
+		if m != nil {
+			c.convertModel(m, c.ObjectDepth, transform)
 		}
+		return
+	}
+	for _, m := range c.src.Scene.GetChildModels() {
 		if c.ConvertWholeNode || (m.Kind() != "LimbNode" && hasGeometryNode(m)) {
 			c.convertModel(m, c.ObjectDepth, transform)
 		}
@@ -131,6 +125,7 @@ func (c *fbxToMqoState) convertModel(m *fbx.Model, d int, parentTransform *geom.
 			transform = c.RootTransform.Mul(c.coordMat)
 		}
 		if c.TargetModelName != "" {
+			log.Println("mesh mat", m.GetScalingPivot(), m.GetMatrix())
 			// Unity: FIXME
 			pivot := m.GetScalingPivot()
 			transform = transform.Mul(geom.NewTranslateMatrix4(-pivot.X, -pivot.Y, -pivot.Z))

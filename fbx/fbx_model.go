@@ -88,6 +88,17 @@ func (m *Model) GetChildModels() []*Model {
 	return r
 }
 
+func (m *Model) FindChildModel(name string) *Model {
+	for _, o := range m.Refs {
+		if m, ok := o.(*Model); ok {
+			if m.Name() == name+"::Model" {
+				return m
+			}
+		}
+	}
+	return nil
+}
+
 func (m *Model) GetGeometry() *Geometry {
 	for _, o := range m.Refs {
 		if g, ok := o.(*Geometry); ok {

@@ -1,5 +1,7 @@
 package fbx
 
+import "github.com/binzume/modelconv/geom"
+
 type Document struct {
 	FileId       []byte
 	Creator      string
@@ -162,4 +164,18 @@ func (doc *Document) AddPropConnection(parent, child Object, prop string) {
 	parent.AddRef(child)
 	conns := doc.RawNode.FindChild("Connections")
 	conns.Children = append(conns.Children, NewNode("C", "OP", child.ID(), parent.ID(), prop))
+}
+
+func (doc *Document) CoordMatrix() *geom.Matrix4 {
+	gs := doc.GlobalSettings
+	mat := geom.Matrix4{
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 1,
+	}
+	mat[gs.GetProperty("CoordAxis").ToInt(0)*4] = gs.GetProperty("CoordAxisSign").ToFloat32(1)
+	mat[gs.GetProperty("UpAxis").ToInt(1)*4+1] = gs.GetProperty("UpAxisSign").ToFloat32(1)
+	mat[gs.GetProperty("FrontAxis").ToInt(2)*4+2] = gs.GetProperty("FrontAxisSign").ToFloat32(1)
+	return &mat
 }
