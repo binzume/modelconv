@@ -271,13 +271,8 @@ type Object struct {
 	VertexByUID map[int]int
 
 	// Internal use
-	SharedGeometryHint *SharedGeometryHint
-	Extra              map[string]interface{}
-}
-
-type SharedGeometryHint struct {
-	Key       string
-	Transform *geom.Matrix4
+	Extra                   map[string]interface{}
+	InternalGlobalTransform *geom.Matrix4
 }
 
 func NewObject(name string) *Object {

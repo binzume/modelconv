@@ -122,12 +122,8 @@ func (c *fbxToMqoState) convertModel(m *fbx.Model, d int, parentTransform *geom.
 	if c.ObjectDepth > 0 && d == c.ObjectDepth {
 		// Unity: FIXME
 		if c.RootTransform != nil {
-			transform = c.RootTransform.Mul(c.coordMat)
-		}
-		if c.TargetModelName != "" {
-			// Unity: FIXME
 			pivot := m.GetScalingPivot()
-			transform = transform.Mul(geom.NewTranslateMatrix4(-pivot.X, -pivot.Y, -pivot.Z))
+			transform = c.RootTransform.Mul(geom.NewTranslateMatrix4(-pivot.X, -pivot.Y, -pivot.Z).Mul(c.coordMat))
 		}
 		if len(c.MaterialOverride) > 0 {
 			materialIDs = c.MaterialOverride

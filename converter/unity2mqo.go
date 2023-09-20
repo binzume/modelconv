@@ -94,6 +94,7 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 	obj.SetRotation(geom.NewQuaternion(-tr.LocalRotation.X, -tr.LocalRotation.Y, tr.LocalRotation.Z, tr.LocalRotation.W))
 
 	transform := parentTransform.Mul(tr.GetMatrix())
+	obj.InternalGlobalTransform = transform
 
 	var meshFilter *unity.MeshFilter
 	var meshRenderer *unity.MeshRenderer
@@ -361,10 +362,8 @@ func (c *unityToMqoState) importMesh(mesh *unity.Ref, obj *mqo.Object, materials
 		RootTransform:    transform.Mul(geom.NewScaleMatrix4(-scale, scale, -scale)),
 	}).ConvertTo(c.dst, doc)
 	if len(c.dst.Objects) == objectIdx+1 {
-		c.dst.Objects[objectIdx].SharedGeometryHint = &mqo.SharedGeometryHint{
-			Key:       mesh.GUID + fmt.Sprint(mesh.FileID),
-			Transform: transform.Mul(geom.NewScaleMatrix4(-scale, scale, -scale)),
-		}
+		c.dst.Objects[objectIdx].Extra["sharedGeometryKey"] = mesh.GUID + fmt.Sprint(mesh.FileID)
+		c.dst.Objects[objectIdx].InternalGlobalTransform = transform
 	}
 	return err
 }

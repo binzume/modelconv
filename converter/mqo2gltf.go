@@ -807,11 +807,11 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 
 	sharedGeoms := map[string]*geomCache{}
 	for _, obj := range targetObjects {
-		if hint := obj.SharedGeometryHint; hint != nil {
-			if sharedGeoms[hint.Key] == nil {
-				sharedGeoms[hint.Key] = &geomCache{}
+		if hint, ok := obj.Extra["sharedGeometryKey"].(string); ok {
+			if sharedGeoms[hint] == nil {
+				sharedGeoms[hint] = &geomCache{}
 			}
-			sharedGeoms[hint.Key].count++
+			sharedGeoms[hint].count++
 		}
 	}
 
@@ -834,11 +834,11 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		node := &gltf.Node{Name: obj.Name}
 		if obj.Visible {
 			var shared *geomCache
-			if hint := obj.SharedGeometryHint; m.ReuseGeometry && hint != nil {
-				if sharedGeoms[hint.Key] != nil && sharedGeoms[hint.Key].count > 1 {
-					shared = sharedGeoms[hint.Key]
+			if hint, ok := obj.Extra["sharedGeometryKey"].(string); m.ReuseGeometry && ok {
+				if sharedGeoms[hint] != nil && sharedGeoms[hint].count > 1 {
+					shared = sharedGeoms[hint]
 					if shared.matrix == nil {
-						shared.matrix = geom.NewScaleMatrix4(m.Scale, m.Scale, m.Scale).Mul(hint.Transform).Inverse()
+						shared.matrix = geom.NewScaleMatrix4(m.Scale, m.Scale, m.Scale).Mul(obj.InternalGlobalTransform).Inverse()
 					}
 				}
 			}
@@ -850,14 +850,6 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 			if len(joints) > 0 {
 				node.Skin = gltf.Index(m.addSkin(joints, jointToBone))
 			}
-			if shared != nil {
-				geom.NewScaleMatrix4(m.Scale, m.Scale, m.Scale).Mul(obj.SharedGeometryHint.Transform).Mul(shared.matrix).ToArray(node.Matrix[:])
-				// workaround: avoid missing mesh issue in Windows 3D viewer?
-				node.Matrix[3] = 0
-				node.Matrix[7] = 0
-				node.Matrix[11] = 0
-				node.Matrix[15] = 1
-			}
 			if m.ExportLights {
 				if lightParam, ok := obj.Extra["light"].(map[string]interface{}); ok {
 					if node.Extensions == nil {
@@ -866,6 +858,20 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 					node.Extensions["KHR_lights_punctual"] = map[string]interface{}{"light": len(lights)}
 					lights = append(lights, lightParam)
 				}
+			}
+			if shared != nil {
+				geom.NewScaleMatrix4(m.Scale, m.Scale, m.Scale).Mul(obj.InternalGlobalTransform).Mul(shared.matrix).ToArray(node.Matrix[:])
+				// workaround: avoid missing mesh issue in Windows 3D viewer?
+				node.Matrix[3] = 0
+				node.Matrix[7] = 0
+				node.Matrix[11] = 0
+				node.Matrix[15] = 1
+			} else if m.ExportLights && obj.Extra["light"] != nil && obj.InternalGlobalTransform != nil {
+				geom.NewScaleMatrix4(m.Scale, m.Scale, m.Scale).Mul(obj.InternalGlobalTransform).ToArray(node.Matrix[:])
+				node.Matrix[3] = 0
+				node.Matrix[7] = 0
+				node.Matrix[11] = 0
+				node.Matrix[15] = 1
 			}
 		}
 		m.Nodes[i] = node
