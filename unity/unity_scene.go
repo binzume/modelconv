@@ -178,6 +178,10 @@ func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 						t.TagString, _ = mod.Value.(string)
 					}
 				} else if t, ok := target.(*MeshRenderer); ok {
+					switch mod.PropertyPath {
+					case "m_Enabled":
+						t.Enabled = int(flaotValue)
+					}
 					if strings.HasPrefix(mod.PropertyPath, "m_Materials.Array.data[") {
 						i := int(mod.PropertyPath[23] - '0')
 						if i < len(t.Materials) {
