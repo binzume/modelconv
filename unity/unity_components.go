@@ -2,6 +2,11 @@ package unity
 
 import "github.com/binzume/modelconv/geom"
 
+type Vector2 = geom.Vector2
+type Vector3 = geom.Vector3
+type Vector4 = geom.Vector4
+type Matrix4 = geom.Matrix4
+
 type componentDesc struct {
 	Transform     *Transform     `yaml:"Transform" typeid:"unity3d.com,2011:4"`
 	MonoBehaviour *MonoBehaviour `yaml:"MonoBehaviour" typeid:"unity3d.com,2011:114"`
@@ -52,6 +57,8 @@ type Transform struct {
 	LocalRotation geom.Vector4 `yaml:"m_LocalRotation"`
 	LocalPosition geom.Vector3 `yaml:"m_LocalPosition"`
 	LocalScale    geom.Vector3 `yaml:"m_LocalScale"`
+
+	LocalEulerAnglesHint geom.Vector3 `yaml:"m_LocalEulerAnglesHint"`
 
 	RootOrder int `yaml:"m_RootOrder"`
 

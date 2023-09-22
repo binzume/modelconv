@@ -114,6 +114,9 @@ func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 			}
 			for _, mod := range prefab.Modification.Modifications {
 				target := s.GetElement(mod.Target)
+				if target == nil {
+					continue
+				}
 				var flaotValue float32
 				if v, ok := mod.Value.(float32); ok {
 					flaotValue = v
@@ -124,72 +127,62 @@ func LoadSceneAsset(assets Assets, sceneAsset *Asset) (*Scene, error) {
 				} else if v, ok := mod.Value.(int); ok {
 					flaotValue = float32(v)
 				}
-				// TODO: reflection
-				if t, ok := target.(*Transform); ok {
-					switch mod.PropertyPath {
-					case "m_LocalPosition.x":
-						t.LocalPosition.X = flaotValue
-						break
-					case "m_LocalPosition.y":
-						t.LocalPosition.Y = flaotValue
-						break
-					case "m_LocalPosition.z":
-						t.LocalPosition.Z = flaotValue
-						break
-					case "m_LocalScale.x":
-						t.LocalScale.X = flaotValue
-						break
-					case "m_LocalScale.y":
-						t.LocalScale.Y = flaotValue
-						break
-					case "m_LocalScale.z":
-						t.LocalScale.Z = flaotValue
-						break
-					case "m_LocalRotation.x":
-						t.LocalRotation.X = flaotValue
-						break
-					case "m_LocalRotation.y":
-						t.LocalRotation.Y = flaotValue
-						break
-					case "m_LocalRotation.z":
-						t.LocalRotation.Z = flaotValue
-						break
-					case "m_LocalRotation.w":
-						t.LocalRotation.W = flaotValue
-						break
-					case "m_RootOrder":
-						t.RootOrder = int(flaotValue)
-						break
-					case "m_LocalEulerAnglesHint.x":
-					case "m_LocalEulerAnglesHint.y":
-					case "m_LocalEulerAnglesHint.z":
-						// ignore
-						break
-					default:
-						log.Println("Unsupported modification property:", mod.PropertyPath)
-					}
-				} else if t, ok := target.(*GameObject); ok {
-					switch mod.PropertyPath {
-					case "m_IsActive":
-						t.IsActive = int(flaotValue)
-					case "m_Name":
-						t.Name, _ = mod.Value.(string)
-					case "m_TagString":
-						t.TagString, _ = mod.Value.(string)
-					}
-				} else if t, ok := target.(*MeshRenderer); ok {
-					switch mod.PropertyPath {
-					case "m_Enabled":
-						t.Enabled = int(flaotValue)
-					}
-					if strings.HasPrefix(mod.PropertyPath, "m_Materials.Array.data[") {
-						i := int(mod.PropertyPath[23] - '0')
-						if i < len(t.Materials) {
-							t.Materials[i] = mod.ObjectReference
+				prop := strings.Split(mod.PropertyPath, ".")
+				typ := reflect.TypeOf(target).Elem()
+				if typ.Kind() != reflect.Struct {
+					continue
+				}
+				for i := 0; i < typ.NumField(); i++ {
+					if y := typ.Field(i).Tag.Get("yaml"); y != "" {
+						if (strings.Split(y, ",")[0]) == prop[0] {
+							field := reflect.ValueOf(target).Elem().Field(i).Addr().Interface()
+							if len(prop) == 3 && prop[1] == "Array" && strings.HasPrefix(prop[2], "data[") {
+								if idx, err := strconv.ParseInt(prop[2][5:len(prop[2])-1], 10, 32); err == nil && int(idx) < reflect.ValueOf(target).Elem().Field(i).Len() {
+									field = reflect.ValueOf(target).Elem().Field(i).Index(int(idx)).Addr().Interface()
+								}
+							}
+							if v, ok := field.(*float32); ok {
+								*v = flaotValue
+							} else if v, ok := field.(*int); ok {
+								*v = int(flaotValue)
+							} else if v, ok := field.(**Ref); ok {
+								*v = mod.ObjectReference
+							} else if v, ok := field.(*string); ok {
+								*v, _ = mod.Value.(string)
+							} else if v, ok := field.(*Vector3); ok && len(prop) == 2 {
+								if prop[1] == "x" {
+									v.X = flaotValue
+								} else if prop[1] == "y" {
+									v.Y = flaotValue
+								} else if prop[1] == "z" {
+									v.Z = flaotValue
+								}
+							} else if v, ok := field.(*Vector4); ok && len(prop) == 2 {
+								if prop[1] == "x" {
+									v.X = flaotValue
+								} else if prop[1] == "y" {
+									v.Y = flaotValue
+								} else if prop[1] == "z" {
+									v.Z = flaotValue
+								} else if prop[1] == "w" {
+									v.W = flaotValue
+								}
+							} else if v, ok := field.(*Color); ok && len(prop) == 2 {
+								if prop[1] == "r" {
+									v.R = flaotValue
+								} else if prop[1] == "g" {
+									v.G = flaotValue
+								} else if prop[1] == "b" {
+									v.B = flaotValue
+								} else if prop[1] == "a" {
+									v.A = flaotValue
+								}
+							} else {
+								log.Println("WARN: Unsupported prefab modification:", mod)
+							}
+							break
 						}
 					}
-				} else {
-					// log.Printf("%T, %v, %v\n", target, mod.PropertyPath, mod.ObjectReference)
 				}
 			}
 		} else {
