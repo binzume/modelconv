@@ -94,7 +94,6 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 	obj.SetRotation(geom.NewQuaternion(-tr.LocalRotation.X, -tr.LocalRotation.Y, tr.LocalRotation.Z, tr.LocalRotation.W))
 
 	transform := parentTransform.Mul(tr.GetMatrix())
-	obj.InternalGlobalTransform = transform
 
 	var meshFilter *unity.MeshFilter
 	var meshRenderer *unity.MeshRenderer
@@ -199,6 +198,7 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 			"outerConeAngle": light.SpotAngle,
 			"innerConeAngle": light.InnerSpotAngle,
 		}
+		obj.InternalTransform = transform
 	}
 
 	if c.ConvertPhysics {
@@ -363,7 +363,7 @@ func (c *unityToMqoState) importMesh(mesh *unity.Ref, obj *mqo.Object, materials
 	}).ConvertTo(c.dst, doc)
 	if len(c.dst.Objects) == objectIdx+1 {
 		c.dst.Objects[objectIdx].Extra["sharedGeometryKey"] = mesh.GUID + fmt.Sprint(mesh.FileID)
-		c.dst.Objects[objectIdx].InternalGlobalTransform = transform
+		c.dst.Objects[objectIdx].InternalTransform = transform
 	}
 	return err
 }

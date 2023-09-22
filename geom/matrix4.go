@@ -216,6 +216,16 @@ func (mat *Matrix4) Decompose() (translate *Vector3, rotation *Quaternion, scale
 	return
 }
 
+func (m *Matrix4) TranslationScale(s Element) *Matrix4 {
+	// scale * m * scale-1
+	return &Matrix4{
+		m[0], m[1], m[2], m[3],
+		m[4], m[5], m[6], m[7],
+		m[8], m[9], m[10], m[11],
+		m[12] * s, m[13] * s, m[14] * s, m[15],
+	}
+}
+
 func (m *Matrix4) Clone() *Matrix4 {
 	r := *m
 	return &r

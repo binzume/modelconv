@@ -11,8 +11,8 @@ func (o *Object) ApplyTransform(transform *Matrix4) {
 	for i, v := range o.Vertexes {
 		o.Vertexes[i] = transform.ApplyTo(v)
 	}
-	if o.InternalGlobalTransform != nil {
-		o.InternalGlobalTransform = transform.Mul(o.InternalGlobalTransform)
+	if o.InternalTransform != nil {
+		o.InternalTransform = transform.Mul(o.InternalTransform)
 	}
 
 	rsmat := transform.Clone()

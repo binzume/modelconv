@@ -807,11 +807,11 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 
 	sharedGeoms := map[string]*geomCache{}
 	for _, obj := range targetObjects {
-		if hint, ok := obj.Extra["sharedGeometryKey"].(string); ok {
-			if sharedGeoms[hint] == nil {
-				sharedGeoms[hint] = &geomCache{}
+		if key, ok := obj.Extra["sharedGeometryKey"].(string); ok {
+			if sharedGeoms[key] == nil {
+				sharedGeoms[key] = &geomCache{}
 			}
-			sharedGeoms[hint].count++
+			sharedGeoms[key].count++
 		}
 	}
 
@@ -834,11 +834,11 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 		node := &gltf.Node{Name: obj.Name}
 		if obj.Visible {
 			var shared *geomCache
-			if hint, ok := obj.Extra["sharedGeometryKey"].(string); m.ReuseGeometry && ok {
-				if sharedGeoms[hint] != nil && sharedGeoms[hint].count > 1 {
-					shared = sharedGeoms[hint]
+			if key, ok := obj.Extra["sharedGeometryKey"].(string); m.ReuseGeometry && ok {
+				if sharedGeoms[key] != nil && sharedGeoms[key].count > 1 {
+					shared = sharedGeoms[key]
 					if shared.matrix == nil {
-						shared.matrix = geom.NewScaleMatrix4(m.Scale, m.Scale, m.Scale).Mul(obj.InternalGlobalTransform).Inverse()
+						shared.matrix = obj.InternalTransform.Inverse()
 					}
 				}
 			}
@@ -859,15 +859,13 @@ func (m *mqoToGltf) Convert(doc *mqo.Document, textureDir string) (*gltf.Documen
 					lights = append(lights, lightParam)
 				}
 			}
-			if shared != nil {
-				geom.NewScaleMatrix4(m.Scale, m.Scale, m.Scale).Mul(obj.InternalGlobalTransform).Mul(shared.matrix).ToArray(node.Matrix[:])
+			if (m.ExportLights && obj.Extra["light"] != nil || shared != nil) && obj.InternalTransform != nil {
+				m := obj.InternalTransform.TranslationScale(m.Scale)
+				if shared != nil {
+					m = m.Mul(shared.matrix)
+				}
+				m.ToArray(node.Matrix[:])
 				// workaround: avoid missing mesh issue in Windows 3D viewer?
-				node.Matrix[3] = 0
-				node.Matrix[7] = 0
-				node.Matrix[11] = 0
-				node.Matrix[15] = 1
-			} else if m.ExportLights && obj.Extra["light"] != nil && obj.InternalGlobalTransform != nil {
-				geom.NewScaleMatrix4(m.Scale, m.Scale, m.Scale).Mul(obj.InternalGlobalTransform).ToArray(node.Matrix[:])
 				node.Matrix[3] = 0
 				node.Matrix[7] = 0
 				node.Matrix[11] = 0
