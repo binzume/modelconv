@@ -185,9 +185,11 @@ func (c *unityToMqoState) convertObject(o *unity.GameObject, d int, parentTransf
 
 	var light *unity.Light
 	if o.GetComponent(&light) {
-		t := "directional"
-		if light.Type == 0 {
-			t = "spot"
+		t := "spot"
+		if light.Type == 1 {
+			t = "directional"
+		} else if light.Type == 2 {
+			t = "point"
 		}
 		c := light.Color.Array()
 		obj.Extra["light"] = map[string]interface{}{
